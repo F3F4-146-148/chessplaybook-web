@@ -397,6 +397,8 @@ function generate() {
     // Without this the prerendered article carries index.html's `WebSite`
     // schema, so Google's first pass and every social scraper see no article,
     // no publish date and no author.
+    // `data-rh` (plan P1, 2026-11-14): Helmet owns a head tag only if it carries it. Without it this
+    // block stayed when <SeoHead> rendered its own, so every article declared its Article twice.
     if (route.articleType) {
       const schema = {
         '@context': 'https://schema.org',
@@ -412,7 +414,7 @@ function generate() {
       };
       html = html.replace(
         '</head>',
-        `<script type="application/ld+json">${JSON.stringify(schema)}</script></head>`
+        `<script data-rh="true" type="application/ld+json">${JSON.stringify(schema)}</script></head>`
       );
     }
 

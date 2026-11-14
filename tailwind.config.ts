@@ -68,8 +68,8 @@ export default {
         navrow: { raw: '(orientation: landscape) and (min-width: 840px)' },
       },
       fontFamily: {
-        'playfair': ['Playfair Display', 'serif'],
-        'sans': ['Inter', 'system-ui', 'sans-serif'],
+        'playfair': ['Playfair Display', 'Playfair Display Fallback', 'serif'],
+        'sans': ['Inter', 'Inter Fallback', 'system-ui', 'sans-serif'],
       },
       /*
         The colour map is built from the colour token source, so a utility

@@ -23,6 +23,7 @@ import { GuestBadge } from '@/components/GuestBadge';
 import { useBoardTheme } from '@/hooks/useBoardTheme';
 import env from '@/config/env';
 import SeoHead from '@/components/SeoHead';
+import RouteHeading from '@/components/RouteHeading';
 import { readPositionDeepLink } from '@/lib/positionDeepLink';
 import { Workspace, WorkspaceList, type WorkspaceMode } from '@/components/workspace/Workspace';
 import { slot, footSlot } from '@/components/workspace/slots';
@@ -499,6 +500,9 @@ const Analysis = () => {
 
         {/* Twitter */}
       </SeoHead>
+      {/* The page's <h1>, from route-meta.json like the prerender's (plan P3: /analysis rendered none). `sr-only`
+          because nothing may sit above the board, as on /play and /openings. */}
+      <div className="sr-only"><RouteHeading routeKey="analysis" /></div>
 
       {mode === 'review' && pgn ? (
         /*
