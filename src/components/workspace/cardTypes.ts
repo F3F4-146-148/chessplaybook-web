@@ -172,8 +172,16 @@ export const CARD_TYPES = {
   viewerMoves: { rows: 7, reserve: 0, content: 3.4, gaps: 1, spacers: 0, nested: 0 },
   /** The game: event, date and round, opening, result. */
   viewerInfo: { rows: 7, reserve: 0, content: 6.4, gaps: 1, spacers: 0, nested: 0 },
-  /** Go to: previous game, next game, the list. */
-  viewerGoTo: { rows: 4, reserve: 0, content: 6.4, gaps: 1, spacers: 0, nested: 0 },
+  /** Go to: previous game, next game, the list. 3 rows, not 4 (#184): at 4 its type was 11.7px at 1366x768 against
+   *  the game card's 14.4; at 3 it is 14.8, and its measured 6.4em of content still fits at every size (checked with
+   *  all three links, 360x800 to 2560x1300; `rows` is the type's divisor, not a line count). */
+  viewerGoTo: { rows: 3, reserve: 0, content: 6.4, gaps: 1, spacers: 0, nested: 0 },
+  /**
+   * A player with no clock and no portrait (#184): label, name, detail. On `playPlayer` (4 rows, one of them the
+   * clock) a champion game's players were sized for a row that was never there: 11.7px names and 10.1px results at
+   * 1366x768 against the game card's 14.4. `content` is `playPlayer`'s measured 3.86 without the clock.
+   */
+  viewerPlayer: { rows: 3, reserve: 0, content: 3.9, gaps: 1, spacers: 0, nested: 0 },
 
   /*
     The opening trainer (plan D10, 2026-11-10). The moves card is the viewer's

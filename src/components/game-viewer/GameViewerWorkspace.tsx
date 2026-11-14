@@ -176,6 +176,10 @@ export function GameViewerWorkspace({
     );
   };
 
+  /* A clock or a portrait needs `playPlayer`'s fourth row; without either the player is three lines (#184). Both
+     cards take the same type, so White and Black always read at one size. */
+  const playerType = clocks.white || clocks.black || players.white.portrait || players.black.portrait ? 'playPlayer' : 'viewerPlayer';
+
   const goToRow = 'card-row w-full py-[0.16em] text-left hover:text-foreground';
 
   /* Two lines under the headline; the main-line note, when there is one, takes the
@@ -259,7 +263,7 @@ export function GameViewerWorkspace({
                 <div className="card-body">
                   <span className="card-row"><span className="truncate font-semibold text-foreground">{info.headline}</span></span>
                   {infoLines.map(line => (
-                    <span key={line} className="card-row text-[0.86em]"><span className="truncate">{line}</span></span>
+                    <span key={line} className="card-row text-[length:max(10px,0.86em)]"><span className="truncate">{line}</span></span>
                   ))}
                   <span className="card-row">
                     <span className={`font-semibold tabular-nums ${info.live ? 'text-live' : 'text-foreground'}`}>{info.status}</span>
@@ -267,8 +271,8 @@ export function GameViewerWorkspace({
                 </div>
               </>
             ), 2),
-            slot('viewer-white', 'playPlayer', playerCard('white')),
-            slot('viewer-black', 'playPlayer', playerCard('black')),
+            slot('viewer-white', playerType, playerCard('white')),
+            slot('viewer-black', playerType, playerCard('black')),
             slot('viewer-go-to', 'viewerGoTo', (
               <>
                 <span className="card-label inline-flex items-center gap-[0.35em]">

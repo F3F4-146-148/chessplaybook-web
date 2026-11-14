@@ -1653,7 +1653,10 @@
   background-image: linear-gradient(to bottom, hsl(var(--card) / 0.62), hsl(var(--card) / 0.82));
   -webkit-backdrop-filter: blur(12px) saturate(1.15); backdrop-filter: blur(12px) saturate(1.15);
   border-radius: 12px;
-  box-shadow: inset 0 0 0 1px hsl(var(--hairline-warm) / 0.5), inset 0 1px 0 hsl(var(--foreground) / 0.06), 0 12px 32px hsl(var(--background) / 0.55);
+  /* The edge at the hairline's full strength (#231): at half it measured 1.8:1 against the page, with the fill
+     only 1.03-1.06:1, so nothing but that edge separates a card from the page (WCAG 1.4.11 asks 3:1). Full, it is
+     3.7:1, the editorial cards' own edge. */
+  box-shadow: inset 0 0 0 1px hsl(var(--hairline-warm)), inset 0 1px 0 hsl(var(--foreground) / 0.06), 0 12px 32px hsl(var(--background) / 0.55);
   transition: box-shadow 200ms, transform 160ms;
 }
 .v2-card-glass:hover, .v2-card-glass:focus-visible {

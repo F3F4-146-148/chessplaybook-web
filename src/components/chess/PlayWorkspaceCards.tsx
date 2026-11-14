@@ -41,7 +41,7 @@ export function PlayerCard({ icon, label, name, title, rating, detail, status, c
           <span className="truncate font-semibold text-foreground" data-player-name>{name}</span>
           {rating !== undefined && !portrait && <span className="shrink-0 tabular-nums">{rating}</span>}
         </span>
-        <span className={portrait ? 'card-row' : 'card-row text-[0.86em]'} style={portrait ? { fontSize: 'min(0.95em, 6.5cqw)' } : undefined}>
+        <span className={portrait ? 'card-row' : 'card-row text-[length:max(10px,0.86em)]'} style={portrait ? { fontSize: 'min(0.95em, 6.5cqw)' } : undefined}>
           <span className="truncate">{portrait && rating !== undefined ? <><span className="tabular-nums">{rating}</span> · {detail}</> : detail}</span>
           {status && <span className="ml-auto shrink-0 text-link">{status}</span>}
         </span>

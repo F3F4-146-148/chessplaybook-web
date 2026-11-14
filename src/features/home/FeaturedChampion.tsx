@@ -21,28 +21,35 @@ export function FeaturedChampion({ players }: { players: Record<string, PlayerIn
   return (
     <div className="relative h-full min-h-[200px]" {...handlers}>
       <Link to={to} onClick={() => logHomeSection('featured', to, index)} className="group v2-card-editorial relative overflow-hidden h-full min-h-[200px] flex">
-        {/* All three stay mounted and cross-fade, so a change never flashes the card empty; only the first is
-            fetched at once, the other two when the browser gets to them (S6). */}
-        {FEATURED.map((k, i) => (
-          <img
-            key={k}
-            src={portraitSrc(k)}
-            alt=""
-            loading={i === 0 ? undefined : 'lazy'}
-            className={`v2-photo-fade-right absolute inset-y-0 left-0 h-full w-[50%] object-cover object-[50%_20%] transition-[opacity,transform] duration-700 group-hover:scale-[1.03] ${i === index ? 'opacity-100' : 'opacity-0'}`}
-          />
-        ))}
-        {/* The photo as taken, on hover (the co-founder's idea). Never downloaded on a touch screen, which cannot hover. */}
-        <picture key={`c-${key}`}>
-          <source media="(hover: none)" srcSet={NO_IMAGE} />
-          <img
-            src={portraitColorSrc(key)}
-            alt=""
-            loading="lazy"
-            className="v2-color-reveal v2-photo-fade-right absolute inset-y-0 left-0 h-full w-[50%] object-cover object-[50%_20%] group-hover:scale-[1.03]"
-          />
-        </picture>
-        <div key={key} className="v2-fade-in-late relative ml-auto w-[55%] p-5 flex flex-col justify-center">
+        {/* THE PHOTO BOX (#236): as wide as the portrait's own 4:5 at the card's height, never more than half the
+            card. It was half the card at any height, so a wide short card (the full-width row below 1024px, or
+            a 1536x746 window) showed 33-74% of the face's height. Capped at half, a narrow card crops the sides,
+            which keep nothing of the face. */}
+        <div className="relative shrink-0 aspect-[4/5] max-w-[50%] overflow-hidden" aria-hidden>
+          {/* All three stay mounted and cross-fade, so a change never flashes the card empty; only the first is
+              fetched at once, the other two when the browser gets to them (S6). */}
+          {FEATURED.map((k, i) => (
+            <img
+              key={k}
+              src={portraitSrc(k)}
+              alt=""
+              loading={i === 0 ? undefined : 'lazy'}
+              className={`v2-photo-fade-right absolute inset-0 h-full w-full object-cover object-[50%_20%] transition-[opacity,transform] duration-700 group-hover:scale-[1.03] ${i === index ? 'opacity-100' : 'opacity-0'}`}
+            />
+          ))}
+          {/* The photo as taken, on hover (the co-founder's idea). Never downloaded on a touch screen, which cannot hover. */}
+          <picture key={`c-${key}`}>
+            <source media="(hover: none)" srcSet={NO_IMAGE} />
+            <img
+              src={portraitColorSrc(key)}
+              alt=""
+              loading="lazy"
+              className="v2-color-reveal v2-photo-fade-right absolute inset-0 h-full w-full object-cover object-[50%_20%] group-hover:scale-[1.03]"
+            />
+          </picture>
+        </div>
+        {/* Over the photo's faded edge by 5% of the card, as before. */}
+        <div key={key} className="v2-fade-in-late relative flex-1 min-w-0 -ml-[5%] p-5 flex flex-col justify-center">
           <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.14em] text-link"><Crown className="w-3.5 h-3.5" aria-hidden />Featured champion</span>
           <h3 className="font-playfair font-semibold text-[26px] leading-tight mt-2">{info?.fullName ?? key}</h3>
           <p className="text-sm text-muted-foreground mt-1">{info?.championshipYears ?? ''}</p>
