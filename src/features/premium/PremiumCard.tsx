@@ -1,13 +1,15 @@
 /**
- * Premium on the account page (2026-11-13): the player's status, the plans in their own prices,
- * and Paddle's customer portal. Renders nothing unless the API has checkout settings, so it is
- * invisible in production until launch and live on staging (sandbox).
+ * Premium on the account page: where a player MANAGES Premium they have (when it renews or ends,
+ * Paddle's customer portal, the 30-day refund). Renders nothing unless the API has checkout settings,
+ * so it is invisible in production until launch and live on staging (sandbox).
  *
- * Buying needs an account (owner), which this page already guarantees. The offer itself is on the
- * Premium page (/premium); this card is where a Premium player manages the subscription. Both load
- * through usePremiumOffer.
+ * IT DOES NOT SELL (owner, 2026-11-15). It once showed its own prices and buy buttons, a second copy
+ * of the offer that drifted from /premium (it offered Buy to a holder whose account lookup failed
+ * after /premium had been fixed). Selling lives only on /premium; here a player without Premium gets
+ * a link to it. The account's state comes from usePremiumOffer, shared with /premium.
  */
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import env from '@/config/env';
@@ -24,7 +26,7 @@ function day(sqliteUtc: string | null): string | null {
 
 export function PremiumCard() {
   const { user } = useAuth();
-  const { settings, plans, state, setState, message, setMessage, buy } = usePremiumOffer();
+  const { settings, state, stateKnown, setState, message, setMessage } = usePremiumOffer({ prices: false });
   const [busy, setBusy] = useState(false);
   const [confirmRefund, setConfirmRefund] = useState(false);
 
@@ -50,7 +52,9 @@ export function PremiumCard() {
       if (response.ok) {
         setConfirmRefund(false);
         setMessage(null);
-        setState(await fetchPremium());
+        /* A failed re-read is not "no Premium" (#261 review): keep the state we have. */
+        const next = await fetchPremium();
+        if (next) setState(next);
       } else {
         setMessage('The refund could not be requested. Please try again, or write to support@chessplaybook.com.');
       }
@@ -72,7 +76,10 @@ export function PremiumCard() {
         {state?.premium ? (
           <>
             {state.kind === 'pass' ? (
-              <p>You have Premium until {ends ?? 'the end of your year'}. It does not renew; you can buy another year whenever you like.</p>
+              <p>
+                You have Premium until {ends ?? 'the end of your year'}. It does not renew;{' '}
+                <Link to="/premium" className="text-link hover:underline">another year</Link> can be added whenever you like.
+              </p>
             ) : (
               <>
                 <p>You have Premium.{ends && (cancelling ? ` It ends on ${ends}.` : ` It renews on ${ends}.`)}</p>
@@ -102,25 +109,13 @@ export function PremiumCard() {
               )
             )}
           </>
-        ) : (
-          <>
-            <p className="text-muted-foreground">
-              Unlimited game reports and explanations, and the full opening trainer.
-              {plans?.oneYear && ' Subscribe and it renews each period, or pay once for one year with no renewal.'}
-            </p>
-            {plans && (
-              <div className="flex flex-wrap gap-2">
-                <Button onClick={() => buy(plans.yearly.priceId)}>{plans.yearly.total} a year</Button>
-                {plans.monthly && (
-                  <Button variant="outline" onClick={() => buy(plans.monthly!.priceId)}>{plans.monthly.total} a month</Button>
-                )}
-                {plans.oneYear && (
-                  <Button variant="outline" onClick={() => buy(plans.oneYear!.priceId)}>{plans.oneYear.total} once, for one year</Button>
-                )}
-              </div>
-            )}
-          </>
-        )}
+        ) : stateKnown ? (
+          /* Known to have no Premium (a failed lookup is not "no Premium": the hook says so instead). */
+          <p className="text-muted-foreground">
+            Unlimited game reports and explanations, and the full opening trainer.{' '}
+            <Link to="/premium" className="text-link hover:underline">See the plans</Link>
+          </p>
+        ) : null}
         {message && <p role="status" className="text-muted-foreground">{message}</p>}
       </CardContent>
     </Card>

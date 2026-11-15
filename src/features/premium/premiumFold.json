@@ -1,0 +1,13 @@
+{
+  "_note": "The Premium page's first-screen bounds (#261, PREMIUM_PAGE_LAYOUT_IMPLEMENTATION_PLAN B1, B5). One source: tailwind.config.ts builds the height screens from it and scripts/verify-premium-fold.mjs reads the tiers from it. Values from scripts/calibrate-premium-fold.mjs (2026-11-14): each width band has its own bounds (narrow two columns wrap far more), and the arrow has a bound per card count (owner, 2026-11-14: two cards are 80-130px shorter, so the three-card bound would leave them with no arrow above uncut content). The legal line follows the three-card bounds. Holder and loading use the three-card bounds. Re-run the calibration after any change to the hero's content. Tailwind does not reload a config import: restart the dev server after changing this file.",
+  "capPx": 1080,
+  "bands": [
+    { "minWidthPx": 768, "shortMaxPx": 1001, "shortestMaxPx": 807, "shortestMaxPxTwoCards": 661 },
+    { "minWidthPx": 1024, "shortMaxPx": 825, "shortestMaxPx": 733, "shortestMaxPxTwoCards": 649 },
+    { "minWidthPx": 1280, "shortMaxPx": 777, "shortestMaxPx": 717, "shortestMaxPxTwoCards": 635 }
+  ],
+  "wideShortMaxPx": 560,
+  "phoneArrowMinPx": 758,
+  "phoneArrowMinPxTwoCards": 606,
+  "arrowRowPx": { "desktop": 80, "phone": 52 }
+}

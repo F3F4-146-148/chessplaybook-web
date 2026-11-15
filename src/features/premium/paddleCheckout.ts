@@ -12,6 +12,7 @@
  */
 import env from '@/config/env';
 import fullPriceCountries from '@/config/premium-full-price-countries.json';
+import { supported as paddleSupported } from '@/config/paddle-supported-countries.json';
 
 export interface CheckoutSettings {
   environment: 'sandbox' | 'production';
@@ -133,6 +134,8 @@ function isFullPriceCurrency(currency: string, preview: { data: { details: { lin
   return !REDUCED_CURRENCIES.has(currency);
 }
 
+const SELLS = new Set(paddleSupported);
+
 export function isFullPriceCountry(countryCode: string | null | undefined): boolean {
   return Boolean(countryCode) && FULL_PRICE.has(countryCode!.toUpperCase());
 }
@@ -153,8 +156,10 @@ export async function previewPlans(paddle: PaddleGlobal, settings: CheckoutSetti
   /* The country when Paddle reports it (it does, from the visitor's IP: checked 2026-11-13); else the
      currency. EUR and USD are used at both levels and are told apart by amount; every other currency
      belongs to one level only. */
-  const country = yearly.data.address?.countryCode;
-  const fullPrice = country ? isFullPriceCountry(country) : isFullPriceCurrency(yearly.data.currencyCode, yearly);
+  const country = yearly.data.address?.countryCode?.toUpperCase();
+  /* A country Paddle does not sell in is unknown, priced at the base, like no country (#261 review). */
+  const known = Boolean(country) && SELLS.has(country!);
+  const fullPrice = known ? isFullPriceCountry(country) : isFullPriceCurrency(yearly.data.currencyCode, yearly);
   let monthly: PlanPrice | null = null;
   if (fullPrice) {
     const preview = await paddle.PricePreview({ items: [{ priceId: settings.prices.monthly, quantity: 1 }] });

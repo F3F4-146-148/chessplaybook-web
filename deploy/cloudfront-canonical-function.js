@@ -155,6 +155,22 @@ function handler(event) {
   // CloudFront answers http itself before this function runs (measured: "X-Cache: Redirect from cloudfront", the
   // path's case untouched), and the forwarded-proto header this read was never given to the function.
 
+  // The visitor's country, for the Premium page's price before checkout is live (#261): CloudFront's own
+  // geolocation of the request, answered here as a tiny JSON. Never cached, nothing stored, no cookie.
+  if (uri === '/geo.json') {
+    var cc = request.headers['cloudfront-viewer-country'];
+    return {
+      statusCode: 200,
+      statusDescription: 'OK',
+      headers: {
+        'content-type': { value: 'application/json' },
+        'cache-control': { value: 'no-store' },
+        'x-robots-tag': { value: 'noindex' }
+      },
+      body: { encoding: 'text', data: JSON.stringify({ country: cc ? cc.value : null }) }
+    };
+  }
+
   var canonicalUri = uri;
 
   // Strip /index.html anywhere, not just at the root. The original only

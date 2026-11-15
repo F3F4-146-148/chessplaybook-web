@@ -18,6 +18,7 @@
     "build:dev": "vite build --mode development",
     "sitemap": "node scripts/generate-sitemap.cjs",
     "check:indexability": "node scripts/check-indexability.cjs",
+    "verify:premium-fold": "node scripts/verify-premium-fold.mjs",
     "lint": "eslint src",
     "preview": "vite preview",
     "test": "vitest run",

@@ -22,28 +22,17 @@ import { logGA4Event } from '@/services/analytics';
 // Configure Amplify when this module loads (moved from main.tsx for lazy-load support)
 import '../../config/amplify';
 
-export interface AuthUser {
-  userId: string;
-  email: string;
-  username: string;
-}
+import { AuthContext, type AuthContextType, type AuthUser } from './authContextValue';
 
-interface AuthContextType {
-  user: AuthUser | null;
-  isLoading: boolean;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, username: string) => Promise<{ nextStep: string }>;
-  confirmEmail: (email: string, code: string) => Promise<{ signedIn: boolean }>;
-  resendCode: (email: string) => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  signOutUser: () => Promise<void>;
-  requestPasswordReset: (email: string) => Promise<void>;
-  confirmNewPassword: (email: string, code: string, newPassword: string) => Promise<void>;
-}
+export type { AuthUser } from './authContextValue';
 
-const AuthContext = createContext<AuthContextType | null>(null);
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+/**
+ * The real auth state. Two ways to use it: with children, it provides the context around them (tests,
+ * and any standalone use); with `onValue`, it renders nothing and hands its value up whenever the user
+ * or the loading state changes, so the app's Provider, which never moves, can carry it (providers.tsx,
+ * authContextValue.ts: swapping this component in around the app re-created the whole tree).
+ */
+export function AuthProvider({ children, onValue }: { children?: React.ReactNode; onValue?: (value: AuthContextType) => void }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const migratedRef = useRef<string | null>(null);
@@ -247,16 +236,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await confirmResetPassword({ username: email, confirmationCode: code, newPassword });
   };
 
-  return (
-    <AuthContext.Provider value={{
-      user, isLoading,
-      signInWithEmail, signUpWithEmail, confirmEmail, resendCode,
-      signInWithGoogle, signOutUser,
-      requestPasswordReset, confirmNewPassword,
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  const value: AuthContextType = {
+    user, isLoading,
+    signInWithEmail, signUpWithEmail, confirmEmail, resendCode,
+    signInWithGoogle, signOutUser,
+    requestPasswordReset, confirmNewPassword,
+  };
+  /* Handed up only when what readers see changes (the functions are rebuilt every render, so keying on
+     the object would loop: the parent's update renders this again). The latest functions travel with it. */
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  useEffect(() => {
+    onValue?.(valueRef.current);
+  }, [user, isLoading, onValue]);
+
+  if (children === undefined) return null;
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 // Safe default when DeferredAuthProvider hasn't loaded the real provider yet.

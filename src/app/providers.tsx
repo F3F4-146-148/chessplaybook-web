@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/design/theme/ThemeProvider";
+import { AuthContext, type AuthContextType as AuthValue } from "@/features/auth/authContextValue";
 
 // ---------- Deferred Auth Provider ----------
 // aws-amplify (125KB) is NOT imported here. Instead we dynamically load the
@@ -37,7 +38,9 @@ export const DeferredAuthContext = createContext<AuthContextType>({
 });
 
 function DeferredAuthProvider({ children }: { children: React.ReactNode }) {
-  const [RealProvider, setRealProvider] = useState<React.ComponentType<{ children: React.ReactNode }> | null>(null);
+  const [RealProvider, setRealProvider] = useState<React.ComponentType<{ onValue: (v: AuthValue) => void }> | null>(null);
+  /* The real provider's value, handed up once it has loaded (null until then: useAuth reads the stub). */
+  const [authValue, setAuthValue] = useState<AuthValue | null>(null);
 
   useEffect(() => {
     // Defer auth loading until browser is idle — don't compete with critical resources.
@@ -57,13 +60,20 @@ function DeferredAuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  if (RealProvider) {
-    return <RealProvider>{children}</RealProvider>;
-  }
-
-  // No AuthProvider yet — children render without auth context.
-  // UserDropdown must NOT render until RealProvider is available (it calls useAuth).
-  return <>{children}</>;
+  /*
+    THE APP NEVER MOVES (2026-11-15). It sits under one Provider from the first render; the real
+    provider, once loaded, renders BESIDE it and hands its value up. Rendering the real provider AROUND
+    the app instead (`<RealProvider>{children}</RealProvider>` in place of `<>{children}</>`) put a
+    different component at the app's position, and React re-created the whole tree: every page lost its
+    state and refetched. In Safari, with no requestIdleCallback, that came 3s after load
+    (authContextValue.ts). Until the value arrives useAuth answers the loading stub, as before.
+  */
+  return (
+    <>
+      {RealProvider && <RealProvider onValue={setAuthValue} />}
+      <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>
+    </>
+  );
 }
 
 // ---------- Main Providers ----------

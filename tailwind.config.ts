@@ -3,6 +3,16 @@ import plugin from "tailwindcss/plugin";
 import { layoutCustomProperties, navCustomProperties, navTokens, workspaceTheme } from "./src/design/tokens/layout.tokens";
 import { colorCustomProperties, darkTheme, lightTheme, tailwindColors } from "./src/design/tokens/color.tokens";
 import { designV2CustomProperties } from "./src/design/tokens/designV2.tokens";
+import premiumFold from "./src/features/premium/premiumFold.json";
+
+/** One media query per width band of premiumFold.json, joined as OR (#261, B5). */
+function premiumBands(height: (band: (typeof premiumFold.bands)[number]) => string): string {
+  return premiumFold.bands.map((band, i) => {
+    const next = premiumFold.bands[i + 1];
+    const width = `(min-width: ${band.minWidthPx}px)${next ? ` and (max-width: ${next.minWidthPx - 1}px)` : ''}`;
+    return `${width} and ${height(band)}`;
+  }).join(', ');
+}
 
 export default {
   /*
@@ -66,7 +76,27 @@ export default {
           hamburger, with the theme choice inside it.
         */
         navrow: { raw: '(orientation: landscape) and (min-width: 840px)' },
+        /*
+          THE PREMIUM PAGE'S HEIGHT TIERS (#261), from premiumFold.json. Emitted in this order, after
+          `md`, so a later one wins: `short` contains `shortest` on purpose and the order decides.
+          `tall-only` is the complement of `short` (where the legal line sits under the button) and
+          `phonearrow` the phones tall enough to hold the arrow. Each width band has its own bounds
+          (B5), so a tier is a comma list (OR) of one query per band.
+        */
+        'tall-only': { raw: premiumBands((b) => `(min-height: ${b.shortMaxPx + 1}px)`) },
+        short: { raw: premiumBands((b) => `(max-height: ${b.shortMaxPx}px)`) },
+        shortest: { raw: premiumBands((b) => `(max-height: ${b.shortestMaxPx}px)`) },
+        /* The arrow's bound for two plan cards (owner, 2026-11-14); used with `data-cards="2"` in index.css. */
+        shortest2: { raw: premiumBands((b) => `(max-height: ${b.shortestMaxPxTwoCards}px)`) },
+        /* Sideways phones and small tablets only (2026-11-15): from 960 wide a short window keeps its two
+           columns, its sizes scaled to the height (--pu in index.css); one column there left half the
+           screen empty on a scaled laptop (1012x530). */
+        wideshort: { raw: `(min-width: 768px) and (max-width: 959px) and (max-height: ${premiumFold.wideShortMaxPx}px)` },
+        phonearrow: { raw: `(max-width: 767px) and (min-height: ${premiumFold.phoneArrowMinPx}px)` },
+        phonearrow2: { raw: `(max-width: 767px) and (min-height: ${premiumFold.phoneArrowMinPxTwoCards}px)` },
       },
+      /* For `theme('premiumFold.capPx')` in index.css (B2). */
+      premiumFold,
       fontFamily: {
         'playfair': ['Playfair Display', 'Playfair Display Fallback', 'serif'],
         'sans': ['Inter', 'Inter Fallback', 'system-ui', 'sans-serif'],

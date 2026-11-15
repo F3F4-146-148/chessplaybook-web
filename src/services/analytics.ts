@@ -383,7 +383,9 @@ type GA4Event =
   /* The way to Premium from the daily-limit dialog, and which feature ran out. */
   | { name: 'premium_link_clicked'; params: { from: 'limit_dialog'; feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' } }
   /* A plan's buy button on the Premium page; `signed_in` false means it led to sign-in first. */
-  | { name: 'premium_buy_clicked'; params: { plan: 'yearly' | 'monthly' | 'one_year'; signed_in: boolean } }
+  | { name: 'premium_buy_clicked'; params: { plan: 'yearly' | 'monthly' | 'one_year'; signed_in: boolean; control?: 'plans' | 'sticky_bar' } }
+  /* A plan card chosen on the Premium page (#261); the buy button buys the chosen one. */
+  | { name: 'premium_plan_selected'; params: { plan: 'yearly' | 'monthly' | 'one_year' } }
   /*
     The DENOMINATOR for the move. `plan_setup_opened` counts intent to build one
     and `from` says what prompted it — the standing card, the one offer, or a

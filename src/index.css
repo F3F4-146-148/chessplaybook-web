@@ -1749,3 +1749,121 @@
   100% { stroke-dashoffset: 1; opacity: 0; }
 }
 @keyframes v2-loop-area { 0% { opacity: 0; } 50%, 82% { opacity: 1; } 92%, 100% { opacity: 0; } }
+
+/*
+  THE PREMIUM PAGE'S FIRST SCREEN (#261, PREMIUM_PAGE_LAYOUT_IMPLEMENTATION_PLAN B2).
+  Its height and its top spacing in one place, bounds from premiumFold.json via theme() and screen().
+  Nothing on the hero section or its content row may set these with a utility.
+
+  - Height: where the arrow is drawn, the window under the nav, capped at capPx on desktop (owner
+    decision 3); the 100vh line is the fallback for a browser without svh. Where it is not drawn, no
+    minimum: the content cut by the fold, or what follows the hero, is the cue (owner decision 2).
+  - Top spacing: the content is anchored to the top (R9: nothing above the plans moves when what is
+    under it changes height). From md up the spacing is fitted to where the centred content sat
+    before (headline at 1908x947 and 1908x1147, the R8 baseline): 0.4955 per px of window height,
+    floored at 24px (the short windows' spacing) and stopping at 195px, the height where the cap
+    starts. Phones 16px.
+*/
+/*
+  THE PAGE'S SCALE (2026-11-15). The page was designed in fixed pixels at the owner's 1524x731; it
+  overflowed short windows (a scaled laptop, 1920x1080 at ~190%: 1012x530) and left the sides empty on
+  large ones (1920x1080 at 100%: 1920x947). Two units, both lengths, registered so they compute to
+  pixels (the fold guard reads --pu):
+  - --pv, the page: grows with the window from 1524x731, by the smaller of width/1524 and the height
+    under the nav/678, never under 1px (phones and small windows keep the design) nor over 1.6px.
+    Everything below the hero is sized in it.
+  - --pu, the hero: --pv, held down to what fits the first screen on each height tier (the tiers decide
+    the content: a 64px heading and the legal line on tall windows, the arrow where it is drawn):
+      tall-only:      top padding + 598 * pu + 16 + 80 (the arrow row) <= the window under the nav
+      short:          24 + 539 * pu + 16 + 80                           <= the window under the nav
+      shortest:       24 + 133 + 406 * pu + 16 (small text at its floors, no arrow)
+    so it shrinks only where the hero would not fit (never under 0.75px) and grows where it has room.
+    598, 539, 133 and 406 are measured: re-measure them after changing the hero's content.
+  Phones and sideways phones (wideshort) keep 1px: they scroll, and the cut is the cue there.
+*/
+@property --pu { syntax: '<length>'; inherits: true; initial-value: 1px; }
+@property --pv { syntax: '<length>'; inherits: true; initial-value: 1px; }
+@layer components {
+  .premium-page { --pv: 1px; --pu: 1px; }
+  .premium-hero-content {
+    padding-top: 16px; /* phones: the side padding (B6: at 20 the action ended 1px below 360x640's fold) */
+  }
+  @media screen(md) {
+    .premium-page {
+      --pv: clamp(1px, min(calc(100vw / 1524), calc((100vh - var(--nav-block, 64px)) / 678)), 1.6px);
+      --pv: clamp(1px, min(calc(100vw / 1524), calc((100svh - var(--nav-block, 64px)) / 678)), 1.6px);
+      --pu: clamp(0.75px, min(var(--pv), calc((100vh - var(--nav-block, 64px) - clamp(24px, calc(49.55vh - 373.3px), 195px) - 96px) / 598)), 1.6px);
+      --pu: clamp(0.75px, min(var(--pv), calc((100svh - var(--nav-block, 64px) - clamp(24px, calc(49.55svh - 373.3px), 195px) - 96px) / 598)), 1.6px);
+    }
+    .premium-hero-content {
+      padding-top: clamp(24px, calc(49.55vh - 373.3px), 195px);
+      padding-top: clamp(24px, calc(49.55svh - 373.3px), 195px);
+    }
+  }
+  @media screen(short) {
+    .premium-page {
+      --pu: clamp(0.75px, min(var(--pv), calc((100vh - var(--nav-block, 64px) - 120px) / 539)), 1.6px);
+      --pu: clamp(0.75px, min(var(--pv), calc((100svh - var(--nav-block, 64px) - 120px) / 539)), 1.6px);
+    }
+  }
+  @media screen(shortest) {
+    .premium-page {
+      --pu: clamp(0.75px, min(var(--pv), calc((100vh - var(--nav-block, 64px) - 173px) / 406)), 1.6px);
+      --pu: clamp(0.75px, min(var(--pv), calc((100svh - var(--nav-block, 64px) - 173px) / 406)), 1.6px);
+    }
+  }
+  @media screen(wideshort) {
+    .premium-page { --pv: 1px; --pu: 1px; }
+  }
+}
+/* The comparison table's cells in --pv (a utility layer, so it outranks each cell's p-4). */
+@layer utilities {
+  @media screen(md) {
+    .premium-compare :is(th, td) { padding: calc(16 * var(--pv)); }
+    .premium-compare th[colspan] { padding: calc(24 * var(--pv)) calc(16 * var(--pv)) calc(12 * var(--pv)); }
+  }
+}
+@layer components {
+  /*
+    The arrow row, and the minimum height that only exists to put it at the foot of the first screen,
+    set together in every rule so one cannot apply without the other (B5: phones without the arrow
+    kept the minimum and showed up to 144px of nothing; now what follows the hero comes up under it).
+    Per card count (owner, 2026-11-14): `data-cards="2"` on the hero takes the two-card bounds; any
+    other value (three cards, a holder, loading) the three-card ones. Not displayed means not
+    focusable either.
+  */
+  .premium-arrow-row { display: none; }
+  @media screen(md) {
+    .premium-hero {
+      min-height: min(calc(100vh - var(--nav-block, 64px)), calc(theme('premiumFold.capPx') * 1px));
+      min-height: min(calc(100svh - var(--nav-block, 64px)), calc(theme('premiumFold.capPx') * 1px));
+    }
+    .premium-arrow-row { display: flex; }
+  }
+  @media screen(phonearrow) {
+    .premium-hero:not([data-cards="2"]) {
+      min-height: calc(100vh - var(--nav-block, 64px));
+      min-height: calc(100svh - var(--nav-block, 64px));
+    }
+    .premium-hero:not([data-cards="2"]) .premium-arrow-row { display: flex; }
+  }
+  @media screen(phonearrow2) {
+    .premium-hero[data-cards="2"] {
+      min-height: calc(100vh - var(--nav-block, 64px));
+      min-height: calc(100svh - var(--nav-block, 64px));
+    }
+    .premium-hero[data-cards="2"] .premium-arrow-row { display: flex; }
+  }
+  @media screen(shortest) {
+    .premium-hero:not([data-cards="2"]) { min-height: auto; }
+    .premium-hero:not([data-cards="2"]) .premium-arrow-row { display: none; }
+  }
+  @media screen(shortest2) {
+    .premium-hero[data-cards="2"] { min-height: auto; }
+    .premium-hero[data-cards="2"] .premium-arrow-row { display: none; }
+  }
+  @media screen(wideshort) {
+    .premium-hero { min-height: auto; }
+    .premium-hero .premium-arrow-row { display: none; }
+  }
+}
