@@ -72,6 +72,23 @@ describe('parseMainSearch', () => {
     expect(parsed.mateIn).toBe(-4); // White gets mated in 4
   });
 
+  /*
+    `mate 0` is what Stockfish prints for a position that is ALREADY checkmate
+    (`info depth 0 score mate 0`, then `bestmove (none)`; measured on the shipped
+    Stockfish 18 Lite WASM). The side to move is the mated one. Flipping 0 gives
+    0, so the old code scored a mated Black as Black winning.
+  */
+  it('mate 0 with Black to move: White has delivered mate', () => {
+    const parsed = parseMainSearch(['info depth 0 score mate 0', 'bestmove (none)'], 'b');
+    expect(parsed.searchedEval).toBe(100);
+    expect(parsed.isMate).toBe(true);
+  });
+
+  it('mate 0 with White to move: Black has delivered mate', () => {
+    const parsed = parseMainSearch(['info depth 0 score mate 0', 'bestmove (none)'], 'w');
+    expect(parsed.searchedEval).toBe(-100);
+  });
+
   it('uses the LATEST score line (engine refines as it searches)', () => {
     const lines = [
       'info depth 1 multipv 1 score cp 20 pv e2e4',

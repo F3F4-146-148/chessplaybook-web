@@ -9,6 +9,7 @@
  */
 import { Fragment, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { portraitPath } from '@/config/championPortraits';
 import content from '@/config/champion-content.json';
 import factsFile from '@/config/champion-facts.json';
@@ -65,6 +66,29 @@ const FACTS = (factsFile as unknown as { generatedAt: string; champions: Record<
 export function getChampionContent(slug?: string): ChampionContent | null {
   return slug && CONTENT[slug] && !slug.startsWith('_') ? CONTENT[slug] : null;
 }
+/**
+ * A slug that is not one of the 18 champions (SEO audit, 2026-11-15). The CloudFront function
+ * lets any /champions/<slug>/games through, so the server cannot 404 it, and the page used to
+ * render the homepage's title and description with no heading: a soft 404. It says noindex
+ * instead, the same answer a missing player gets. Keyed on the bundled content, never on a
+ * failed request, so an API outage while Google renders cannot drop a real champion's page.
+ */
+export function ChampionNotFound() {
+  return (
+    <>
+      <Helmet>
+        <title>Champion Not Found | Chess Playbook</title>
+        <meta name="robots" content="noindex, follow" />
+      </Helmet>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3 px-4 text-center">
+        <h1 className="text-xl font-bold">Champion not found</h1>
+        <p className="text-muted-foreground text-sm">There is no World Champion at this address.</p>
+        <Link to="/champions" className="text-link text-sm hover:underline">See all 18 champions</Link>
+      </div>
+    </>
+  );
+}
+
 export function getChampionFacts(slug?: string): ChampionFacts | null {
   return slug ? FACTS.champions[slug] ?? null : null;
 }

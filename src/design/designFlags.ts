@@ -19,3 +19,16 @@
  */
 export const DESIGN_V2_LIVE: boolean = true;
 export const HOME_V2_LIVE: boolean = true;
+
+/**
+ * THE MASTER'S TWO SWITCHES (MASTER_CHARACTER_IMPLEMENTATION_PLAN A2, #186).
+ *
+ * MASTER_LIVE  the Master's pictures on the board pages and the "Show the Master" control. Off, every
+ *              page is exactly today's: `MasterPortrait` renders nothing and the control is not drawn.
+ * MAIA_LIVE    Maia-1 plays the Master's levels on /play (Phase C-D). Off, those levels fall back to
+ *              the Stockfish definitions kept for this purpose.
+ *
+ * Both start OFF and are turned on by a commit when their phase ships.
+ */
+export const MASTER_LIVE: boolean = true;
+export const MAIA_LIVE: boolean = true;

@@ -15,7 +15,7 @@ import type { BestGame } from '@/types/bestGames';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trophy } from 'lucide-react';
-import { BestGamesIntro, BestGamesDetails, ChampionPortrait, getChampionContent } from '@/components/champion/ChampionProfile';
+import { BestGamesIntro, BestGamesDetails, ChampionNotFound, ChampionPortrait, getChampionContent } from '@/components/champion/ChampionProfile';
 import { championRouteMeta } from '@/config/championRouteMeta';
 
 const BestGames = () => {
@@ -83,13 +83,7 @@ const BestGames = () => {
 
   // A champion with written content renders at once; only the table waits for the games.
   const championContent = getChampionContent(name);
-  if (loading && !championContent) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-foreground text-xl">Loading games...</div>
-      </div>
-    );
-  }
+  if (!championContent) return <ChampionNotFound />;
 
   if (error) {
     return (

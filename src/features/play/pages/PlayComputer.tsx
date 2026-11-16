@@ -20,12 +20,19 @@ import { useBoardTheme } from '@/hooks/useBoardTheme';
 import { positionFromFen, applyMove, isPromotion, toUci } from '@/components/chess/chessLogic';
 import type { ChessPosition } from '@/components/chess/chessLogic';
 import { PuzzleAppearanceCard } from '@/features/puzzles/components/PuzzleAppearanceCard';
+import { useShowMaster } from '@/components/master/showMasterStore';
 import { PuzzleAnalysisCard } from '@/features/puzzles/components/PuzzleAnalysisCard';
 import { ChessClock } from '@/features/online/components/ChessClock';
 import { soundService } from '@/services/SoundService';
 import { useComputerGame } from '../hooks/useComputerGame';
 import { readPositionDeepLink } from '@/lib/positionDeepLink';
-import { DIFFICULTY_LEVELS } from '../services/StockfishOpponent';
+import { defaultLevelId, findLevel, playLevels, type PlayLevel } from '../services/playLevels';
+import { MAIA_LIVE, MASTER_LIVE } from '@/design/designFlags';
+import { MasterStrip } from '../components/MasterStrip';
+import { logGA4Event } from '@/services/analytics';
+import { useMasterVoice, useMouth } from '@/features/master/useMasterVoice';
+import { eventLine } from '@/features/master/eventLines';
+import type { MasterExpression } from '@/components/master/masterAssets';
 
 const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
 
@@ -44,23 +51,46 @@ interface HistoryEntry {
   isCheck: boolean;
 }
 
-function EngineLevelPicker({ value, onChange }: { value: number; onChange: (level: number) => void }) {
+/** The levels of this build (MASTER_CHARACTER_IMPLEMENTATION_PLAN D3): today's eight while MAIA_LIVE is off. */
+const LEVELS = playLevels(MAIA_LIVE);
+
+/** "Level 4 · Intermediate" as today; "The Master · 1400" for his levels. */
+function levelLabel(level: PlayLevel): string {
+  return level.kind === 'master' ? `The Master · ${level.approxRating}` : `Level ${level.stockfish.level} · ${level.name}`;
+}
+
+/** The short form on the game card: "Level 4" as today, "The Master 1400" for his. */
+function levelShort(level: PlayLevel): string {
+  return level.kind === 'master' ? `The Master ${level.approxRating}` : `Level ${level.stockfish.level}`;
+}
+
+function EngineLevelPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const { open, setOpen, triggerRef, panelRef: menuRef, style: position, room } = useAnchoredPopover({ matchWidth: true });
-  const selected = DIFFICULTY_LEVELS.find(level => level.level === value)!;
+  const selected = findLevel(LEVELS, value);
 
   return (
     <div className="flex flex-col" style={{ gap: 'var(--card-air)' }}>
       <span className="text-[0.8em] uppercase tracking-wide text-muted-foreground">Engine level</span>
       <button ref={triggerRef} type="button" onClick={() => setOpen(current => !current)} aria-expanded={open} aria-haspopup="listbox" className="flex w-full items-center justify-between rounded-[0.4em] border border-border bg-accent/20 px-[0.6em] py-[0.3em] text-left text-[0.92em] font-semibold text-foreground transition-colors hover:border-primary/50 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20">
-        <span className="truncate">Level {selected.level} · {selected.name}</span><ChevronDown className={`shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+        <span className="truncate">{levelLabel(selected)}</span><ChevronDown className={`shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
       </button>
       {open && createPortal(
         <div ref={menuRef} role="listbox" aria-label="Engine level" className="fixed z-[100] overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-2xl thin-scroll" style={{ ...position, maxHeight: Math.min(320, room) }}>
-          {DIFFICULTY_LEVELS.map(level => (
-            <button key={level.level} type="button" role="option" aria-selected={level.level === value} onClick={() => { onChange(level.level); setOpen(false); }} className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent/60 ${level.level === value ? 'bg-primary/10 text-link' : ''}`}>
-              <span className="font-medium">Level {level.level} · {level.name}</span>
-              <span className="ml-3 text-xs text-muted-foreground">~{level.approxRating}</span>
-            </button>
+          {LEVELS.map((level, i) => (
+            <div key={level.id}>
+              {/* With the Master: a heading over his levels, and over the computer's strong ones after them. */}
+              {level.kind === 'master' && LEVELS[i - 1]?.kind !== 'master' && (
+                <div role="presentation" className="px-3 pb-1 pt-2 text-[0.7rem] uppercase tracking-wide text-muted-foreground">The Master, plays like a person</div>
+              )}
+              {level.kind === 'stockfish' && LEVELS[i - 1]?.kind === 'master' && (
+                <div role="presentation" className="px-3 pb-1 pt-2 text-[0.7rem] uppercase tracking-wide text-muted-foreground">The computer</div>
+              )}
+              <button type="button" role="option" aria-selected={level.id === value} onClick={() => { onChange(level.id); setOpen(false); }} className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-accent/60 ${level.id === value ? 'bg-primary/10 text-link' : ''}`}>
+                <span className="font-medium">{levelLabel(level)}</span>
+                {/* his rows already name the rating ("The Master · 1400") */}
+                {level.kind === 'stockfish' && <span className="ml-3 text-xs text-muted-foreground">~{level.approxRating}</span>}
+              </button>
+            </div>
           ))}
         </div>,
         document.body,
@@ -109,7 +139,8 @@ export function PlayComputer() {
   const [selectedColor, setSelectedColor] = useState<Color>(fromPosition?.orientation ?? 'white');
   useEffect(() => { if (fromPosition) setSelectedColor(fromPosition.orientation); }, [fromPosition]);
   const [activeColor, setActiveColor] = useState<Color>('white');
-  const [selectedDifficulty, setSelectedDifficulty] = useState(4);
+  const [selectedLevelId, setSelectedLevelId] = useState(() => defaultLevelId(MAIA_LIVE));
+  const { show: showMaster, setShow: setShowMaster } = useShowMaster();
   const [selectedTimeControl, setSelectedTimeControl] = useState<(typeof TIME_CONTROLS)[number]>(TIME_CONTROLS[0]);
   const [activeTimeControl, setActiveTimeControl] = useState<(typeof TIME_CONTROLS)[number]>(TIME_CONTROLS[0]);
   const [whiteMs, setWhiteMs] = useState<number | null>(null);
@@ -145,8 +176,7 @@ export function PlayComputer() {
   const latestPly = history.length - 1;
   const currentPly = viewPly ?? latestPly;
   const historyEntry = viewPly === null ? null : history[currentPly];
-  const difficulty = DIFFICULTY_LEVELS.find(level => level.level === gameState.difficulty)
-    ?? DIFFICULTY_LEVELS.find(level => level.level === selectedDifficulty)!;
+  const levelInPlay: PlayLevel = gameState.gameStatus !== 'idle' && gameState.level ? gameState.level : findLevel(LEVELS, selectedLevelId);
   const isEnded = gameState.gameStatus === 'ended';
 
   useEffect(() => {
@@ -189,10 +219,16 @@ export function PlayComputer() {
     previousPlyRef.current = ply;
   }, [activeTimeControl.increment, gameState.sanMoves.length, gameStartFen]);
 
-  const startGame = (color = selectedColor, level = selectedDifficulty) => {
+  /* which wording of the Master's start and end lines this game uses, drawn when it starts so it never changes mid-game */
+  const [linePick, setLinePick] = useState(0);
+  /* whether he has said a move this game: from then on "Good luck" is over (see `opening` below) */
+  const [heSpoke, setHeSpoke] = useState(false);
+  const startGame = (color = selectedColor, levelId = selectedLevelId) => {
+    setLinePick(Math.floor(Math.random() * 1000));
+    setHeSpoke(false);
     setSelectedColor(color);
     setActiveColor(color);
-    setSelectedDifficulty(level);
+    setSelectedLevelId(levelId);
     const initialMs = selectedTimeControl.initial === null ? null : selectedTimeControl.initial * 1000;
     setActiveTimeControl(selectedTimeControl);
     setWhiteMs(initialMs);
@@ -201,7 +237,9 @@ export function PlayComputer() {
     setViewPly(null);
     setReviewPosition(null);
     setGameStartFen(startFen);
-    actions.startGame(color, level, fromPosition ? startFen : undefined);
+    const chosen = findLevel(LEVELS, levelId);
+    logGA4Event({ name: 'computer_game_started', params: { opponent: chosen.kind === 'master' ? 'master' : 'stockfish', level: chosen.approxRating, color, from_position: Boolean(fromPosition) } });
+    actions.startGame(color, chosen, fromPosition ? startFen : undefined);
   };
 
   const challengeFriend = () => navigate('/play-online?setup=friend');
@@ -234,8 +272,105 @@ export function PlayComputer() {
   const opponentColor: Color = displayColor === 'white' ? 'black' : 'white';
   const opponentClockMs = opponentColor === 'white' ? whiteMs : blackMs;
 
-  const level = gameState.gameStatus === 'idle' ? selectedDifficulty : gameState.difficulty;
   const timeControl = gameState.gameStatus === 'idle' ? selectedTimeControl : activeTimeControl;
+  /*
+    THE MASTER ON THE CARD (#186 D4): only while MASTER_LIVE is on and he is the opponent. His line follows the
+    game; D6 replaces "Your move." with the sentence that says the move he just played.
+  */
+  const masterHere = MASTER_LIVE && levelInPlay.kind === 'master';
+  /* The end of a game, once (D10). */
+  const reportedEndRef = useRef(false);
+  useEffect(() => {
+    if (gameState.gameStatus !== 'ended') { reportedEndRef.current = false; return; }
+    if (reportedEndRef.current || !gameState.level) return;
+    reportedEndRef.current = true;
+    const text = gameState.gameResult ?? '';
+    const result = text.startsWith('Draw') ? 'draw' : text.startsWith(activeColor === 'white' ? 'White' : 'Black') ? 'win' : 'loss';
+    logGA4Event({ name: 'computer_game_finished', params: {
+      opponent: gameState.level.kind === 'master' ? 'master' : 'stockfish',
+      level: gameState.level.approxRating,
+      result,
+      moves: gameState.sanMoves.length,
+      master_fell_back: gameState.masterFellBack,
+    } });
+  }, [gameState.gameStatus, gameState.gameResult, gameState.level, gameState.sanMoves.length, gameState.masterFellBack, activeColor]);
+  /* re-render once the reaction's 1.2 s are over, so the thinking face takes over even if nothing else changes */
+  const [reactionNow, setReactionNow] = useState(() => Date.now());
+  useEffect(() => {
+    const r = gameState.masterReaction;
+    setReactionNow(Date.now());
+    if (!r) return;
+    const t = setTimeout(() => setReactionNow(Date.now()), Math.max(0, r.at + 1250 - Date.now()));
+    return () => clearTimeout(t);
+  }, [gameState.masterReaction]);
+  /*
+    HIS WORDS AT THE START AND END (owner, 2026-11-16): one of a few fixed lines (`eventLines.json`), spoken as well
+    as shown. At the start "Good luck" until his first move gives him a move to say; at the end the result's line.
+    Memoised so a re-render never restarts the recording (the voice plays each new line object once).
+  */
+  const playerWon = (gameState.gameResult ?? '').startsWith(activeColor === 'white' ? 'White' : 'Black');
+  const endEvent = gameState.gameStatus !== 'ended' ? null
+    : (gameState.gameResult ?? '').startsWith('Draw') ? 'draw' : playerWon ? 'win' : 'loss';
+  const startLine = useMemo(() => eventLine('start', linePick), [linePick]);
+  /*
+    "Good luck" is for BEFORE his first move only. Each move of his clears his last sentence while the server
+    answers with the new one; falling back to the start line in that gap replayed its first syllable before every
+    move (owner on staging, 2026-11-16: "Goo", then the move; invisible locally, where the answer takes ~5 ms).
+    In the gap he now says nothing and the card shows an ellipsis.
+  */
+  useEffect(() => {
+    if (gameState.masterLine) setHeSpoke(true);
+  }, [gameState.masterLine]);
+  const opening = heSpoke ? null : startLine;
+  const lineNow = gameState.masterLine?.text ?? opening?.text ?? '…';
+  const endLine = useMemo(() => (endEvent ? eventLine(endEvent, linePick) : null), [endEvent, linePick]);
+  /*
+    HE TAKES A MOMENT AT THE END TOO (owner, 2026-11-16: after a mate "Well done, you beat me!" came instantly).
+    The end line waits a pause like his move's, and never cuts off what he is saying: when his own move ends the
+    game, "... Checkmate." is said first. Until then the card keeps his last line.
+  */
+  const [endPaused, setEndPaused] = useState(false);
+  const [endReady, setEndReady] = useState(false);
+  useEffect(() => {
+    setEndPaused(false);
+    setEndReady(false);
+    if (!endEvent) return;
+    const t = setTimeout(() => setEndPaused(true), endEvent === 'win' ? 1500 : 1800);
+    return () => clearTimeout(t);
+  }, [endEvent]);
+  const spokenLine = !masterHere ? null
+    : gameState.gameStatus === 'playing' ? gameState.masterLine ?? opening
+    : gameState.gameStatus === 'ended' ? (endReady ? endLine : gameState.masterLine)
+    : null;
+  const voice = useMasterVoice(spokenLine);
+  useEffect(() => {
+    if (endPaused && !endReady && !voice.speaking) setEndReady(true);
+  }, [endPaused, endReady, voice.speaking]);
+  const mouthOpen = useMouth(voice.speaking);
+  const stacked = workspaceMode?.mode === 'stacked';
+  const master: { expression: MasterExpression; line: string } = (() => {
+    if (gameState.gameStatus === 'idle') return { expression: 'presenting', line: 'Shall we play a game?' };
+    if (gameState.gameStatus === 'playing') {
+      if (gameState.isThinking) {
+        // his face at your move first (D9: a face, never words), then he thinks
+        const r = gameState.masterReaction;
+        const fresh = r && reactionNow - r.at < 1200;
+        // before his first move the card keeps his "Good luck", which he is saying
+        return { expression: fresh ? r.expression : 'thinking', line: opening ? opening.text : 'Let me think…' };
+      }
+      // after his move, he says what he played (D6); before it, his "Good luck"
+      return { expression: 'presenting', line: lineNow };
+    }
+    if (!endReady) {
+      // the pause before his end line: ONE face, his final one at once when you beat him (owner, 2026-11-16: the
+      // faces changed three times before the line); when his own move ended it, the face his talking frames are
+      // drawn on while he says it. His last line stays on the card.
+      return { expression: endEvent === 'win' ? 'surprised' : 'presenting', line: lineNow };
+    }
+    const line = endLine?.text ?? '';
+    if (endEvent === 'draw') return { expression: 'presenting', line };
+    return playerWon ? { expression: 'surprised', line } : { expression: 'pleased', line };
+  })();
   /* The two ways off this page, offered on the idle card and again when a game ends. */
   const otherWays = (
     <div className="grid grid-cols-2" style={{ gap: 'calc(var(--card-air) * 2)' }}>
@@ -296,16 +431,21 @@ export function PlayComputer() {
                   <span className="truncate font-semibold text-foreground">Play computer</span>
                   <span className="ml-auto shrink-0 text-[0.8em] text-success">Engine {gameState.isEngineReady ? 'ready' : 'loading'}</span>
                 </span>
-                <span className="card-row text-[0.86em]">Level {level} · {timeControl.label}</span>
+                <span className="card-row text-[0.86em]">{levelShort(levelInPlay)} · {timeControl.label}</span>
                 {gameState.gameStatus === 'idle' ? (
+                  <>
+                  {masterHere && !stacked && <MasterStrip variant="invitation" stacked={false} expression={master.expression} line={master.line} show={showMaster} />}
                   <div className="ws-push-end flex flex-col" style={{ gap: 'calc(var(--card-air) * 2)' }}>
                     <button type="button" onClick={() => startGame()} disabled={!gameState.isEngineReady} className="card-btn card-btn-primary w-full disabled:opacity-50">
                       {!gameState.isEngineReady ? 'Loading engine…' : fromPosition ? 'Play from this position' : 'New game'}
                     </button>
                     {otherWays}
                   </div>
+                  {masterHere && stacked && <MasterStrip variant="invitation" stacked expression={master.expression} line={master.line} show={showMaster} />}
+                  </>
                 ) : (
                   <>
+                    {masterHere && <MasterStrip variant="strip" stacked={stacked} expression={master.expression} line={master.line} show={showMaster} voice={{ on: voice.on, toggle: voice.toggle, mouthOpen }} />}
                     <span className="card-row justify-between text-[0.8em] uppercase tracking-wide">
                       <span>Moves</span>
                       {/* No position label (owner: "Latest position" removed 2026-10-08,
@@ -351,7 +491,7 @@ export function PlayComputer() {
                   Game settings
                 </span>
                 <div className="card-body">
-                  <EngineLevelPicker value={selectedDifficulty} onChange={setSelectedDifficulty} />
+                  <EngineLevelPicker value={selectedLevelId} onChange={setSelectedLevelId} />
                   {/* Label over its control, as the engine level above it: on one
                       row, at 18px type in the 240px lane, the label truncated to
                       "TIME CONT..." (D1, 1920x947). */}
@@ -378,8 +518,8 @@ export function PlayComputer() {
               <PlayerCard
                 icon={<CircleUserRound />}
                 label="Opponent"
-                name={`Stockfish Level ${level}`}
-                detail={`${difficulty.name} · Rating ~${difficulty.approxRating}`}
+                name={levelInPlay.kind === 'master' ? 'The Master' : `Stockfish Level ${levelInPlay.stockfish.level}`}
+                detail={levelInPlay.kind === 'master' ? `Rating ~${levelInPlay.approxRating}` : `${levelInPlay.name} · Rating ~${levelInPlay.approxRating}`}
                 status={gameState.isThinking ? 'Thinking…' : undefined}
                 clock={opponentClockMs === null ? undefined : <ChessClock timeMs={opponentClockMs} isActive={gameState.gameStatus === 'playing' && gameState.turnColor === opponentColor} isGameOver={gameState.gameStatus !== 'playing'} className={PLAYER_CLOCK_CLASS} />}
               />
@@ -416,7 +556,7 @@ export function PlayComputer() {
             )),
           ],
           foot: footSlot('theme-focus', (
-            <PuzzleAppearanceCard currentThemeId={currentTheme.id} onThemeChange={changeTheme} analyticsSurface="play_computer" focusMode={focusMode} onToggleFocusMode={canFocus ? () => setFocusMode(value => !value) : undefined} soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(soundService.toggleEnabled())} />
+            <PuzzleAppearanceCard currentThemeId={currentTheme.id} onThemeChange={changeTheme} analyticsSurface="play_computer" focusMode={focusMode} onToggleFocusMode={canFocus ? () => setFocusMode(value => !value) : undefined} soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(soundService.toggleEnabled())} {...(MASTER_LIVE ? { showMaster, onToggleShowMaster: () => setShowMaster(!showMaster) } : {})} />
           )),
         }}
       />

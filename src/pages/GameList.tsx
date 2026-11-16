@@ -18,7 +18,7 @@ import { useFilterUrlState } from '@/hooks/useFilterUrlState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { CompactFilterControls, ActiveFiltersBar, GamePagination } from '@/components/game-list';
-import { ChampionIntro, ChampionDetails, ChampionPortrait, getChampionContent } from '@/components/champion/ChampionProfile';
+import { ChampionIntro, ChampionDetails, ChampionNotFound, ChampionPortrait, getChampionContent } from '@/components/champion/ChampionProfile';
 import { championRouteMeta } from '@/config/championRouteMeta';
 
 const GameList = () => {
@@ -190,13 +190,7 @@ const GameList = () => {
   };
 
   // A champion with written content renders at once; only the table waits for the games.
-  if (loading && !championContent) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-foreground text-xl">Loading games...</div>
-      </div>
-    );
-  }
+  if (!championContent) return <ChampionNotFound />;
 
   if (error) {
     return (

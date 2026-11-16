@@ -224,7 +224,7 @@ function routeIsNoindex(routeKey) {
 }
 
 function setRobotsNoindex(html) {
-  const pattern = /<meta[^>]*name=["']robots["'][^>]*>/i;
+  const pattern = /<meta\b[^>]*\bname=["']robots["'][^>]*>/i;
   const tag = '<meta name="robots" content="noindex, follow" />';
   if (pattern.test(html)) return html.replace(pattern, tag);
   return html.replace('</head>', `    ${tag}
@@ -452,8 +452,21 @@ function generate() {
     // months (it still said "replay legendary games" long after the page had
     // moved on), because nothing tied it to route-meta.json.
     home = setJsonLdDescription(home, homeMeta.description);
-    fs.writeFileSync(INDEX_PATH, home, 'utf-8');
-    console.log('  Homepage meta applied to dist/index.html');
+    /*
+      THE SHELL CLAIMS NO URL (SEO audit, 2026-11-15). Since '/' is served from home.html (P2, 2026-11-14),
+      dist/index.html is only the shell for paths without their own file: game, player and live pages, and
+      unknown champion slugs. With the homepage's canonical and og:url, every one of them told a crawler that
+      had not run the JavaScript "I am the homepage". A page that declares a canonical still gets its own once
+      rendered (SeoHead and the pages' Helmet add it); the rest are noindex once rendered.
+    */
+    const shell = home
+      .replace(/[ \t]*<link\b[^>]*\brel=["']canonical["'][^>]*>\r?\n?/i, '')
+      .replace(/[ \t]*<meta\b[^>]*\bproperty=["']og:url["'][^>]*>\r?\n?/i, '');
+    if (/rel=["']canonical["']|property=["']og:url["']/i.test(shell)) {
+      throw new Error('generate-route-html: the shell still carries a canonical or og:url');
+    }
+    fs.writeFileSync(INDEX_PATH, shell, 'utf-8');
+    console.log('  Homepage meta applied to dist/index.html (shell: no canonical, no og:url)');
 
     // P2 (2026-11-14): the homepage's own prerendered object, with the noscript <h1> and text every other route
     // has. It cannot go into index.html, which is also the shell for every route without its own file (game,

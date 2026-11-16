@@ -96,7 +96,7 @@ const LASTMOD = {
     overstated one, which is the worse of the two: a sitemap that overstates gets
     its lastmod distrusted wholesale, and then the honest entries stop working.
   */
-  home: '2026-08-02',
+  home: '2026-11-14', // the new homepage (design v2, HOME_V2_LIVE): headline, cards and copy rewritten
   /*
     The puzzles feature pages, on their own key because they change on their own
     cadence — and did so on a different date from the homepage. `/puzzles` stopped
@@ -128,7 +128,7 @@ const LASTMOD = {
     Workspace (layout redesign D1/D2), so one key is still right for the pair -
     and it moves when the redesign merges, since both pages change then.
   */
-  play: '2026-08-14',
+  play: '2026-11-16', // the Master launches on /play (#186)
   /*
     /analysis, 2026-08-09 (42584789): the board is sized to the window instead of
     a constant 600px, the move list below the board was removed, and the wheel
@@ -143,13 +143,15 @@ const LASTMOD = {
   */
   leaderboard: '2026-08-20',
   // Champion pages: bump when the game corpus or champion data changes.
-  champions: '2026-07-27', // corpus refresh: +1869 games, coverage to 2026-07-05
+  // 2026-11-11: each list page got its own sourced content, facts and questions, ~650 other players'
+  // games left the lists and every date was repaired (CHAMPION_PAGES_CONTENT_ANALYSIS).
+  champions: '2026-11-11',
   // Event hubs: the events are over; these are archival end dates.
   worldCup2025: '2025-11-27',
   candidates2026: '2026-04-16',
   worldChampionship2026: '2026-11-11',
   // Articles: publish dates.
-  news: '2026-07-27',
+  news: '2026-11-11', // the hub lists the Geneva schedule article (articleWch2026Geneva)
   articleCandidatesPreview: '2026-03-27',
   articleCandidatesWomen: '2026-03-27',
   articleRound1: '2026-03-29',

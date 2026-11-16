@@ -163,6 +163,10 @@ export default function PlayerProfile() {
       <Helmet>
         <title>{profile.username} - Chess Playbook</title>
         <meta name="description" content={`${profile.username}'s chess profile on Chess Playbook. ${stats.totalGames} games played.`} />
+        {/* NOT IN SEARCH (owner, 2026-11-15). A username is often a real name from Google sign-in,
+            and the page is a few numbers about a private person, linked from the public leaderboard.
+            follow, so the links on it still count. */}
+        <meta name="robots" content="noindex, follow" />
       </Helmet>
 
 

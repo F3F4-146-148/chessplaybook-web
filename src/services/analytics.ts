@@ -301,6 +301,13 @@ type GA4Event =
   // undefined below the lg breakpoint), so a zero here is a statement about
   // desktop visitors and must not be read as "nobody uses it" site-wide.
   | { name: 'focus_mode_toggled'; params: { enabled: boolean; surface: 'puzzles' | 'play_online' | 'play_computer' | 'analysis' | 'champion_challenge' | 'champion_game' | 'live_game' | 'opening_trainer' } }
+  // The "Show the Master" switch (#186). `shown` is the state being entered.
+  | { name: 'master_visibility_toggled'; params: { shown: boolean; surface: 'puzzles' | 'play_online' | 'play_computer' | 'analysis' | 'champion_challenge' | 'champion_game' | 'live_game' | 'opening_trainer' } }
+  // The Master's voice on /play (#186 D8). `enabled` is the state being entered.
+  | { name: 'master_voice_toggled'; params: { enabled: boolean } }
+  // /play games, every level (#186 D10): none existed, so the Master could not be compared with Stockfish.
+  | { name: 'computer_game_started'; params: { opponent: 'stockfish' | 'master'; level: number; color: 'white' | 'black'; from_position: boolean } }
+  | { name: 'computer_game_finished'; params: { opponent: 'stockfish' | 'master'; level: number; result: 'win' | 'loss' | 'draw'; moves: number; master_fell_back: boolean } }
   // The theme picker moved onto /puzzles on 2026-08-10 and has never reported
   // anything either. Worth knowing which themes are actually chosen before any
   // more are drawn, and whether the default is ever changed at all.

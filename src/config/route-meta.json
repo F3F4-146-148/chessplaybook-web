@@ -1,8 +1,8 @@
 {
   "": {
-    "title": "Chess Playbook — Play, Solve and Understand Chess",
+    "title": "Chess Playbook: Play, Solve and Understand Chess",
     "description": "Learn chess openings move by move, train on puzzles matched to your level, play online or the computer, and understand any position in plain English.",
-    "ogTitle": "Chess Playbook — Play, Solve and Understand Chess",
+    "ogTitle": "Chess Playbook: Play, Solve and Understand Chess",
     "ogDescription": "Learn openings, solve puzzles, play, challenge a World Champion's position, and understand any position in plain English. Free, no account required.",
     "keywords": "chess, chess openings, opening trainer, play chess online, chess puzzles, chess position explained, chess analysis, chess training, world chess champions, learn chess",
     "heading": "Play, Solve and Understand Chess",
@@ -38,9 +38,9 @@
     "body": "The 2026 World Chess Championship in Geneva: Gukesh Dommaraju against Javokhir Sindarov, fourteen classical games from 24 November to 11 December, first to 7.5 points. The match score, each game on a live board, and the schedule."
   },
   "champion-challenge": {
-    "title": "Champion Challenge — Play Like a World Champion | Chess Playbook",
-    "description": "Play real positions from World Champion games — not tactics puzzles. Choose your move, then see what the champion played and why.",
-    "ogTitle": "Champion Challenge — Play Like a World Champion",
+    "title": "Champion Challenge: Play Like a World Champion",
+    "description": "Play real positions from World Champion games, not tactics puzzles. Choose your move, then see what the champion played and why.",
+    "ogTitle": "Champion Challenge: Play Like a World Champion",
     "ogDescription": "Play real positions from World Champion games. Choose your move, then see what the champion played and why.",
     "keywords": "chess training, champion challenge, play like a world champion, chess positions",
     "heading": "Champion Challenge",
@@ -92,10 +92,10 @@
     "body": "Credits and attributions for the technologies, data sources, and organizations that power Chess Playbook."
   },
   "explain": {
-    "title": "Explain Any Chess Position — Chess Playbook",
-    "description": "Stop staring at engine numbers. Get a real explanation of any chess position — what's happening, why it matters, what to play next.",
+    "title": "Explain Any Chess Position | Chess Playbook",
+    "description": "Stop staring at engine numbers. Get a real explanation of any chess position: what is happening, why it matters and what to play next.",
     "ogTitle": "Explain Any Chess Position",
-    "ogDescription": "Get a real explanation of any chess position — what's happening, why it matters, what to play next.",
+    "ogDescription": "Get a real explanation of any chess position: what is happening, why it matters and what to play next.",
     "keywords": "chess position explained, chess analysis in plain english, chess position evaluation",
     "heading": "Explain Any Chess Position",
     "body": "Paste any chess position and get a plain-English explanation: what is happening, why it matters, and what to play next."
@@ -129,9 +129,9 @@
   },
   "news/candidates-2026": {
     "ogImage": "https://www.chessplaybook.com/assets/og-candidates-2026.jpg",
-    "title": "FIDE Candidates 2026 — The Road to the Crown",
+    "title": "FIDE Candidates 2026: The Road to the Crown",
     "description": "Preview of the 2026 FIDE Candidates in Paphos, Cyprus: eight elite grandmasters compete for the right to challenge World Champion Gukesh.",
-    "ogTitle": "FIDE Candidates Tournament 2026 — The Road to the Crown",
+    "ogTitle": "FIDE Candidates Tournament 2026: The Road to the Crown",
     "ogDescription": "Eight elite grandmasters, fourteen rounds, one dream: to challenge for the World Chess Championship.",
     "keywords": "FIDE Candidates 2026, Paphos, chess tournament, world championship challenger",
     "heading": "FIDE Candidates Tournament 2026",
@@ -181,9 +181,9 @@
   },
   "news/candidates-2026-women": {
     "ogImage": "https://www.chessplaybook.com/assets/og-candidates-2026-women.jpg",
-    "title": "Women’s Candidates 2026 — Eight Queens, One Crown",
+    "title": "Women’s Candidates 2026: Eight Queens, One Crown",
     "description": "Preview of the 2026 FIDE Women’s Candidates in Paphos, Cyprus: eight grandmasters compete to challenge Women’s World Champion Ju Wenjun.",
-    "ogTitle": "Women's Candidates 2026 — Eight Queens, One Crown",
+    "ogTitle": "Women's Candidates 2026: Eight Queens, One Crown",
     "ogDescription": "Eight elite grandmasters, fourteen rounds, one dream: to challenge for the Women’s World Chess Championship.",
     "keywords": "Women's Candidates 2026, Paphos, Ju Wenjun, women's world chess championship",
     "heading": "Women's Candidates Tournament 2026",
@@ -220,7 +220,7 @@
   },
   "news/world-championship-2026-geneva": {
     "title": "World Chess Championship 2026: Schedule, 24 Nov – 11 Dec",
-    "description": "Gukesh vs Sindarov in Geneva: game 1 on 24 November at 15:00 CET, game 14 on 11 December. The day-by-day schedule, venue, time control, tiebreaks and prize fund.",
+    "description": "Gukesh vs Sindarov in Geneva: game 1 on 24 November at 15:00 CET, game 14 on 11 December. The schedule, venue, time control, tiebreaks and prize fund.",
     "ogTitle": "Geneva, 24 November: The World Championship Schedule",
     "ogDescription": "Gukesh vs Sindarov, 14 classical games in Geneva from 24 November to 11 December. The youngest title match ever played.",
     "ogImage": "https://www.chessplaybook.com/assets/share/geneva-jet-deau.jpg",
@@ -233,12 +233,12 @@
   },
   "play": {
     "title": "Play vs Computer - Chess Playbook",
-    "description": "Play chess against Stockfish at 8 difficulty levels, from beginner to grandmaster strength. Free, in your browser, no sign-up.",
+    "description": "Play chess against the Master, who plays like a person from 1100 to 1900 and says his moves, or against Stockfish up to grandmaster.",
     "ogTitle": "Play vs Computer - Chess Playbook",
-    "ogDescription": "Play chess against Stockfish at 8 difficulty levels.",
+    "ogDescription": "Play the Master, who plays like a person, or Stockfish up to grandmaster.",
     "keywords": "play chess vs computer, chess against stockfish, free chess game",
     "heading": "Play vs Computer",
-    "body": "Play chess against Stockfish at 8 difficulty levels, from beginner to grandmaster strength."
+    "body": "Play chess against the Master, who plays like a person from 1100 to 1900, or against Stockfish from beginner to grandmaster."
   },
   "play-online": {
     "title": "Play Online - Chess Playbook",
@@ -259,7 +259,7 @@
     "body": "Privacy Policy for Chess Playbook: how we collect and use data."
   },
   "puzzles": {
-    "title": "Chess Puzzle Trainer — Adaptive Tactics | Chess Playbook",
+    "title": "Chess Puzzle Trainer: Adaptive Tactics | Chess Playbook",
     "description": "Train with chess puzzles matched to your level. Run focused sessions, follow a weekly plan, and track progress in tactics, middlegames and endgames.",
     "ogTitle": "Chess Puzzle Trainer",
     "ogDescription": "Puzzles matched to your level, a plan built around the time you have, and a record of where you stand.",
@@ -271,14 +271,14 @@
     "title": "Your Training Record | Chess Playbook",
     "description": "Your chess training record: how you are doing in tactics, middlegames and endgames, and which areas you have not trained yet.",
     "ogTitle": "Your Training Record",
-    "ogDescription": "How you are doing in tactics, middlegames and endgames — and what you have not trained yet.",
+    "ogDescription": "How you are doing in tactics, middlegames and endgames, and what you have not trained yet.",
     "keywords": "chess training progress, chess puzzle rating, chess tactics progress",
     "heading": "Your Training Record",
     "body": "Track where you stand in tactics, middlegames and endgames, and see which areas you have not trained yet."
   },
   "puzzles/plan": {
     "title": "Your Training Plan | Chess Playbook",
-    "description": "Your chess training plan: how often you train, how long each session is, and what each one works on — built around the time you actually have.",
+    "description": "Your chess training plan, built around the time you have: how often you train, how long each session is and what each one works on.",
     "ogTitle": "Your Training Plan",
     "ogDescription": "What to train and when, built around the time you actually have.",
     "keywords": "chess training plan, chess study plan, chess improvement schedule",
@@ -305,7 +305,7 @@
   },
   "premium": {
     "title": "Chess Playbook Premium: Train With No Daily Limits",
-    "description": "Chess Playbook Premium removes the daily limits on opening training, game reports, position explanations and Champion Challenge. Prices in your currency, with a full refund within 30 days.",
+    "description": "Premium removes the daily limits on opening training, game reports, explanations and Champion Challenge. Prices in your currency, full refund within 30 days.",
     "ogTitle": "Chess Playbook Premium",
     "ogDescription": "Train as much as you want, every day: no daily limits on opening training, game reports, explanations and Champion Challenge.",
     "keywords": "chess playbook premium, chess training subscription, opening trainer, chess game report",
@@ -313,7 +313,7 @@
     "body": "Train as much as you want, every day. Premium removes the free plan's daily limits on opening training, game reports, position explanations and Champion Challenge."
   },
   "world-championship-cycle": {
-    "title": "World Championship Cycle — How to Become World Champion",
+    "title": "World Championship Cycle: How to Become World Champion",
     "description": "The complete FIDE World Championship cycle: how players qualify through the World Cup, Grand Swiss and Candidates to the title match.",
     "ogTitle": "World Championship Cycle",
     "ogDescription": "How players qualify through the World Cup, Grand Swiss and Candidates to the title match.",

@@ -1,0 +1,54 @@
+{
+  "start": [
+    {
+      "text": "Good luck!",
+      "key": "8e30d6aac813417d"
+    },
+    {
+      "text": "Let's play. Good luck!",
+      "key": "0b8962e3dbff2119"
+    },
+    {
+      "text": "Good luck, and enjoy the game.",
+      "key": "c1feff9b586f5e35"
+    }
+  ],
+  "win": [
+    {
+      "text": "Well played! You beat me.",
+      "key": "3b9d75a391d261ec"
+    },
+    {
+      "text": "Well done, you beat me!",
+      "key": "aa84f63470e8fb72"
+    },
+    {
+      "text": "You beat me. Nicely done.",
+      "key": "9a68527439ab2bb0"
+    }
+  ],
+  "loss": [
+    {
+      "text": "Good game. Shall we play another?",
+      "key": "ebbfb11783b225a7"
+    },
+    {
+      "text": "That one was mine. Another game?",
+      "key": "180b66cd15e5104e"
+    },
+    {
+      "text": "Good game. You'll get me next time.",
+      "key": "4c5f1e0fa1104a41"
+    }
+  ],
+  "draw": [
+    {
+      "text": "A draw. Well played.",
+      "key": "2e38f08e0962727e"
+    },
+    {
+      "text": "A draw. A fair result.",
+      "key": "9a1960f583a1c9e9"
+    }
+  ]
+}

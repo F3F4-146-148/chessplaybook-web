@@ -226,7 +226,9 @@ export function parseMainSearch(lines: string[], sideToMove: 'w' | 'b'): ParsedP
   let mateIn: number | null = null;
   if (latestMate !== null) {
     const m = latestMate * flip;
-    searchedEval = m > 0 ? 100 : -100;
+    // Sign from the side to move BEFORE flipping: `mate 0` (already checkmate)
+    // means the side to move is mated, and 0 * flip carries no side.
+    searchedEval = (latestMate > 0 ? 100 : -100) * flip;
     isMate = true;
     mateIn = m;
   } else if (latestCp !== null) {

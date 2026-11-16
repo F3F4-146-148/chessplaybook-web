@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import shareImage from '@/config/share-image.json';
+import routeMeta from '@/config/route-meta.json';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HelmetProvider, Helmet } from "react-helmet-async";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -94,22 +95,20 @@ interface ProvidersProps {
  * none at all. This puts the defaults back at the root, where any page-level
  * <Helmet> overrides them by virtue of being deeper in the tree.
  *
- * Keep in sync with index.html.
+ * The text is the homepage's entry in route-meta.json (SEO audit, 2026-11-15): this used to be
+ * a hand-kept copy that still said "Master Your Game" / "Elevate your chess strategy..." months
+ * after the homepage moved on, and every page without meta of its own rendered it. No default
+ * og:url: a default URL is the homepage's, which is false on any page that falls back to it.
  */
+const HOME_META = (routeMeta as Record<string, { description: string; ogTitle: string; ogDescription: string }>)[''];
+
 function SeoDefaults() {
   return (
     <Helmet>
-      <meta
-        name="description"
-        content="Elevate your chess strategy with the champion's playbook. Learn advanced tactics, openings, and endgame mastery."
-      />
-      <meta property="og:title" content="Chess Playbook - Master Your Game" />
-      <meta
-        property="og:description"
-        content="Elevate your chess strategy with the champion's playbook. Learn advanced tactics, openings, and endgame mastery."
-      />
+      <meta name="description" content={HOME_META.description} />
+      <meta property="og:title" content={HOME_META.ogTitle} />
+      <meta property="og:description" content={HOME_META.ogDescription} />
       <meta property="og:type" content="website" />
-      <meta property="og:url" content="https://www.chessplaybook.com" />
       <meta property="og:image" content={shareImage.url} />
       <meta property="og:image:width" content={String(shareImage.width)} />
       <meta property="og:image:height" content={String(shareImage.height)} />

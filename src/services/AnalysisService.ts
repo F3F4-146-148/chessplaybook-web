@@ -1668,8 +1668,14 @@ export class AnalysisService {
             evalCp = parseInt(cpMatch[1], 10) * flip;
             mateIn = null;
           } else if (mateMatch) {
-            mateIn = parseInt(mateMatch[1], 10) * flip;
-            evalCp = mateIn > 0 ? 10000 : -10000;
+            // The sign is the SIDE TO MOVE's: positive, it mates; negative or
+            // `mate 0` (the position is already checkmate), it is mated. Take the
+            // sign before flipping: 0 * flip is still 0, so flipping first scored
+            // every position where Black is mated as Black winning, and the
+            // Game report called White's mating move a 20000cp loss.
+            const raw = parseInt(mateMatch[1], 10);
+            mateIn = raw * flip;
+            evalCp = (raw > 0 ? 10000 : -10000) * flip;
           }
         }
 

@@ -1867,3 +1867,6 @@
     .premium-hero .premium-arrow-row { display: none; }
   }
 }
+
+/* The Master's portrait: a new expression fades in over the previous one (MasterPortrait, #186). */
+@keyframes master-fade-in { from { opacity: 0; } to { opacity: 1; } }

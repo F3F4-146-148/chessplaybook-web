@@ -28,6 +28,8 @@ export interface ServerPreferences {
   boardTheme?: string;
   pvCount?: number;
   analysisEnabled?: boolean;
+  /** The "Show the Master" switch (#186). */
+  showMaster?: boolean;
   puzzleRating?: number;
   puzzleSolved?: number;
   puzzleFailed?: number;
