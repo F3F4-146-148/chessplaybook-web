@@ -27,7 +27,7 @@ describe('MasterPortrait', () => {
     expect(box.style.height).toBe('230px');
     const img = box.querySelector('img')!;
     expect(img.getAttribute('alt')).toBe('');
-    expect(img.getAttribute('src')).toBe('/assets/master-v1/master-pleased-half-300-mirror.webp');
+    expect(img.getAttribute('src')).toBe('/assets/master-v2/master-pleased-half-300-mirror.webp');
   });
 
   it('keeps the previous expression underneath while the new one fades in, then drops it', async () => {

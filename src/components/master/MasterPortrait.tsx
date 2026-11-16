@@ -59,7 +59,7 @@ export function MasterPortrait({ expression, variant, facing, size, show = true,
         height={size}
         decoding="async"
         draggable={false}
-        className={`absolute inset-0 h-full w-full select-none ${fading ? '' : 'animate-[master-fade-in_200ms_ease-out] motion-reduce:animate-none'}`}
+        className={`absolute inset-0 h-full w-full select-none object-contain object-bottom ${fading ? '' : 'animate-[master-fade-in_200ms_ease-out] motion-reduce:animate-none'}`}
       />
     );
   };

@@ -23,16 +23,16 @@ describe('the Master\'s pictures', () => {
   });
 
   it('mirrors the picture when the board is on his right', () => {
-    expect(masterSrc('thinking', 'head', 112, 'left')).toBe('/assets/master-v1/master-thinking-head-112.webp');
-    expect(masterSrc('thinking', 'head', 112, 'right')).toBe('/assets/master-v1/master-thinking-head-112-mirror.webp');
+    expect(masterSrc('thinking', 'head', 112, 'left')).toBe('/assets/master-v2/master-thinking-head-112.webp');
+    expect(masterSrc('thinking', 'head', 112, 'right')).toBe('/assets/master-v2/master-thinking-head-112-mirror.webp');
   });
 
   it('picks a 1x at least as wide as the drawn size and a 2x at least twice as wide', () => {
     expect(masterSrcSet('pleased', 'head', 62, 'left')).toEqual({
-      src: '/assets/master-v1/master-pleased-head-112.webp',
-      srcSet: '/assets/master-v1/master-pleased-head-112.webp 1x, /assets/master-v1/master-pleased-head-224.webp 2x',
+      src: '/assets/master-v2/master-pleased-head-112.webp',
+      srcSet: '/assets/master-v2/master-pleased-head-112.webp 1x, /assets/master-v2/master-pleased-head-224.webp 2x',
     });
     // past the largest export, both are the largest
-    expect(masterSrcSet('presenting', 'half', 400, 'left').srcSet).toBe('/assets/master-v1/master-presenting-half-600.webp');
+    expect(masterSrcSet('presenting', 'half', 400, 'left').srcSet).toBe('/assets/master-v2/master-presenting-half-600.webp');
   });
 });

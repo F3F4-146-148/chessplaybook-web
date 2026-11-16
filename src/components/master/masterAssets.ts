@@ -3,13 +3,15 @@
  *
  * Made by the owner in ChatGPT (six poses), cut out and cropped by `scripts/master-character/cutout.py`.
  * `assets/` is cached immutable for a year, so a changed picture goes in a NEW folder (`master-v2/`) and
- * this base changes with it; never overwrite a file in `master-v1/`.
+ * this base changes with it; never overwrite a file in a published `master-vN/`.
  *
  * Every name this module can return is checked to exist by `masterAssets.test.ts`, so a missing picture
  * fails the build instead of a visitor's page.
  */
 
-export const MASTER_ASSET_BASE = '/assets/master-v1/';
+// v2 (2026-11-16): the after-move face (presenting, speaking) re-framed like Thinking and turned 18 deg, after
+// master-v1 was live; v1 stays on the host for pages already open
+export const MASTER_ASSET_BASE = '/assets/master-v2/';
 
 export const MASTER_EXPRESSIONS = ['presenting', 'speaking', 'thinking', 'pleased', 'serious', 'surprised'] as const;
 export type MasterExpression = (typeof MASTER_EXPRESSIONS)[number];
