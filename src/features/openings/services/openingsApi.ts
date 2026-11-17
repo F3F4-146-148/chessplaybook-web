@@ -156,6 +156,8 @@ export interface TrainingSession {
   currentLine: string[];
   currentLineId: string | null;
   resumedFrom: string | null;
+  /** Owner, 2026-11-17: a session the server could not start, trained in this browser and not saved. */
+  local?: boolean;
 }
 
 export interface TrainingState {

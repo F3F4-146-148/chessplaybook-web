@@ -1933,3 +1933,60 @@
 .master-figure { transform-origin: 50% 100%; animation: master-breathe 4.6s ease-in-out infinite; }
 @keyframes master-breathe { 0%, 100% { scale: 1 1; } 50% { scale: 1.002 1.006; } }
 @media (prefers-reduced-motion: reduce) { .master-figure { animation: none; } }
+
+/*
+  THE PLAY LIST IN THE NAV (#308; behaviour in components/nav/PlayMenu.tsx).
+
+  `.nav-play` takes Play's place among the row's items (the desktop menu is `display: contents`, so this wrapper is
+  one of the row's `space-between` children, like a bare link), and adds no width: no chevron, as chess.com's.
+  The list hangs below Play, centred on it. Its top padding is a transparent bridge over the gap, so the pointer
+  crossing from Play to the list never leaves the wrapper and the list does not close on the way.
+  Sizes follow `--nav-type`, so the list scales with the row it hangs from.
+*/
+.nav-play {
+  position: relative;
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+}
+.nav-play > a {
+  display: flex;
+  align-items: center;
+}
+.nav-play-list {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding-top: 4px;
+  z-index: 50;
+}
+.nav-play-list[hidden] {
+  display: none;
+}
+.nav-play-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: max-content;
+}
+.nav-play-link {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.55em 1em;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.nav-play .nav-play-item-icon {
+  /* Every icon in one 1.4em slot, so the three rows are one height. Doubled class: the row's own
+     `[data-nav-desktop] svg, img` rules would otherwise size them. The Master's face fills its slot; a line icon
+     carries its own margin, so it is drawn smaller to read the same size. */
+  flex-shrink: 0;
+  width: 1.4em;
+  height: 1.4em;
+}
+.nav-play svg.nav-play-item-icon {
+  width: 1.1em;
+  height: 1.1em;
+  margin: 0.15em;
+}

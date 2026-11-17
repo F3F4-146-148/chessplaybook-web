@@ -7,6 +7,7 @@ import { logGA4Event } from '@/services/analytics';
 import { dailyLimitMessage, readDailyLimit, reportDailyLimit } from '@/services/freePlanLimit';
 
 const NO_LINE: string[] = [];
+const UNSAVED = 'Your progress is not being saved right now. You can keep training.';
 
 /**
  * Training sessions and progress (opening trainer E5; Q16; owner rulings 2026-11-11).
@@ -30,6 +31,8 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
   const [justEnded, setJustEnded] = useState<'paused' | 'stopped' | null>(null);
   const sessionRef = useRef<TrainingSession | null>(null);
   sessionRef.current = session;
+  const stateRef = useRef<TrainingState | null>(null);
+  stateRef.current = state;
 
   const load = useCallback((signal?: AbortSignal) => {
     setLoadError(false);
@@ -38,7 +41,12 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
         setState(s);
         setScope(s.open?.scope ?? s.lastScope ?? 'main');
       })
-      .catch(() => { if (!signal?.aborted) setLoadError(true); });
+      .catch(() => {
+        if (signal?.aborted) return;
+        setLoadError(true);
+        // Owner, 2026-11-17: a failed read never stops training; it starts from no progress, said on the card.
+        setState((st) => st ?? { bookVersion: '', open: null, lastScope: null, cleanPaths: [], linesPlayed: 0 });
+      });
   }, [repertoireId]);
 
   useEffect(() => {
@@ -57,7 +65,7 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
     setSaveError(
       e instanceof OpeningsApiError && e.status === 409 && /book was updated/.test(e.message)
         ? 'The opening book was updated. Start a new session.'
-        : 'Your progress could not be saved. Check the connection.',
+        : 'Your progress could not be saved. You can keep training.',
     );
   };
 
@@ -78,7 +86,29 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
         reportDailyLimit(limit);
         setSaveError(dailyLimitMessage(limit));
       } else {
-        failed(e);
+        /*
+          Owner, 2026-11-17: "saving progress should not stop training". Any other failure (no connection, a server
+          error, the dev server's write guard) starts the session here in the browser: the board and the book's answers
+          come from the export already loaded; moves, lines, Pause and Stop are not saved. The free plan's daily limit
+          above stays a block, or blocking one request would bypass it.
+        */
+        const open = resume ? sessionRef.current ?? null : null;
+        const was = resume ? (open ?? stateRef.current?.open ?? null) : null;
+        const local: TrainingSession = {
+          id: `local-${Date.now()}`,
+          repertoireId,
+          bookVersion: stateRef.current?.bookVersion ?? '',
+          scope: was?.scope ?? scope,
+          startLine: was?.startLine ?? from,
+          status: 'active',
+          currentLine: was?.currentLine ?? [],
+          currentLineId: was?.currentLineId ?? null,
+          resumedFrom: null,
+          local: true,
+        };
+        logGA4Event({ name: 'opening_session_started', params: { repertoire: repertoireId, scope: local.scope, resumed: resume, from_position: local.startLine.length > 0, saved: false } });
+        setSession(local);
+        setSaveError(UNSAVED);
       }
     } finally {
       setBusy(false);
@@ -88,6 +118,11 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
   const end = useCallback(async (how: 'paused' | 'stopped', line: string[]) => {
     const s = sessionRef.current;
     if (!s) return;
+    if (s.local) { // nothing on the server to end
+      setSession(null);
+      setJustEnded(null);
+      return;
+    }
     setBusy(true);
     try {
       const ended = await trainingApi.end(s.id, how, how === 'paused' ? line : undefined);
@@ -122,14 +157,24 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
   /** E6: one of our moves, saved as it is played. */
   const recordMove = useCallback((r: TrainingReport) => {
     const s = sessionRef.current;
-    if (!s) return;
+    if (!s || s.local) return;
     trainingApi.move(s.id, r).then(() => setSaveError(null)).catch(failed);
   }, []);
 
   /** A line played to its end; the server's answer is whether it is trained. */
-  const recordLine = useCallback(async (line: string[], lineId: string): Promise<boolean | null> => {
+  const recordLine = useCallback(async (line: string[], lineId: string, cleanHere: boolean): Promise<boolean | null> => {
     const s = sessionRef.current;
     if (!s) return null;
+    if (s.local) {
+      // judged here, from the moves' outcomes; counted on the card for this visit only
+      const path = line.join(' ');
+      setState((st) => (st ? {
+        ...st,
+        linesPlayed: st.linesPlayed + 1,
+        cleanPaths: cleanHere && !st.cleanPaths.includes(path) ? [...st.cleanPaths, path] : st.cleanPaths,
+      } : st));
+      return cleanHere;
+    }
     try {
       const { clean } = await trainingApi.line(s.id, lineId, line);
       logGA4Event({ name: 'opening_line_finished', params: { repertoire: repertoireId, trained: clean } });

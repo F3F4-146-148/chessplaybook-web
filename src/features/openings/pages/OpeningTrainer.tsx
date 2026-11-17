@@ -18,6 +18,8 @@ import { useTrainingSession } from '../hooks/useTrainingSession';
 import { linesInScope, linesFrom, progress, type ScopeProgress } from '../training/trainingLines';
 import { useAuth } from '@/features/auth/AuthContext';
 import { useOutsideGrade } from '../hooks/useOutsideGrade';
+import { ReasonList } from '../components/ReasonList';
+import { MoveMarker, MOVE_ROW_RULE } from '../components/MoveMarker';
 import { buildPositionHref } from '@/lib/positionDeepLink';
 import { applyMove, positionFromFen } from '@/components/chess/chessLogic';
 import { fetchRepertoires, type RepertoireListing, type TrainingScope } from '../services/openingsApi';
@@ -441,11 +443,7 @@ export default function OpeningTrainer() {
                   </p>
                   <div className="flex min-h-0 flex-1 flex-col">
                     <WorkspaceList label="Reasons for the move">
-                      <ul className="flex flex-col gap-[0.45em] text-foreground">
-                        {(tLastExpl?.r.length ? tLastExpl.r.map((r) => r.t) : [NO_REASON]).map((x, i) => (
-                          <li key={i} className="leading-snug">{x}</li>
-                        ))}
-                      </ul>
+                      <ReasonList reasons={(tLastExpl?.r ?? []).map((r) => ({ key: r.k, text: r.t }))} empty={NO_REASON} />
                     </WorkspaceList>
                   </div>
                 </>
@@ -639,11 +637,7 @@ export default function OpeningTrainer() {
                       {positionName && <p className="text-[0.86em] leading-snug text-muted-foreground">{positionName}</p>}
                       <div className="flex min-h-0 flex-1 flex-col">
                         <WorkspaceList label="Reasons for the move">
-                          <ul className="flex flex-col gap-[0.45em] text-foreground">
-                            {(last.explanation?.length ? last.explanation.map((r) => r.text) : [NO_REASON]).map((t, i) => (
-                              <li key={i} className="leading-snug">{t}</li>
-                            ))}
-                          </ul>
+                          <ReasonList reasons={last.explanation ?? []} empty={NO_REASON} />
                         </WorkspaceList>
                       </div>
                     </>
@@ -691,9 +685,12 @@ export default function OpeningTrainer() {
                                   else walk.play(chosen.move);
                                 }}
                                 aria-label={`Play ${chosen.san}`}
-                                className="card-row group w-full justify-between rounded px-[0.3em] py-[0.2em] text-left hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                className={`card-row group w-full justify-between rounded px-[0.3em] py-[0.4em] text-left hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${MOVE_ROW_RULE}`}
                               >
-                                <span className="font-semibold text-foreground">{chosen.san}</span>
+                                <span className="inline-flex min-w-0 items-center gap-[0.5em]">
+                                  <MoveMarker role="chosen" />
+                                  <span className="font-semibold text-foreground">{chosen.san}</span>
+                                </span>
                                 <span className="inline-flex items-center gap-[0.3em]">
                                   <span className="tabular-nums">{gamesShare(chosen, ' of games')}</span>
                                   <ChevronRight className="opacity-40 group-hover:opacity-100" aria-hidden />
@@ -703,14 +700,15 @@ export default function OpeningTrainer() {
                             {alternative && (
                               /* #179: where the chosen line repeats a position, a playable move that avoids it. */
                               <>
-                                <span className="mt-[0.4em] text-[0.86em] text-muted-foreground">Also playable: avoids a repetition later in the line</span>
+                                <span className={`move-group-label px-[0.3em] pt-[0.5em] text-[0.86em] text-muted-foreground ${MOVE_ROW_RULE}`}>Also playable: avoids a repetition later in the line</span>
                                 <button
                                   type="button"
                                   onClick={() => walk.play(alternative.move)}
                                   aria-label={`Play ${alternative.san}`}
-                                  className="card-row group w-full justify-between rounded px-[0.3em] py-[0.2em] text-left hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  className={`card-row group w-full justify-between rounded px-[0.3em] py-[0.4em] text-left hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${MOVE_ROW_RULE}`}
                                 >
-                                  <span className="inline-flex min-w-0 items-center gap-[0.4em]">
+                                  <span className="inline-flex min-w-0 items-center gap-[0.5em]">
+                                    <MoveMarker role="alternative" />
                                     <span className={walk.isMoveDone(alternative) ? 'text-muted-foreground line-through' : 'font-medium text-foreground'}>{alternative.san}</span>
                                     {walk.isMoveDone(alternative) && <Check className="text-success" aria-label="done" />}
                                   </span>
@@ -723,10 +721,13 @@ export default function OpeningTrainer() {
                             )}
                             {alsoTheory.length > 0 && (
                               <>
-                                <span className="mt-[0.4em] text-[0.86em] text-muted-foreground">Also theory, not in this repertoire</span>
+                                <span className={`move-group-label px-[0.3em] pt-[0.5em] text-[0.86em] text-muted-foreground ${MOVE_ROW_RULE}`}>Also theory, not in this repertoire</span>
                                 {alsoTheory.map((m) => (
-                                  <span key={m.move} className="card-row justify-between text-[0.92em]">
-                                    <span>{m.san}</span>
+                                  <span key={m.move} className={`card-row justify-between px-[0.3em] py-[0.35em] text-[0.92em] text-muted-foreground ${MOVE_ROW_RULE}`}>
+                                    <span className="inline-flex min-w-0 items-center gap-[0.5em]">
+                                      <MoveMarker role="other" />
+                                      <span>{m.san}</span>
+                                    </span>
                                     <span className="tabular-nums">{gamesShare(m)}</span>
                                   </span>
                                 ))}
@@ -737,7 +738,7 @@ export default function OpeningTrainer() {
                           <div className="flex flex-col">
                             {/* D9 (owner: "jump to another reply"): every row plays its reply; say so where it matters. */}
                             {view.position.junction && (
-                              <span className="mb-[0.2em] text-[0.86em] text-muted-foreground">Choose a reply, or press Next.</span>
+                              <span className="move-group-label mb-[0.2em] px-[0.3em] text-[0.86em] text-muted-foreground">Choose a reply, or press Next.</span>
                             )}
                             {walk.order.map((m) => {
                               const isDone = walk.isMoveDone(m);
@@ -749,9 +750,10 @@ export default function OpeningTrainer() {
                                   type="button"
                                   onClick={() => (isNextInLine ? walk.goTo(walk.viewPly + 1) : walk.play(m.move))}
                                   aria-label={`Play ${m.san}`}
-                                  className="card-row group w-full justify-between rounded px-[0.3em] py-[0.2em] text-left hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  className={`card-row group w-full justify-between rounded px-[0.3em] py-[0.4em] text-left hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${MOVE_ROW_RULE}`}
                                 >
-                                  <span className="inline-flex min-w-0 items-center gap-[0.4em]">
+                                  <span className="inline-flex min-w-0 items-center gap-[0.5em]">
+                                    <MoveMarker role={m.main === false ? 'sideline' : 'main'} />
                                     <span className={isDone ? 'text-muted-foreground line-through' : 'font-medium text-foreground'}>{m.san}</span>
                                     {isDone && <Check className="text-success" aria-label="done" />}
                                     {m.main === false && <span className="text-[0.8em] text-muted-foreground">sideline</span>}
@@ -765,10 +767,13 @@ export default function OpeningTrainer() {
                             })}
                             {walk.uncovered.length > 0 && (
                               <>
-                                <span className="mt-[0.4em] text-[0.86em] text-muted-foreground">Also theory, rarely played, not in this repertoire</span>
+                                <span className={`move-group-label px-[0.3em] pt-[0.5em] text-[0.86em] text-muted-foreground ${MOVE_ROW_RULE}`}>Also theory, rarely played, not in this repertoire</span>
                                 {walk.uncovered.map((m) => (
-                                  <span key={m.move} className="card-row justify-between px-[0.3em] text-[0.92em]">
-                                    <span>{m.san}</span>
+                                  <span key={m.move} className={`card-row justify-between px-[0.3em] py-[0.35em] text-[0.92em] text-muted-foreground ${MOVE_ROW_RULE}`}>
+                                    <span className="inline-flex min-w-0 items-center gap-[0.5em]">
+                                      <MoveMarker role="other" />
+                                      <span>{m.san}</span>
+                                    </span>
                                     <span className="tabular-nums">{gamesShare(m)}</span>
                                   </span>
                                 ))}
@@ -964,6 +969,12 @@ export default function OpeningTrainer() {
                             Your progress lives on this device.{' '}
                             <Link to={`/login?returnTo=${encodeURIComponent(`/openings?mode=train&repertoire=${repertoireId}`)}`} className="text-link hover:underline">Sign in</Link>
                             {' '}and it follows you.
+                          </p>
+                        )}
+                        {sess.loadError && (
+                          <p className="text-[0.86em] text-destructive">
+                            Your saved progress could not be loaded. You can still train.{' '}
+                            <button type="button" onClick={sess.retry} className="text-link hover:underline">Try again</button>
                           </p>
                         )}
                         {sess.saveError && <p className="text-[0.86em] text-destructive">{sess.saveError}</p>}

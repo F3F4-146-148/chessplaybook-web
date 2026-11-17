@@ -61,6 +61,7 @@ export const COLOR_ROLES = [
   'medal-gold', 'medal-silver', 'medal-bronze',
   'clock-low', 'clock-low-foreground', 'clock-critical', 'clock-critical-foreground',
   'feature-explain', 'feature-puzzles', 'feature-play', 'feature-challenge', 'feature-openings',
+  'reason-threat', 'reason-centre', 'reason-development', 'reason-king', 'reason-structure',
   'training-tactics', 'training-tactics-border', 'training-tactics-foreground',
   'training-middlegame', 'training-middlegame-border', 'training-middlegame-foreground',
   'training-endgame', 'training-endgame-border', 'training-endgame-foreground',
@@ -262,6 +263,13 @@ export const darkTheme: ColorTheme = {
     'feature-play': '158 64% 52%',
     'feature-challenge': '0 91% 71%',
     'feature-openings': '198 93% 60%',
+    /* #177 (owner, 2026-11-17, option B): the kind marker on each reason of the opening trainer's "Why this
+       move" card. Icons, so 3:1 against the card and the page (contrast.test.ts). */
+    'reason-threat': '6 78% 70%',
+    'reason-centre': '36 80% 64%',
+    'reason-development': '165 50% 58%',
+    'reason-king': '212 75% 72%',
+    'reason-structure': '268 45% 76%',
 
     /* B5c. The articles' accent (eyebrow labels, bullets, highlighted rows): the red-400 they drew. */
     editorial: '0 91% 71%',
@@ -470,6 +478,11 @@ export const lightTheme: ColorTheme = {
     'feature-play': '163 94% 24%',
     'feature-challenge': '0 72% 51%',
     'feature-openings': '201 90% 30%',
+    'reason-threat': '4 62% 42%',
+    'reason-centre': '34 85% 32%',
+    'reason-development': '170 55% 26%',
+    'reason-king': '214 60% 38%',
+    'reason-structure': '268 32% 42%',
 
     editorial: '0 72% 42%',
 
@@ -619,6 +632,13 @@ export function tailwindColors() {
       play: ref('feature-play'),
       challenge: ref('feature-challenge'),
       openings: ref('feature-openings'),
+    },
+    reason: {
+      threat: ref('reason-threat'),
+      centre: ref('reason-centre'),
+      development: ref('reason-development'),
+      king: ref('reason-king'),
+      structure: ref('reason-structure'),
     },
   };
 }

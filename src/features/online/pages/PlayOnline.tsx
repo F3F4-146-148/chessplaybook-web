@@ -300,6 +300,12 @@ export function PlayOnline() {
 
   // Sidebar UI state
   const [friendExpanded, setFriendExpanded] = useState(searchParams.get('setup') === 'friend');
+  /* #308: the nav's "Challenge a friend" links here with ?setup=friend from every page, this one included. The
+     page stays mounted when only the query changes, so the initial state above would miss it. */
+  const setupFriend = searchParams.get('setup') === 'friend';
+  useEffect(() => {
+    if (setupFriend) setFriendExpanded(true);
+  }, [setupFriend, location.key]);
   const [challengeLinkCopied, setChallengeLinkCopied] = useState(false);
   const challengeCopyTimerRef = useRef<ReturnType<typeof setTimeout>>();
   const [challengeColor, setChallengeColor] = useState<'white' | 'black' | 'random'>('random');

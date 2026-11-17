@@ -67,7 +67,8 @@ export interface TrainingWalkOptions {
   cleanPaths: string[];
   onMove: (r: TrainingReport) => void;
   /** A line played to its end. Resolves with whether the server found it clean, or null when it could not say. */
-  onLineEnd: (line: string[], lineId: string) => Promise<boolean | null>;
+  /** `cleanHere`: every one of our moves right first time, judged in the browser (a session that is not saved). */
+  onLineEnd: (line: string[], lineId: string, cleanHere: boolean) => Promise<boolean | null>;
 }
 
 const REPLY_DELAY_MS = 600;
@@ -197,7 +198,8 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
     reported.current = lineId;
     const id = lineId;
     setLineResult({ lineId: id, clean: null });
-    callbacks.current.onLineEnd(ucis, id).then((clean) => {
+    const cleanHere = line.filter((m) => m.ours).every((m) => m.outcome === 'first_time');
+    callbacks.current.onLineEnd(ucis, id, cleanHere).then((clean) => {
       setLineResult((r) => (r && r.lineId === id ? { lineId: id, clean } : r));
     });
   }, [status.kind, running, lineId, ucis]);

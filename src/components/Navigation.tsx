@@ -8,6 +8,7 @@ import { MdPsychology } from 'react-icons/md';
 import { MATCH_LAST_DAY, MATCH_PATH, calendarState, gamePath, genevaDate } from '@/features/world-championship/match';
 import { lazy, Suspense, useState, useEffect, useRef, type CSSProperties } from 'react';
 import { DESIGN_V2_LIVE } from '@/design/designFlags';
+import { PlayMenu, PlayMenuGroup, isPlayPath } from '@/components/nav/PlayMenu';
 
 // Lazy-load auth (perf: defers 125KB aws-amplify vendor chunk from initial load)
 const UserDropdown = lazy(() => import('@/features/auth/components/UserDropdown').then(m => ({ default: m.UserDropdown })));
@@ -129,7 +130,8 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
     // homepage cards and in the footer.
     { to: '/openings', icon: BookOpen, label: 'Openings' },
     { to: '/puzzles', icon: MdPsychology, label: 'Puzzles' },
-    { to: '/play-online', icon: Swords, label: 'Play' },
+    // #308: Play goes to the Master (/play) and carries the list of ways to play (components/nav/PlayMenu.tsx).
+    { to: '/play', icon: Swords, label: 'Play', isPlay: true },
     { to: liveTarget ?? '/live-events', icon: Radio, label: 'Live', isLive: isEventLive, isTournamentDay },
     ...(CHAMPION_CHALLENGE_LIVE
       ? [{ to: '/champion-challenge', icon: Crown, label: 'Challenge' }]
@@ -266,6 +268,7 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
           */}
           <div data-nav-desktop className="hidden navrow:flex items-center gap-1 shrink-0">
             {navLinks.map((link) => {
+              if (link.isPlay) return <PlayMenu key={link.to} isActive={isPlayPath(activePath)} />;
               const isActive = (activePath ?? location.pathname).startsWith(link.to);
               return (
                 <Link
@@ -323,6 +326,9 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
           <div className="navrow:hidden py-4 border-t border-border/50 animate-fade-in" style={{ animationDuration: '0.2s' }}>
             <div className="flex flex-col gap-1">
               {navLinks.map((link) => {
+                if (link.isPlay) {
+                  return <PlayMenuGroup key={link.to} isActive={isPlayPath(activePath)} onNavigate={() => setMobileMenuOpen(false)} />;
+                }
                 const isActive = (activePath ?? location.pathname).startsWith(link.to);
                 return (
                   <Link

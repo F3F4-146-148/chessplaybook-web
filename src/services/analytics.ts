@@ -426,6 +426,9 @@ type GA4Event =
   | { name: 'contact_form_submitted'; params: { category: string; has_email: boolean; surface: SupportSurface } }
   /* #44: a way to the contact form was pressed, and from where. */
   | { name: 'support_entry_clicked'; params: { surface: SupportSurface } }
+  /* #308: an item of the Play list in the nav was pressed. `item` is which one, `surface` the desktop row or the
+     phone menu. A click on Play itself is not here: it is the /play page_view, as it was before the list. */
+  | { name: 'nav_play_menu_clicked'; params: { item: 'master' | 'online' | 'friend'; surface: 'desktop' | 'mobile' } }
   | { name: 'contact_form_failed'; params: { reason: 'invalid' | 'rate_limited' | 'network' | 'server' } }
   | { name: 'signed_in'; params: { provider: 'google' | 'cognito' } }
   /**
