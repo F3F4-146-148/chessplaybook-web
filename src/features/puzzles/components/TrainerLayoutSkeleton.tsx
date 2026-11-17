@@ -624,6 +624,7 @@ export default function TrainerLayoutSkeleton() {
                 opening={puzzle.puzzleState.puzzle?.opening}
                 exploring={Boolean(puzzle.exploreAt)}
                 isMidSolve={puzzle.isMidSolve}
+                puzzleId={puzzle.puzzleState.puzzle?.id ?? null}
                 announcement={announcement}
                 /* "Next Puzzle" inside a run, "New Puzzle" outside one. */
                 sessionId={run.running ? run.session?.id ?? null : null}

@@ -1,0 +1,286 @@
+[
+  {
+    "text": "White to move",
+    "key": "c6ff9b47bd9e65cd"
+  },
+  {
+    "text": "Black to move",
+    "key": "b5807c6df9865cf3"
+  },
+  {
+    "text": "Correct! Keep going...",
+    "key": "0974acac1732952e"
+  },
+  {
+    "text": "Correct so far — keep going",
+    "key": "438ce5770f42b190"
+  },
+  {
+    "text": "Correct! Puzzle solved.",
+    "key": "523c97d666e1d3b2"
+  },
+  {
+    "text": "Trying a variation",
+    "key": "2ef1a87c84d13a9d"
+  },
+  {
+    "text": "Worse, but not lost. Find the defence",
+    "key": "39101b1c75479a89"
+  },
+  {
+    "text": "Find the best move",
+    "key": "b83159f64eeb2778"
+  },
+  {
+    "text": "White to play and mate.",
+    "key": "152eac77d18c0438"
+  },
+  {
+    "text": "Black to play and mate.",
+    "key": "da174c030392e123"
+  },
+  {
+    "text": "White to play and checkmate.",
+    "key": "c48fe2fc34921ef0"
+  },
+  {
+    "text": "Black to play and checkmate.",
+    "key": "831f9471cee25e15"
+  },
+  {
+    "text": "White to move and mate.",
+    "key": "97b638828b9cdbce"
+  },
+  {
+    "text": "Black to move and mate.",
+    "key": "1c9d9f2405130ea2"
+  },
+  {
+    "text": "White to play. There is a forced mate.",
+    "key": "e7b1decc2f0fb7d0"
+  },
+  {
+    "text": "Black to play. There is a forced mate.",
+    "key": "d90ae1b46474835d"
+  },
+  {
+    "text": "White to play and win the exchange.",
+    "key": "6df07efd37816866"
+  },
+  {
+    "text": "Black to play and win the exchange.",
+    "key": "33fa1fb24cbe4199"
+  },
+  {
+    "text": "White to move and win the exchange.",
+    "key": "b3a9b8c073be07ab"
+  },
+  {
+    "text": "Black to move and win the exchange.",
+    "key": "01c19554a2c5178e"
+  },
+  {
+    "text": "White to play and win material.",
+    "key": "6fe541897143657d"
+  },
+  {
+    "text": "Black to play and win material.",
+    "key": "e8054bb04afd7018"
+  },
+  {
+    "text": "White to move and win material.",
+    "key": "6ea1beaf3dd3faa3"
+  },
+  {
+    "text": "Black to move and win material.",
+    "key": "c63c931f522496df"
+  },
+  {
+    "text": "White to play and come out ahead in material.",
+    "key": "a2f1e4f628b08768"
+  },
+  {
+    "text": "Black to play and come out ahead in material.",
+    "key": "99892f9a11a42980"
+  },
+  {
+    "text": "White to play and gain material.",
+    "key": "93d5ed86d5b44cc7"
+  },
+  {
+    "text": "Black to play and gain material.",
+    "key": "681ebf205ef9514e"
+  },
+  {
+    "text": "White to play and win a pawn.",
+    "key": "31baef729ec6a741"
+  },
+  {
+    "text": "Black to play and win a pawn.",
+    "key": "7a00517bbd41c7aa"
+  },
+  {
+    "text": "White to move and win a pawn.",
+    "key": "7e70fea487bbc5ac"
+  },
+  {
+    "text": "Black to move and win a pawn.",
+    "key": "ff99d58ac6d36060"
+  },
+  {
+    "text": "White to play and come out a pawn ahead.",
+    "key": "cd3f4e8c1f25f3c7"
+  },
+  {
+    "text": "Black to play and come out a pawn ahead.",
+    "key": "b63ff4bfcc99669f"
+  },
+  {
+    "text": "White to play and win a piece.",
+    "key": "a256c4840ddc5cea"
+  },
+  {
+    "text": "Black to play and win a piece.",
+    "key": "043eb5142b217468"
+  },
+  {
+    "text": "White to move and win a piece.",
+    "key": "535e4d48d00dabe6"
+  },
+  {
+    "text": "Black to move and win a piece.",
+    "key": "a4736cfba7650a3c"
+  },
+  {
+    "text": "White to play and come out a piece ahead.",
+    "key": "06cec4c781c77167"
+  },
+  {
+    "text": "Black to play and come out a piece ahead.",
+    "key": "266923aa442f1328"
+  },
+  {
+    "text": "White to play and win the queen.",
+    "key": "27e1782733b0cbe6"
+  },
+  {
+    "text": "Black to play and win the queen.",
+    "key": "82fd3a041b0c6ad0"
+  },
+  {
+    "text": "White to move and win the queen.",
+    "key": "1b06a60911c65c45"
+  },
+  {
+    "text": "Black to move and win the queen.",
+    "key": "f520ed1670e0afad"
+  },
+  {
+    "text": "White to play and win a rook.",
+    "key": "0d3fdcdf584a5836"
+  },
+  {
+    "text": "Black to play and win a rook.",
+    "key": "87be262589e2fa8a"
+  },
+  {
+    "text": "White to move and win a rook.",
+    "key": "372fc7bc91e8fd8b"
+  },
+  {
+    "text": "Black to move and win a rook.",
+    "key": "6dc07825ef21a1bc"
+  },
+  {
+    "text": "White to play and come out a rook ahead.",
+    "key": "424dacfcbcf7a081"
+  },
+  {
+    "text": "Black to play and come out a rook ahead.",
+    "key": "b18d477c370973aa"
+  },
+  {
+    "text": "White to play and win two pawns.",
+    "key": "f5053f68c624993c"
+  },
+  {
+    "text": "Black to play and win two pawns.",
+    "key": "671e66ff4d769dc0"
+  },
+  {
+    "text": "White to play and come out two pawns ahead.",
+    "key": "c9446b19358b9be3"
+  },
+  {
+    "text": "Black to play and come out two pawns ahead.",
+    "key": "43ea8928c7f47adf"
+  },
+  {
+    "text": "White to play and win.",
+    "key": "75e013e9708b2b96"
+  },
+  {
+    "text": "Black to play and win.",
+    "key": "294d20b259444d30"
+  },
+  {
+    "text": "White to move and win.",
+    "key": "d1ba24b537bc1e15"
+  },
+  {
+    "text": "Black to move and win.",
+    "key": "0f2f8fb33444c0f9"
+  },
+  {
+    "text": "White to play. Find the winning move.",
+    "key": "5dc856613247b15f"
+  },
+  {
+    "text": "Black to play. Find the winning move.",
+    "key": "a38ffa1dba4fe5be"
+  },
+  {
+    "text": "You are under pressure here. Find the save",
+    "key": "4ca95cbdfc6c05d3"
+  },
+  {
+    "text": "This looks bad, and it is holdable",
+    "key": "fb9c03b59e621afe"
+  },
+  {
+    "text": "Only one move keeps the balance",
+    "key": "7c46dad73ba4dbd0"
+  },
+  {
+    "text": "There is a resource in this position. Find it",
+    "key": "cfc7583e18f48a06"
+  },
+  {
+    "text": "The position can be held, with the right move",
+    "key": "6d89408a064eb539"
+  },
+  {
+    "text": "One move here is much better than the rest",
+    "key": "1f5b6534122d9b1d"
+  },
+  {
+    "text": "Find the strongest continuation",
+    "key": "2f3eb01a50bc650e"
+  },
+  {
+    "text": "This position has a point. Find it",
+    "key": "1a447570500c888f"
+  },
+  {
+    "text": "There is a best move here",
+    "key": "53e441ffd773a9bb"
+  },
+  {
+    "text": "One idea stands out in this position",
+    "key": "b57fe28416d67408"
+  },
+  {
+    "text": "What is the move?",
+    "key": "6e93a01fc0a85b1c"
+  }
+]

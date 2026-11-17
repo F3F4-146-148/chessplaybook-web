@@ -8,15 +8,25 @@ import env from '@/config/env';
 export interface MasterLine {
   text: string;
   audioUrl: string;
+  /** The mouth shapes timed to the recording (#298); absent from a server older than v2: his mouth stays closed. */
+  cuesUrl?: string;
 }
+
+/**
+ * The voice this page plays, named in every narration request. The server lets a browser keep an answer for a
+ * day, so without it a browser that heard the Master before a voice change answered the positions it had seen with
+ * the OLD recordings, and a game mixed two voices (owner on staging, 2026-11-17: Polly for the first three moves,
+ * George from move 4). A new voice means a new value here, so old answers are never reused. The server ignores it.
+ */
+export const MASTER_VOICE = '2';
 
 export async function fetchNarration(fenBefore: string, uci: string, signal?: AbortSignal): Promise<MasterLine | null> {
   try {
-    const q = new URLSearchParams({ fen: fenBefore, uci });
+    const q = new URLSearchParams({ fen: fenBefore, uci, voice: MASTER_VOICE });
     const res = await fetch(`${env.apiBaseUrl}/api/master/narrate?${q}`, { signal });
     if (!res.ok) return null;
-    const body = (await res.json()) as { text: string; audioUrl: string };
-    return { text: body.text, audioUrl: body.audioUrl };
+    const body = (await res.json()) as { text: string; audioUrl: string; cuesUrl?: string };
+    return { text: body.text, audioUrl: body.audioUrl, cuesUrl: body.cuesUrl };
   } catch {
     return null;
   }

@@ -30,7 +30,7 @@ import { defaultLevelId, findLevel, playLevels, type PlayLevel } from '../servic
 import { MAIA_LIVE, MASTER_LIVE } from '@/design/designFlags';
 import { MasterStrip } from '../components/MasterStrip';
 import { logGA4Event } from '@/services/analytics';
-import { useMasterVoice, useMouth } from '@/features/master/useMasterVoice';
+import { useMasterVoice } from '@/features/master/useMasterVoice';
 import { eventLine } from '@/features/master/eventLines';
 import type { MasterExpression } from '@/components/master/masterAssets';
 
@@ -346,7 +346,6 @@ export function PlayComputer() {
   useEffect(() => {
     if (endPaused && !endReady && !voice.speaking) setEndReady(true);
   }, [endPaused, endReady, voice.speaking]);
-  const mouthOpen = useMouth(voice.speaking);
   const stacked = workspaceMode?.mode === 'stacked';
   const master: { expression: MasterExpression; line: string } = (() => {
     if (gameState.gameStatus === 'idle') return { expression: 'presenting', line: 'Shall we play a game?' };
@@ -363,8 +362,8 @@ export function PlayComputer() {
     }
     if (!endReady) {
       // the pause before his end line: ONE face, his final one at once when you beat him (owner, 2026-11-16: the
-      // faces changed three times before the line); when his own move ended it, the face his talking frames are
-      // drawn on while he says it. His last line stays on the card.
+      // faces changed three times before the line); when his own move ended it, the face he says his move with.
+      // His last line stays on the card.
       return { expression: endEvent === 'win' ? 'surprised' : 'presenting', line: lineNow };
     }
     const line = endLine?.text ?? '';
@@ -428,7 +427,8 @@ export function PlayComputer() {
               <div className="card-body">
                 <span className="card-row">
                   <Swords className="shrink-0 text-link" />
-                  <span className="truncate font-semibold text-foreground">Play computer</span>
+                  {/* his levels name him, the Stockfish levels stay "computer" (owner, 2026-11-17: only 5 of the 9 levels are him) */}
+                  <span className="truncate font-semibold text-foreground">{levelInPlay.kind === 'master' ? 'Play the Master' : 'Play computer'}</span>
                   <span className="ml-auto shrink-0 text-[0.8em] text-success">Engine {gameState.isEngineReady ? 'ready' : 'loading'}</span>
                 </span>
                 <span className="card-row text-[0.86em]">{levelShort(levelInPlay)} · {timeControl.label}</span>
@@ -445,7 +445,7 @@ export function PlayComputer() {
                   </>
                 ) : (
                   <>
-                    {masterHere && <MasterStrip variant="strip" stacked={stacked} expression={master.expression} line={master.line} show={showMaster} voice={{ on: voice.on, toggle: voice.toggle, mouthOpen }} />}
+                    {masterHere && <MasterStrip variant="strip" stacked={stacked} expression={master.expression} line={master.line} show={showMaster} voice={{ on: voice.on, toggle: voice.toggle, speech: voice.speech }} />}
                     <span className="card-row justify-between text-[0.8em] uppercase tracking-wide">
                       <span>Moves</span>
                       {/* No position label (owner: "Latest position" removed 2026-10-08,

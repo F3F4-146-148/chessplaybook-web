@@ -85,7 +85,8 @@ export const featureCards: FeatureCard[] = [
     // The choice between a person and the computer is made on /play-online,
     // not here — a chooser whose cards each do one thing is what keeps the
     // click data readable.
-    description: 'Play a real opponent online, or take on the computer at your own pace.',
+    // "the Master" (owner, 2026-11-17): /play opens on him, and the button on /play-online names him too.
+    description: 'Play a real opponent online, or take on the Master at your own pace.',
     cta: 'Start a game',
     href: '/play-online',
     gradient: 'from-feature-play/20 to-feature-play/5',

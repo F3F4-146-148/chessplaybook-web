@@ -1687,6 +1687,98 @@ export class AnalysisService {
     });
   }
 
+  // ═══════════════════════════════════════════════════════════════════════
+  // Engine sessions: raw searches for the game-puzzle generator
+  //
+  // The generator (src/features/game-puzzles) asks for MultiPV searches to a
+  // fixed depth on positions of a game it has just been given. It runs on the
+  // same worker as the panel and the Game report, through the batch routing
+  // above, so nothing reaches the panel's display. A session drains the panel
+  // once, runs any number of searches, and restores the panel's MultiPV.
+  // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Run `work` with exclusive use of the engine for raw searches.
+   *
+   * `search(fen, multiPv, depth)` resolves with the engine's `info` and
+   * `bestmove` lines for one `go depth` search (side-to-move scores, as UCI
+   * prints them); parsing is the caller's. Every search starts from
+   * `ucinewgame`, so a result depends only on the position and the depth.
+   * A search that has not finished after `timeoutMs` is stopped and resolves
+   * with the lines it has (shallower, never invented).
+   */
+  async runEngineSession<T>(
+    work: (search: (fen: string, multiPv: number, depth: number) => Promise<string[]>) => Promise<T>,
+    timeoutMs = 60000,
+  ): Promise<T> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+    await this.drainPanelSearch();
+    const search = (fen: string, multiPv: number, depth: number) => new Promise<string[]>((resolve) => {
+      this.batchSearchOutput = [];
+      this.batchSearchMode = true;
+      const safetyTimer = setTimeout(() => {
+        if (!this.batchSearchMode) return;
+        // Ask the engine to stop; its bestmove ends batch mode through the
+        // normal path. If even that never comes, give up on this search.
+        this.sendCommand('stop');
+        setTimeout(() => {
+          if (this.batchSearchMode && this.batchSearchResolve === done) {
+            this.batchSearchMode = false;
+            this.batchSearchResolve = null;
+            resolve([...this.batchSearchOutput]);
+          }
+        }, 1500);
+      }, timeoutMs);
+      const done = () => {
+        clearTimeout(safetyTimer);
+        resolve([...this.batchSearchOutput]);
+      };
+      this.batchSearchResolve = done;
+      this.sendCommand('ucinewgame');
+      this.sendCommand(`setoption name MultiPV value ${multiPv}`);
+      this.sendCommand(`position fen ${fen}`);
+      this.sendCommand(`go depth ${depth}`);
+    });
+    try {
+      return await work(search);
+    } finally {
+      this.sendCommand(`setoption name MultiPV value ${this.multiPvCount}`);
+    }
+  }
+
+  /**
+   * Stop whatever the panel is doing before a batch of raw searches: clear its
+   * debounce and timeout, drop a pending position, and if a search is in flight
+   * wait for its bestmove (at most 1.5 s), so that leftover output is not read as
+   * the batch's first result. The same steps as at the top of
+   * analyzeFullGameClientSide and getCommentarySearchData.
+   */
+  private async drainPanelSearch(): Promise<void> {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+    if (this.analysisTimeoutTimer) {
+      clearTimeout(this.analysisTimeoutTimer);
+      this.analysisTimeoutTimer = null;
+    }
+    this.pendingAnalysis = null;
+    if (this.isAnalyzing) {
+      await new Promise<void>((resolve) => {
+        this.stopDrainResolve = resolve;
+        this.sendCommand('stop');
+        setTimeout(() => {
+          if (this.stopDrainResolve === resolve) {
+            this.stopDrainResolve = null;
+            resolve();
+          }
+        }, 1500);
+      });
+    }
+  }
+
   /**
    * Cleanup resources
    */

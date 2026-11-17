@@ -1,6 +1,10 @@
-import type { ReactNode } from 'react';
-import { CheckCircle2, ChevronRight, Compass, Eye, Lightbulb, RotateCcw, Signal, Target, WifiOff, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { CheckCircle2, ChevronRight, Compass, Eye, Lightbulb, RotateCcw, Signal, Target, Volume2, VolumeX, WifiOff, XCircle } from 'lucide-react';
 import { Action, LiveStatus } from './TrainerUI';
+import { MasterPortrait } from '@/components/master/MasterPortrait';
+import { MASTER_LIVE } from '@/design/designFlags';
+import { puzzleMasterMoment, puzzleVoiceLine } from './puzzleMasterMoment';
+import { useMasterVoice } from '@/features/master/useMasterVoice';
 
 /**
  * CARD 1 — what is happening on this position, and what to do about it.
@@ -116,6 +120,8 @@ export interface PuzzleLiveCardProps {
    * while the puzzle is being played.
    */
   onExplain?: () => void;
+  /** The puzzle on the board: the Master's line is picked by it, and a wrong move is remembered per puzzle. */
+  puzzleId?: string | null;
 }
 
 export function PuzzleLiveCard({
@@ -123,8 +129,17 @@ export function PuzzleLiveCard({
   exploring, isMidSolve, announcement, loading, sessionId,
   filterFoundNothing = false, onClearFilter, runOutcome = null,
   serverUnreachable = false, offer = null,
-  onNextPuzzle, onShowSolution, onExplain,
+  onNextPuzzle, onShowSolution, onExplain, puzzleId = null,
 }: PuzzleLiveCardProps) {
+  /*
+    A WRONG MOVE IS REMEMBERED FOR THE PUZZLE, because `failed` lasts 700 ms: auto-revert returns the status
+    to `playing`, and the Master would turn back to "Take your time" while the attempt is already scored.
+    Set during render (React's "adjust state when a prop changes" pattern), so there is no frame of the old face.
+  */
+  const [missed, setMissed] = useState<{ id: string | null; missed: boolean }>({ id: puzzleId, missed: false });
+  if (missed.id !== puzzleId) setMissed({ id: puzzleId, missed: status === 'failed' });
+  else if (status === 'failed' && !missed.missed) setMissed({ id: puzzleId, missed: true });
+
   const revealable = status === 'playing' || status === 'failed';
   /* `correct` or `solution`: resolved, and neither ever reverts. Disjoint from
      `revealable`, so the one slot never offers both. */
@@ -138,8 +153,98 @@ export function PuzzleLiveCard({
         ? <Eye className="w-[1em] h-[1em] text-muted-foreground" />
         : null;
 
-  return (
-    <>
+  const master = MASTER_LIVE
+    ? puzzleMasterMoment({
+      status, isMidSolve, exploring, missed: missed.missed,
+      quiet: serverUnreachable || filterFoundNothing, puzzleId,
+    })
+    : null;
+  const masterLine = master?.line ? <span className="master-line">{master.line}</span> : null;
+  const detail = serverUnreachable
+    ? 'These are offline practice puzzles, so nothing here is scored.'
+    : filterFoundNothing
+    ? 'Nothing in your rating range carries it. The board still has your last puzzle.'
+    : status === 'playing'
+      ? (opening
+        ? (!isMidSolve && !exploring && message === opening ? masterLine : opening)
+        : (prompt || 'Find the best move'))
+      /*
+        The slot is empty once a puzzle is resolved, which is exactly when
+        a run has just ended.
+
+        THE RATING IS THE FIGURE (owner, 2026-08-16: *"the rating
+        performance is a rating"*), and the score is what it was computed
+        from - a bare number with nothing behind it invites "performance at
+        what?". Partial solving is why it can read 3.5 rather than 4.
+      */
+      : runOutcome
+        ? `Run performance: ${runOutcome.rating}, scored ${
+          runOutcome.realized.toFixed(1)} of ${runOutcome.total}`
+        : (status === 'correct' ? offer : null) ?? masterLine;
+  const headlineText = serverUnreachable
+    ? 'Cannot reach the server'
+    : filterFoundNothing
+    ? 'Nothing matched that filter'
+    : exploring
+      ? 'Trying a variation'
+      : isMidSolve
+        ? 'Correct so far — keep going'
+        : (message || 'Loading puzzle...');
+  /*
+    HE READS THE CARD ALOUD (#298, owner 2026-11-17: his lines, then the puzzle's goal and "Correct! Puzzle solved."
+    and so on): the headline, then the line under it, each only if it was recorded (`puzzleCardSpeech.ts`; figures,
+    errors and "Loading puzzle..." stay silent).
+    - The goal ("White to play and mate", "White to move") only at the start: after a correct move it would grate,
+      and while the solution plays out the card still shows it until "Solution shown." (measured: he read the
+      whole goal again before it), so until the headline changes he waits. After a correct move mid-puzzle, only the
+      headline.
+    - A wrong move gets his face, never words (owner's rule, #186 D9): nothing while his face is serious.
+    - Only while his speaker is on screen (`PuzzleMaster`: his face shown and big enough), so he never talks where
+      he cannot be muted.
+    Keyed by the puzzle, so the next puzzle's lines play even when their texts are the last one's.
+  */
+  const [faceShown, setFaceShown] = useState(false);
+  const detailText = detail === masterLine ? master?.line ?? null : typeof detail === 'string' ? detail : null;
+  const atStart = status === 'playing' && !isMidSolve && !exploring;
+  const isGoal = headlineText === opening || /^(White|Black) to move$/.test(headlineText);
+  /*
+    SHOW SOLUTION: HE SAYS IT FIRST, THEN THE BOARD SHOWS IT (owner, 2026-11-17: "'Here's how it goes' needs to be
+    said first and then show the solution"). The press starts his solution line; the solution plays out when he has
+    finished, or after ANNOUNCE_MAX_MS whatever happens (a recording that never loads must not leave the button
+    dead). With his voice off or his speaker hidden, the solution starts at once, as before. After that he says
+    nothing more for this puzzle: never "Solution shown." (owner), never his line a second time.
+  */
+  const [announcing, setAnnouncing] = useState<string | null>(null);
+  const isAnnouncing = announcing !== null && announcing === (puzzleId ?? '');
+  const solutionLine = useMemo(
+    () => puzzleVoiceLine(puzzleMasterMoment({ status: 'solution', isMidSolve: false, exploring: false, missed: false, quiet: false, puzzleId }).line),
+    [puzzleId],
+  );
+  const reveal = useCallback(() => {
+    setAnnouncing(null);
+    onShowSolution();
+  }, [onShowSolution]);
+  const silent = !faceShown || !master || master.expression === 'serious' || (isGoal && !atStart) || status === 'solution';
+  const sayDetail = !(status === 'playing' && (isMidSolve || exploring));
+  const voiceLine = useMemo(
+    () => (isAnnouncing && solutionLine ? [solutionLine]
+      : silent ? null : [puzzleVoiceLine(headlineText), sayDetail ? puzzleVoiceLine(detailText) : null]
+        .filter((l): l is NonNullable<typeof l> => l !== null)),
+    [isAnnouncing, solutionLine, silent, headlineText, sayDetail, detailText, puzzleId], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const voice = useMasterVoice(voiceLine, { onEnd: isAnnouncing ? reveal : undefined });
+  useEffect(() => {
+    if (!isAnnouncing) return;
+    const t = setTimeout(reveal, ANNOUNCE_MAX_MS);
+    return () => clearTimeout(t);
+  }, [isAnnouncing, reveal]);
+  const onShowSolutionPressed = () => {
+    if (isAnnouncing) return;
+    if (voice.on && faceShown && solutionLine) setAnnouncing(puzzleId ?? '');
+    else onShowSolution();
+  };
+
+  const statusRegion = (
       <LiveStatus
         chip={(
           <span className="inline-flex items-center gap-[calc(var(--card-w,208px)*0.04)]">
@@ -172,42 +277,23 @@ export function PuzzleLiveCard({
                 : isMidSolve
                   ? <CheckCircle2 className="w-[1em] h-[1em] mt-[0.1em] shrink-0 text-success" />
                   : statusIcon}
-            <span>
-              {serverUnreachable
-                ? 'Cannot reach the server'
-                : filterFoundNothing
-                ? 'Nothing matched that filter'
-                : exploring
-                  ? 'Trying a variation'
-                  : isMidSolve
-                    ? 'Correct so far — keep going'
-                    : (message || 'Loading puzzle...')}
-            </span>
+            <span>{headlineText}</span>
           </span>
         )}
-        detail={serverUnreachable
-          ? 'These are offline practice puzzles, so nothing here is scored.'
-          : filterFoundNothing
-          ? 'Nothing in your rating range carries it. The board still has your last puzzle.'
-          : status === 'playing'
-            ? (opening
-              ? (!isMidSolve && !exploring && message === opening ? null : opening)
-              : (prompt || 'Find the best move'))
-            /*
-              The slot is empty once a puzzle is resolved, which is exactly when
-              a run has just ended.
-
-              THE RATING IS THE FIGURE (owner, 2026-08-16: *"the rating
-              performance is a rating"*), and the score is what it was computed
-              from - a bare number with nothing behind it invites "performance at
-              what?". Partial solving is why it can read 3.5 rather than 4.
-            */
-            : runOutcome
-              ? `Run performance: ${runOutcome.rating}, scored ${
-                runOutcome.realized.toFixed(1)} of ${runOutcome.total}`
-              : status === 'correct' ? offer : null}
+        detail={detail}
         announce={announcement}
       />
+  );
+
+  return (
+    <>
+      {master ? (
+        /* B1 (#186): his face in a column beside the status region, never under it. See `PuzzleMaster`. */
+        <div className="master-row">
+          <div className="master-row-status">{statusRegion}</div>
+          <PuzzleMaster expression={master.expression} voice={voice} onShown={setFaceShown} />
+        </div>
+      ) : statusRegion}
 
       {/* `shrink-0`: a short card may squeeze the status region, never the
           actions. In every mode since F2 (it was columns-only, `cols:`, from the
@@ -269,7 +355,8 @@ export function PuzzleLiveCard({
             */
             <button
               type="button"
-              onClick={onShowSolution}
+              onClick={onShowSolutionPressed}
+              disabled={isAnnouncing}
               className="trainer-reveal flex-1 min-h-11 rounded-[0.4em] border border-border text-[length:var(--card-type,14px)] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground inline-flex items-center justify-center gap-[0.4em]"
             >
               <Eye className="w-[1em] h-[1em]" />
@@ -282,4 +369,67 @@ export function PuzzleLiveCard({
   );
 }
 
-export default PuzzleLiveCard;
+/**
+ * THE MASTER IN THE LIVE CARD (B1, #186): his face in a column BESIDE the status region, and his one short line
+ * in the detail slot only when that slot is otherwise empty (the start of a puzzle, a solve, a wrong move, the
+ * solution), so he never takes a line the card needs.
+ *
+ * NOT UNDER THE HEADLINE, as the mock-ups had him (measured, B1, 2026-11-16): the status region reserves the
+ * tallest sentence it can show, so the space under it is only 26-51 px at 1024-1920 wide and 30 px on a phone.
+ * Beside it, the region is narrowed by his column and may wrap one more line, which still ends above New Puzzle
+ * at every size where he is shown, so the card and its buttons never move.
+ *
+ * Shown only in a live card at least 250 px wide (`index.css`, `.master-face`): at 800x600 the narrowed region
+ * would push the buttons down, so there the card is exactly today's, his line included.
+ *
+ * His face is hidden from assistive technology (`MasterPortrait`): the headline is the card's message and is
+ * announced; his face only shows a mood. His line is plain text in the detail slot. The speaker
+ * (#298), beside his face, is a real button with a label: it turns his voice on and off here and on /play alike.
+ */
+/** The longest he may hold the solution back for his line (the lines are 1.5-2.7 s). */
+const ANNOUNCE_MAX_MS = 6000;
+
+/** The smallest face shown with the 24 px speaker beside it (45 px faces are the tightest cards). */
+const SPEAKER_FACE_MIN = 50;
+
+function PuzzleMaster({ expression, voice, onShown }: {
+  expression: Parameters<typeof MasterPortrait>[0]['expression'];
+  voice: ReturnType<typeof useMasterVoice>;
+  onShown: (shown: boolean) => void;
+}) {
+  /*
+    Whether he may speak here: his column is on screen (CSS hides it in a card under 250 px wide) and his face is
+    big enough to carry the speaker, which sits beside it at the top (owner, 2026-11-17: his face moves left to
+    make room, so the speaker covers nothing of him). Faces are 51-81 px at most sizes; on phones held sideways and very short windows they are 45 px
+    and the row too tight, so there it is not shown and he stays silent: he never talks where he
+    cannot be muted.
+  */
+  const ref = useRef<HTMLDivElement>(null);
+  const [room, setRoom] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    const card = el?.closest('.workspace-card');
+    if (!el || !card) return;
+    const check = () => {
+      const ok = el.offsetWidth >= SPEAKER_FACE_MIN;
+      setRoom(ok);
+      onShown(ok);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    ro.observe(card);
+    return () => { ro.disconnect(); onShown(false); };
+  }, [onShown]);
+  const label = voice.on ? "Mute the Master's voice" : "Hear the Master's voice";
+  return (
+    <div ref={ref} className="master-face" data-master-face data-speaker={room ? '' : undefined}>
+      {/* the v4 heads are drawn turned to his left, so they are mirrored to look at the board (owner, 2026-11-17) */}
+      <MasterPortrait expression={expression} variant="head" facing="right" size={92} fluid speech={voice.speech} />
+      {/* the same switch as /play's speaker (one choice for the whole site), beside his face at the top */}
+      <button type="button" hidden={!room} onClick={voice.toggle} aria-pressed={voice.on} aria-label={label} title={label} className="master-voice">
+        {voice.on ? <Volume2 aria-hidden /> : <VolumeX aria-hidden />}
+      </button>
+    </div>
+  );
+}

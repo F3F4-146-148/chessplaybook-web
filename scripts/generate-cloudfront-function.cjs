@@ -337,20 +337,22 @@ function stagingFunctions(canonical) {
       ['wss://api.chessplaybook.com', 'wss://api.staging.chessplaybook.com'],
       ['https://chessplaybook-auth.auth.', 'https://chessplaybook-auth-staging.auth.'],
       /*
-        PADDLE'S SANDBOX CHECKOUT, staging only (2026-11-13). Measured, not taken from Paddle's docs
+        PADDLE'S SANDBOX CHECKOUT on staging (2026-11-13). Measured, not taken from Paddle's docs
         (their CSP page is missing): what OUR page loads when Paddle.js opens a sandbox checkout. Card
         processing, Stripe and Google Pay load inside Paddle's own frame, under Paddle's policy.
-        Production's policy gets the LIVE hosts at launch, measured again then.
+        Production's policy carries the LIVE hosts (2026-11-16, the same with "sandbox-" removed);
+        these map them back. Paddle.js itself is cdn.paddle.com in both, so script-src is unchanged.
       */
-      ['https://connect.facebook.net; connect-src', 'https://connect.facebook.net https://cdn.paddle.com; connect-src'],
-      ['https://cognito-idp.us-east-1.amazonaws.com; img-src', 'https://cognito-idp.us-east-1.amazonaws.com https://sandbox-api.paddle.com https://o522631.ingest.sentry.io; img-src'],
-      ["style-src 'self' 'unsafe-inline';", "style-src 'self' 'unsafe-inline' https://sandbox-cdn.paddle.com;"],
-      ['https://www.youtube.com https://www.googletagmanager.com"', 'https://www.youtube.com https://www.googletagmanager.com https://sandbox-buy.paddle.com"'],
+      ['https://cognito-idp.us-east-1.amazonaws.com https://api.paddle.com', 'https://cognito-idp.us-east-1.amazonaws.com https://sandbox-api.paddle.com'],
+      ["style-src 'self' 'unsafe-inline' https://cdn.paddle.com;", "style-src 'self' 'unsafe-inline' https://sandbox-cdn.paddle.com;"],
+      ['https://www.googletagmanager.com https://buy.paddle.com"', 'https://www.googletagmanager.com https://sandbox-buy.paddle.com"'],
     ],
     'staging CSP function',
   );
 
-  const PRODUCTION_HOSTS = ['www.chessplaybook.com', '//api.chessplaybook.com', 'chessplaybook-auth.auth.'];
+  /* Paddle's live API and checkout too: staging must only ever reach the sandbox. */
+  const PRODUCTION_HOSTS = ['www.chessplaybook.com', '//api.chessplaybook.com', 'chessplaybook-auth.auth.',
+    'https://api.paddle.com', 'https://buy.paddle.com'];
   const files = [
     { file: path.join(STAGING_DIR, 'cloudfront-canonical-function.js'), text: stagingCanonical },
     { file: path.join(STAGING_DIR, 'cloudfront-csp-function.js'), text: stagingCsp },

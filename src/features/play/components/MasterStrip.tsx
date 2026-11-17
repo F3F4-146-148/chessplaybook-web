@@ -1,8 +1,8 @@
 import { Volume2, VolumeX } from 'lucide-react';
 
 import { MasterPortrait } from '@/components/master/MasterPortrait';
-import { masterSrcSet } from '@/components/master/masterAssets';
 import type { MasterExpression } from '@/components/master/masterAssets';
+import type { MasterSpeech } from '@/components/master/speech';
 
 /**
  * THE MASTER ON /play (MASTER_CHARACTER_IMPLEMENTATION_PLAN D4, #186).
@@ -24,8 +24,8 @@ export interface MasterStripProps {
   show: boolean;
   variant: 'invitation' | 'strip';
   stacked: boolean;
-  /** The voice (D8): shown in the game strip only. */
-  voice?: { on: boolean; toggle: () => void; mouthOpen: boolean };
+  /** The voice (D8): shown in the game strip only. `speech` is the playing recording and its mouth cues (#298). */
+  voice?: { on: boolean; toggle: () => void; speech: MasterSpeech | null };
 }
 
 const STRIP_FACE = { columns: 64, stacked: 52 };
@@ -48,10 +48,9 @@ export function MasterStrip({ expression, line, show, variant, stacked, voice }:
   const size = variant === 'invitation' ? 96 : face;
   return (
     <div className="flex shrink-0 items-center" style={{ gap: 'calc(var(--card-air) * 2)', height: show ? size : '3.6em' }} data-master={variant}>
-      {show && <MasterPortrait expression={voice?.mouthOpen ? 'speaking' : expression} instant={Boolean(voice?.mouthOpen) || expression === 'speaking'} variant="head" facing="left" size={size} />}
+      {/* mirrored: the v4 heads turn away from the board as drawn (owner, 2026-11-17); the half body is not (his hand presents the board) */}
+      {show && <MasterPortrait expression={expression} variant="head" facing="right" size={size} speech={voice?.speech} />}
       <p className="min-w-0 flex-1 rounded-[0.6em] bg-muted px-[0.7em] py-[0.4em] text-[0.92em] leading-snug text-foreground line-clamp-2">{line}</p>
-      {/* the open mouth, loaded ahead so the first word does not flicker while it downloads */}
-      {voice?.on && show && <img src={masterSrcSet('speaking', 'head', size, 'left').src} alt="" aria-hidden="true" className="hidden" />}
       {voice && (
         <button
           type="button"

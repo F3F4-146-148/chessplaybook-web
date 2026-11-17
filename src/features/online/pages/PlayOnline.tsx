@@ -34,6 +34,8 @@ import type { ChessPosition } from '@/components/chess/chessLogic';
 import type { Key } from '@lichess-org/chessground/types';
 import { logGA4Event } from '@/services/analytics';
 import { soundService } from '@/services/SoundService';
+import { MAIA_LIVE, MASTER_LIVE } from '@/design/designFlags';
+import { masterIcon } from '@/components/master/masterAssets';
 
 // ---------------------------------------------------------------------------
 // Session persistence
@@ -777,8 +779,15 @@ export function PlayOnline() {
       <button type="button" onClick={onFriend} className="card-btn px-[0.5em] text-[0.86em] text-muted-foreground hover:text-foreground">
         <span className="truncate">Challenge a friend</span>
       </button>
+      {/*
+        /play opens on the Master at 1400 while his levels are live, so the button names him and shows his face
+        (owner, 2026-11-17), the close crop made for buttons (option E). A still picture: a blinking face on a small button would pull the eye from the game.
+      */}
       <button type="button" onClick={() => navigate('/play')} className="card-btn px-[0.5em] text-[0.86em] text-muted-foreground hover:text-foreground">
-        <span className="truncate">Play computer</span>
+        {MASTER_LIVE && MAIA_LIVE && (
+          <img src={masterIcon().src} srcSet={masterIcon().srcSet} alt="" aria-hidden="true" className="shrink-0" style={{ width: 'calc(var(--card-type) * 1.95)', height: 'calc(var(--card-type) * 1.95)' }} />
+        )}
+        <span className="truncate">{MASTER_LIVE && MAIA_LIVE ? 'Play the Master' : 'Play computer'}</span>
       </button>
     </div>
   );

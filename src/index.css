@@ -1254,6 +1254,64 @@
   [data-skeleton-card] .live-actions {
     margin-top: auto;
   }
+  /*
+    THE MASTER IN THE LIVE CARD (#186 B1): a column beside the status region, sized from the card's type, and his
+    line in the detail slot. Both appear only in a live card at least 250 px wide (the card is the nearest size
+    container): at 800x600 (229 px) the narrowed status region would push the buttons down, so there the card
+    is exactly today's.
+  */
+  [data-skeleton-card] .master-row {
+    display: flex;
+    align-items: center;
+  }
+  [data-skeleton-card] .master-row-status {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  [data-skeleton-card] .master-face,
+  [data-skeleton-card] .master-line {
+    display: none;
+  }
+  @container (min-width: 250px) {
+    [data-skeleton-card] .master-face {
+      display: block;
+      flex: none;
+      width: 4.5em;
+      aspect-ratio: 1;
+      margin-left: 0.7em;
+      line-height: 0;
+      position: relative;
+    }
+    /* His speaker (#298), beside his face at the top-right, his face moved left to make room (owner, 2026-11-17:
+       over his shoulder it covered his face, under it the picture looked cut). 24px to hit (WCAG 2.5.8).
+       PuzzleLiveCard shows it only on faces of 50 px and up. */
+    [data-skeleton-card] .master-face[data-speaker] {
+      margin-right: calc(max(24px, 1.5em) + 2px);
+    }
+    [data-skeleton-card] .master-voice {
+      position: absolute;
+      top: 0;
+      right: calc(-1 * (max(24px, 1.5em) + 2px));
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: max(24px, 1.5em);
+      height: max(24px, 1.5em);
+      border-radius: 999px;
+      border: 1px solid hsl(var(--border));
+      background: hsl(var(--card) / 0.92);
+      color: hsl(var(--muted-foreground));
+    }
+    [data-skeleton-card] .master-voice[hidden] { display: none; }
+    [data-skeleton-card] .master-voice:hover { color: hsl(var(--foreground)); }
+    [data-skeleton-card] .master-voice:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 1px; }
+    [data-skeleton-card] .master-voice[aria-pressed="true"] { color: hsl(var(--link)); }
+    [data-skeleton-card] .master-voice svg { width: 0.95em; height: 0.95em; }
+    [data-skeleton-card] .master-line {
+      display: inline;
+      font-style: italic;
+    }
+  }
   .card-btn {
     display: flex;
     align-items: center;
@@ -1870,3 +1928,8 @@
 
 /* The Master's portrait: a new expression fades in over the previous one (MasterPortrait, #186). */
 @keyframes master-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* He breathes very slowly (#298, owner T5: no nod or sway), from his feet up; reduced motion stills him. */
+.master-figure { transform-origin: 50% 100%; animation: master-breathe 4.6s ease-in-out infinite; }
+@keyframes master-breathe { 0%, 100% { scale: 1 1; } 50% { scale: 1.002 1.006; } }
+@media (prefers-reduced-motion: reduce) { .master-figure { animation: none; } }

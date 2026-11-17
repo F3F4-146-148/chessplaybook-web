@@ -1,0 +1,56 @@
+{
+  "start": [
+    {
+      "text": "Take your time.",
+      "key": "37b9672fcdcdd08a"
+    },
+    {
+      "text": "What would you play here?",
+      "key": "ab49ae1ce1232a5c"
+    },
+    {
+      "text": "Have a good look first.",
+      "key": "8a6b9d0cc345b99a"
+    }
+  ],
+  "going": [
+    {
+      "text": "Good. Keep going.",
+      "key": "1723acbdda33bd24"
+    },
+    {
+      "text": "That's it. What next?",
+      "key": "c6b643e2cfd1d4c6"
+    }
+  ],
+  "solved": [
+    {
+      "text": "Beautiful!",
+      "key": "5bf4ebfbe03ddee4"
+    },
+    {
+      "text": "Well played.",
+      "key": "663b21b1e51a3bd4"
+    },
+    {
+      "text": "Nicely done.",
+      "key": "f4a5825ca76b656d"
+    }
+  ],
+  "solution": [
+    {
+      "text": "Here's how it goes.",
+      "key": "405546bcfb78e755"
+    },
+    {
+      "text": "Worth remembering, this one.",
+      "key": "74af5b95fe294090"
+    }
+  ],
+  "exploring": [
+    {
+      "text": "Let's see what happens.",
+      "key": "33de99fcbbc15557"
+    }
+  ]
+}
