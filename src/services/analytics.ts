@@ -305,6 +305,8 @@ type GA4Event =
   | { name: 'master_visibility_toggled'; params: { shown: boolean; surface: 'puzzles' | 'play_online' | 'play_computer' | 'analysis' | 'champion_challenge' | 'champion_game' | 'live_game' | 'opening_trainer' } }
   // The Master's voice on /play (#186 D8). `enabled` is the state being entered.
   | { name: 'master_voice_toggled'; params: { enabled: boolean } }
+  // The voice's volume slider (#310, desktop only). Sent once per change, when the slider is let go. `volume` 0-100.
+  | { name: 'master_voice_volume_set'; params: { volume: number } }
   // /play games, every level (#186 D10): none existed, so the Master could not be compared with Stockfish.
   | { name: 'computer_game_started'; params: { opponent: 'stockfish' | 'master'; level: number; color: 'white' | 'black'; from_position: boolean } }
   | { name: 'computer_game_finished'; params: { opponent: 'stockfish' | 'master'; level: number; result: 'win' | 'loss' | 'draw'; moves: number; master_fell_back: boolean } }

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { CheckCircle2, ChevronRight, Compass, Eye, Lightbulb, RotateCcw, Signal, Target, Volume2, VolumeX, WifiOff, XCircle } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Compass, Eye, Lightbulb, RotateCcw, Signal, Target, WifiOff, XCircle } from 'lucide-react';
 import { Action, LiveStatus } from './TrainerUI';
 import { MasterPortrait } from '@/components/master/MasterPortrait';
 import { MASTER_LIVE } from '@/design/designFlags';
 import { puzzleMasterMoment, puzzleVoiceLine } from './puzzleMasterMoment';
+import { MasterVoiceButton } from '@/features/master/MasterVoiceButton';
 import { useMasterVoice } from '@/features/master/useMasterVoice';
 
 /**
@@ -421,15 +422,12 @@ function PuzzleMaster({ expression, voice, onShown }: {
     ro.observe(card);
     return () => { ro.disconnect(); onShown(false); };
   }, [onShown]);
-  const label = voice.on ? "Mute the Master's voice" : "Hear the Master's voice";
   return (
     <div ref={ref} className="master-face" data-master-face data-speaker={room ? '' : undefined}>
       {/* the v4 heads are drawn turned to his left, so they are mirrored to look at the board (owner, 2026-11-17) */}
       <MasterPortrait expression={expression} variant="head" facing="right" size={92} fluid speech={voice.speech} />
       {/* the same switch as /play's speaker (one choice for the whole site), beside his face at the top */}
-      <button type="button" hidden={!room} onClick={voice.toggle} aria-pressed={voice.on} aria-label={label} title={label} className="master-voice">
-        {voice.on ? <Volume2 aria-hidden /> : <VolumeX aria-hidden />}
-      </button>
+      <MasterVoiceButton voice={voice} hidden={!room} className="master-voice" />
     </div>
   );
 }

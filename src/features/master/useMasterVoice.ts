@@ -23,6 +23,37 @@ function stored(): boolean {
   }
 }
 
+/*
+  THE VOLUME (#310). One level for the whole site, remembered in this browser, 0 to 1 (default full). It is applied to
+  each recording as it starts and to the one playing when it changes. iPhone and iPad Safari ignore `audio.volume`
+  (it stays 1 whatever is set), so the slider is offered only where setting it works: `volumeSettable()`.
+*/
+const VOLUME_KEY = 'cp_master_volume';
+
+function storedVolume(): number {
+  try {
+    const v = Number(window.localStorage.getItem(VOLUME_KEY));
+    return window.localStorage.getItem(VOLUME_KEY) !== null && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+let settable: boolean | null = null;
+
+/** Whether this browser lets a page set an audio element's volume (read back after setting: Safari on iOS keeps 1). */
+export function volumeSettable(): boolean {
+  if (settable !== null) return settable;
+  try {
+    const probe = new Audio();
+    probe.volume = 0.5;
+    settable = Math.abs(probe.volume - 0.5) < 0.01;
+  } catch {
+    settable = false;
+  }
+  return settable;
+}
+
 const cueCache = new Map<string, Promise<MouthCue[]>>();
 
 function loadCues(url: string | undefined): Promise<MouthCue[]> {
@@ -46,6 +77,11 @@ const BETWEEN_LINES_MS = 200;
  */
 export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, options?: { onEnd?: () => void }) {
   const [on, setOn] = useState(stored);
+  const onRef = useRef(on);
+  onRef.current = on;
+  const [volume, setVolumeState] = useState(storedVolume);
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
   const [speaking, setSpeaking] = useState(false);
   const [speech, setSpeech] = useState<MasterSpeech | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -63,6 +99,27 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
     });
   }, []);
 
+  /**
+   * Sets the level and applies it to the line playing. Moving it while he is muted turns his voice on (the slider is
+   * then the user gesture a browser needs before sound); moving it to 0 does not mute him, it is only quiet.
+   */
+  const setVolume = useCallback((next: number) => {
+    const v = Math.min(1, Math.max(0, next));
+    setVolumeState(v);
+    if (audioRef.current) audioRef.current.volume = v;
+    try { window.localStorage.setItem(VOLUME_KEY, String(v)); } catch { /* remembered for this visit only */ }
+    if (onRef.current || v === 0) return;
+    onRef.current = true;
+    setOn(true);
+    try { window.localStorage.setItem(KEY, '1'); } catch { /* remembered for this visit only */ }
+    logGA4Event({ name: 'master_voice_toggled', params: { enabled: true } });
+  }, []);
+
+  /** The level chosen, reported once when the slider is let go (not on every step of a drag). */
+  const commitVolume = useCallback((v: number) => {
+    logGA4Event({ name: 'master_voice_volume_set', params: { volume: Math.round(v * 100) } });
+  }, []);
+
   useEffect(() => {
     const queue = (line === null ? [] : Array.isArray(line) ? line : [line as VoicedLine]).filter((l) => l.audioUrl);
     if (!on || queue.length === 0) return;
@@ -74,6 +131,7 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
       if (!live) return;
       if (i >= queue.length) { onEndRef.current?.(); return; }
       const current = new Audio(queue[i].audioUrl);
+      current.volume = volumeRef.current;
       audioRef.current?.pause();
       audioRef.current = current;
       audio = current;
@@ -98,5 +156,5 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
     };
   }, [on, line]);
 
-  return { on, toggle, speaking, speech };
+  return { on, toggle, speaking, speech, volume, setVolume, commitVolume };
 }

@@ -445,7 +445,7 @@ export function PlayComputer() {
                   </>
                 ) : (
                   <>
-                    {masterHere && <MasterStrip variant="strip" stacked={stacked} expression={master.expression} line={master.line} show={showMaster} voice={{ on: voice.on, toggle: voice.toggle, speech: voice.speech }} />}
+                    {masterHere && <MasterStrip variant="strip" stacked={stacked} expression={master.expression} line={master.line} show={showMaster} voice={voice} />}
                     <span className="card-row justify-between text-[0.8em] uppercase tracking-wide">
                       <span>Moves</span>
                       {/* No position label (owner: "Latest position" removed 2026-10-08,

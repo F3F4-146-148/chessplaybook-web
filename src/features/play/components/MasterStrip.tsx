@@ -1,8 +1,8 @@
-import { Volume2, VolumeX } from 'lucide-react';
-
 import { MasterPortrait } from '@/components/master/MasterPortrait';
 import type { MasterExpression } from '@/components/master/masterAssets';
 import type { MasterSpeech } from '@/components/master/speech';
+import { MasterVoiceButton } from '@/features/master/MasterVoiceButton';
+import type { useMasterVoice } from '@/features/master/useMasterVoice';
 
 /**
  * THE MASTER ON /play (MASTER_CHARACTER_IMPLEMENTATION_PLAN D4, #186).
@@ -25,7 +25,7 @@ export interface MasterStripProps {
   variant: 'invitation' | 'strip';
   stacked: boolean;
   /** The voice (D8): shown in the game strip only. `speech` is the playing recording and its mouth cues (#298). */
-  voice?: { on: boolean; toggle: () => void; speech: MasterSpeech | null };
+  voice?: Pick<ReturnType<typeof useMasterVoice>, 'on' | 'toggle' | 'volume' | 'setVolume' | 'commitVolume'> & { speech: MasterSpeech | null };
 }
 
 const STRIP_FACE = { columns: 64, stacked: 52 };
@@ -52,16 +52,11 @@ export function MasterStrip({ expression, line, show, variant, stacked, voice }:
       {show && <MasterPortrait expression={expression} variant="head" facing="right" size={size} speech={voice?.speech} />}
       <p className="min-w-0 flex-1 rounded-[0.6em] bg-muted px-[0.7em] py-[0.4em] text-[0.92em] leading-snug text-foreground line-clamp-2">{line}</p>
       {voice && (
-        <button
-          type="button"
-          onClick={voice.toggle}
-          aria-pressed={voice.on}
-          title={voice.on ? "Mute the Master's voice" : "Hear the Master's voice"}
-          aria-label={voice.on ? "Mute the Master's voice" : "Hear the Master's voice"}
+        <MasterVoiceButton
+          voice={voice}
           className="inline-flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {voice.on ? <Volume2 className="h-5 w-5" aria-hidden /> : <VolumeX className="h-5 w-5" aria-hidden />}
-        </button>
+          iconClassName="h-5 w-5"
+        />
       )}
     </div>
   );
