@@ -48,8 +48,10 @@ export function playItems(iconClass: string): PlayItem[] {
         ? <img src={masterIcon().src} srcSet={masterIcon().srcSet} alt="" aria-hidden="true" className={`${iconClass} rounded-full`} />
         : <Bot className={iconClass} aria-hidden="true" />,
     },
-    { id: 'online', to: '/play-online', label: 'Play online', icon: <Globe className={iconClass} aria-hidden="true" /> },
-    { id: 'friend', to: '/play-online?setup=friend', label: 'Challenge a friend', icon: <UserPlus className={iconClass} aria-hidden="true" /> },
+    /* Coloured icons (owner, 2026-11-17: in grey "you might almost think the last two items are not available"):
+       the homepage's Play green for online play, its sky blue for a friend's challenge. */
+    { id: 'online', to: '/play-online', label: 'Play online', icon: <Globe className={`${iconClass} text-feature-play`} aria-hidden="true" /> },
+    { id: 'friend', to: '/play-online?setup=friend', label: 'Challenge a friend', icon: <UserPlus className={`${iconClass} text-feature-openings`} aria-hidden="true" /> },
   ];
 }
 
@@ -188,7 +190,7 @@ export function PlayMenu({ isActive }: { isActive: boolean }) {
               key={item.id}
               to={item.to}
               data-play-item={item.id}
-              className="nav-play-link text-muted-foreground hover:text-foreground hover:bg-muted/50 focus-visible:text-foreground focus-visible:bg-muted/50 transition-colors"
+              className="nav-play-link text-foreground hover:bg-muted/50 focus-visible:bg-muted/50 transition-colors"
               onKeyDown={(e) => {
                 if (e.key === 'ArrowDown') { e.preventDefault(); focusItem(index + 1); }
                 if (e.key === 'ArrowUp') {
@@ -238,7 +240,7 @@ export function PlayMenuGroup({ isActive, onNavigate }: { isActive: boolean; onN
             key={item.id}
             to={item.to}
             data-play-item={item.id}
-            className="flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            className="flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors text-foreground hover:bg-muted/50"
             onClick={() => {
               logGA4Event({ name: 'nav_play_menu_clicked', params: { item: item.id, surface: 'mobile' } });
               onNavigate();
