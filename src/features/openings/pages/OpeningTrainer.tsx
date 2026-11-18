@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { Key } from '@lichess-org/chessground/types';
 import { BookOpen, Check, ChevronRight, CornerUpLeft, Dumbbell, Eye, Flag, GraduationCap, Library, Lightbulb, ListTree, Minimize2, Pause, Play, RotateCcw, Route, Square } from 'lucide-react';
@@ -28,6 +28,11 @@ import { MoveMarker, MOVE_ROW_RULE } from '../components/MoveMarker';
 import { buildPositionHref } from '@/lib/positionDeepLink';
 import { applyMove, positionFromFen } from '@/components/chess/chessLogic';
 import { fetchRepertoires, type RepertoireListing, type TrainingScope } from '../services/openingsApi';
+import { REPERTOIRE_SUITS, WELCOME_END, WELCOME_GOALS, WELCOME_INTRO, readLastRepertoire, welcomeTexts, writeLastRepertoire, type WelcomeGoal } from '../welcome';
+
+/** What the Master says on the welcome (#337), one stable list. */
+const WELCOME_TEXTS = welcomeTexts();
+import { logGA4Event } from '@/services/analytics';
 import SeoHead from '@/components/SeoHead';
 import RouteHeading from '@/components/RouteHeading';
 
@@ -102,7 +107,16 @@ function Muted({ children }: { children: string }) {
 
 export default function OpeningTrainer() {
   const [params, setParams] = useSearchParams();
-  const repertoireId = params.get('repertoire') || 'london';
+  /*
+    #337 (owner, 2026-11-18): a first visit opens on the welcome (the goals of the opening), not on the London; the
+    player then chooses an opening. A returning player goes straight to the last one used, and a link naming one
+    opens it. `?welcome=1` brings the welcome back ("The goals of the opening"). The London is still loaded behind
+    the welcome, so choosing it is immediate.
+  */
+  const paramRepertoire = params.get('repertoire');
+  const [lastRepertoire] = useState(readLastRepertoire);
+  const repertoireId = paramRepertoire || lastRepertoire || 'london';
+  useEffect(() => { if (paramRepertoire) writeLastRepertoire(paramRepertoire); }, [paramRepertoire]);
   // D6: the ready-made repertoires to choose from (the starters), from the server.
   const [starters, setStarters] = useState<RepertoireListing[] | null>(null);
   useEffect(() => {
@@ -116,6 +130,8 @@ export default function OpeningTrainer() {
     switching back finds learning where it was left.
   */
   const training = params.get('mode') === 'train';
+  /** #337: the welcome, in learning mode only, before an opening is chosen (or when asked for again). */
+  const welcome = !training && (params.get('welcome') === '1' || (!paramRepertoire && !lastRepertoire));
   /*
     E7 (owner, 2026-11-11): "Train from here" in learning mode trains only the lines through that position. The
     address carries it (`from=`, UCI moves from the repertoire's root), so a reload keeps it.
@@ -220,17 +236,27 @@ export default function OpeningTrainer() {
   const [intro, setIntro] = useState<{ id: string; step: number } | null>(null);
   const rootFens = rep?.rootFens ?? [];
   useEffect(() => {
-    if (!rep || rep.id !== repertoireId || !rep.rootFens.length) return;
+    // not behind the welcome: it starts when the opening is chosen (#337)
+    if (welcome || !rep || rep.id !== repertoireId || !rep.rootFens.length) return;
     setIntro({ id: rep.id, step: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rep?.id]);
+  }, [rep?.id, welcome]);
   const introRunning = !!intro && intro.id === rep?.id && intro.step <= rootFens.length && walk.viewPly === 0 && walk.line.length === 0;
   const introDone = () => setIntro((i) => (i ? { ...i, step: rootFens.length + 1 } : i));
   const introStep = introRunning ? intro!.step : null;
   const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-  const boardFen = introStep !== null && introStep < rootFens.length
-    ? (introStep === 0 ? START : rootFens[introStep - 1])
-    : view?.position.fen ?? START;
+  /*
+    THE STARTING POSITION BEFORE HE SPEAKS (owner, 2026-11-18: "the moves e4 e6 are already on the board when the
+    Master starts talking, so his words don't match the moves"). Between the opening loading and its introduction
+    starting (an effect, after a paint), the board would show the opening's own root (1.e4 e6 already played): it
+    shows the starting position instead, as the introduction will.
+  */
+  const introPending = !training && !welcome && !!rep && rep.id === repertoireId && rootFens.length > 0
+    && (!intro || intro.id !== rep.id) && walk.viewPly === 0 && walk.line.length === 0;
+  const boardFen = introPending ? START
+    : introStep !== null && introStep < rootFens.length
+      ? (introStep === 0 ? START : rootFens[introStep - 1])
+      : view?.position.fen ?? START;
   const introUci = introStep !== null && introStep > 0 && introStep <= rootFens.length ? rep!.rootLine[introStep - 1] : null;
   const shownUci = introStep !== null ? introUci : lastUci;
   const boardLast = shownUci ? [shownUci.slice(0, 2) as Key, shownUci.slice(2, 4) as Key] : undefined;
@@ -260,7 +286,7 @@ export default function OpeningTrainer() {
     () => (ours ? [chosen, alternative] : walk.order).filter((m): m is NonNullable<typeof m> => !!m),
     [ours, chosen, alternative, walk.order],
   );
-  const learnMovable = !training && !!view && boardMoves.length > 0 && !walk.lineEnds && !walk.loading
+  const learnMovable = !training && !welcome && !!view && boardMoves.length > 0 && !walk.lineEnds && !walk.loading
     && introStep === null && !learnPending;
   const learnDests = useMemo(() => {
     const d = new Map<Key, Key[]>();
@@ -282,8 +308,9 @@ export default function OpeningTrainer() {
     if (walk.viewPly < walk.line.length && walk.line[walk.viewPly] === m.move) walk.goTo(walk.viewPly + 1);
     else walk.play(m.move);
   };
-  const learnFen = demoFen ?? (learnPending && learnPending.from === viewKey ? learnPending.fen : boardFen);
-  const learnLast = demoUci ? [demoUci.slice(0, 2) as Key, demoUci.slice(2, 4) as Key]
+  // the welcome shows the starting position, with each goal's marks (#337)
+  const learnFen = welcome ? START : demoFen ?? (learnPending && learnPending.from === viewKey ? learnPending.fen : boardFen);
+  const learnLast = welcome ? undefined : demoUci ? [demoUci.slice(0, 2) as Key, demoUci.slice(2, 4) as Key]
     : learnPending && learnPending.from === viewKey
       ? [learnPending.move.slice(0, 2) as Key, learnPending.move.slice(2, 4) as Key] : boardLast;
 
@@ -350,9 +377,20 @@ export default function OpeningTrainer() {
     the board plays it ("White pushes the pawn to e4."), then introduces the repertoire (backend
     config/repertoireIntros.json). Without his voice the board plays them half a second apart, as before (D6).
   */
-  const atStart = !training && !!rep && !!view && walk.viewPly === 0 && walk.line.length === 0;
+  const atStart = !training && !welcome && !!rep && !!view && walk.viewPly === 0 && walk.line.length === 0;
   const rootSaid = rep?.rootSaid ?? [];
-  const introTexts = atStart && rootSaid.every(Boolean) ? [...rootSaid, ...(rep?.intro ? [rep.intro] : [])] : null;
+  /*
+    ONE TELLING OF THE STARTING MOVES (owner, 2026-11-18: the French's e4 and e6 were said one by one, then the
+    introduction "The French Defense starts with 1.e4 e6" was read with them already on the board). An introduction
+    names its starting moves itself, so with one he says only the introduction: the board stays at the starting
+    position and the introduction's line plays from move 1 while he reads, then the board settles on the opening's
+    own position. The moves one by one are said only for an opening without an introduction.
+  */
+  const rootSpoken = rep?.intro ? [] : rootSaid;
+  // sentence by sentence where the server has them (each its own recording, so the moves follow his words)
+  const introParts = rep?.introParts?.length ? rep.introParts : null;
+  const introSaid = introParts ? introParts.map((p) => p.text) : rep?.intro ? [rep.intro] : [];
+  const introTexts = atStart && rootSpoken.every(Boolean) ? [...rootSpoken, ...introSaid] : null;
   /*
     QUIET IN TRAINING (#336, owner 2026-11-18: "a bit annoying to have The Master start talking after you make the
     moves"). Training is recall: after a move he says nothing (the reasons stay on the card and their marks on the
@@ -362,27 +400,41 @@ export default function OpeningTrainer() {
   */
   const hintSaid = training && showingHints ? [train.hints[train.hints.length - 1]] : null;
   const sayTexts = !faceShown ? null
+    : welcome ? WELCOME_TEXTS
     : introTexts?.length ? introTexts
     : training ? hintSaid
     : reasonTexts === null ? null : [...spokenFirst, ...reasonTexts];
-  const sayId = introTexts?.length ? `i:${rep!.id}`
+  const sayId = welcome ? 'w' : introTexts?.length ? `i:${rep!.id}`
     : training ? `h:${train.line.length}:${tLastLabel ?? ''}:${train.hints.length}` : `l:${walk.viewPly}:${walk.line.slice(0, walk.viewPly).join(' ')}`;
   const reasonLines = useReasonVoice(sayTexts?.length ? sayId : null, sayTexts);
-  const voice = useMasterVoice(reasonLines, { voiceKey: OPENINGS_VOICE_KEY });
-  // the starting moves follow his voice: move i is played as he starts its sentence; if no line has started 3 s in
-  // (a recording missing), or his voice is off, they are played half a second apart
+  /*
+    The starting moves follow his voice: move i is played as he starts its sentence. The board waits at the starting
+    position until he does, however long his first recording takes to arrive (owner, 2026-11-18: his words must match
+    the moves; a 3 s timer had played them ahead of him when a recording was slow). They are played half a second
+    apart only without his voice: off, or when he gave up before his first line (`onEnd` with nothing said: the
+    browser could not play it at all). Next, or a press on the board, skips the introduction.
+  */
   const [introStalled, setIntroStalled] = useState(false);
+  /** Whether he has started a line of this opening's introduction (a give-up before that falls back to the timer). */
+  const introSpoke = useRef(false);
+  useEffect(() => { introSpoke.current = false; }, [rep?.id]);
+  const voice = useMasterVoice(reasonLines, {
+    voiceKey: OPENINGS_VOICE_KEY,
+    onEnd: () => {
+      if (!introRunning) return;
+      if (!introSpoke.current && intro!.step === 0) setIntroStalled(true);
+      // he has read the introduction: the board settles on the opening's own position (after its line, if any)
+      else if (!rootSpoken.length) introDone();
+    },
+  });
+  if (introRunning && voice.lineIndex !== null) introSpoke.current = true;
   const introByVoice = MASTER_LIVE && voice.on && faceShown && !!introTexts?.length && !introStalled;
   useEffect(() => {
-    if (!introRunning || !introByVoice || intro!.step > 0) return;
-    const t = setTimeout(() => setIntroStalled(true), 3000);
-    return () => clearTimeout(t);
-  }, [introRunning, introByVoice, intro]);
-  useEffect(() => {
-    if (!introRunning || !introByVoice || voice.lineIndex === null) return;
+    // only when he says the moves one by one (an opening without an introduction)
+    if (!introRunning || !introByVoice || voice.lineIndex === null || !rootSpoken.length) return;
     const step = Math.min(voice.lineIndex + 1, rootFens.length);
     setIntro((i) => (i && i.step < step ? { ...i, step } : i));
-  }, [introRunning, introByVoice, voice.lineIndex, rootFens.length]);
+  }, [introRunning, introByVoice, voice.lineIndex, rootFens.length, rootSpoken.length]);
   useEffect(() => {
     if (!introRunning || introByVoice) return;
     const t = setTimeout(() => setIntro((i) => (i ? { ...i, step: i.step + 1 } : i)), intro!.step === 0 ? 400 : 500);
@@ -391,7 +443,15 @@ export default function OpeningTrainer() {
   // the introduction's line plays while he reads the introduction, a move about every 0.9 s, and stays until he has
   // finished. Only with his voice: without it nobody is reading, and the board is the player's from the start (a
   // line playing on its own made a move on the board miss). A press on the board ends it at once.
-  const introSaying = introByVoice && voice.lineIndex !== null && voice.lineIndex >= rootSaid.length;
+  const introSaying = introByVoice && voice.lineIndex !== null && voice.lineIndex >= rootSpoken.length;
+  /*
+    THE MOVES FOLLOW HIS WORDS (owner, 2026-11-18: "the first few moves are made very fast, they don't follow the
+    read"). With the introduction in sentences, the board plays up to the moves of the sentence he is saying, spaced
+    across it; after his last sentence it plays any left. Without sentences, the whole line at the old pace.
+  */
+  const partSaying = introSaying && introParts ? voice.lineIndex! - rootSpoken.length : null;
+  const demoTarget = !introParts || !introSaying ? demoLine.length
+    : introParts.slice(0, (partSaying ?? 0) + 1).reduce((a, p) => a + p.plies, 0);
   useEffect(() => {
     if (!atStart || !rep || !demoLine.length) { if (!atStart) setDemo(null); return; }
     if (demo && demo.id === rep.id) return;
@@ -400,32 +460,36 @@ export default function OpeningTrainer() {
   const endDemo = () => { if (demoOn) setDemo((d) => (d ? { ...d, done: true } : d)); };
   useEffect(() => {
     if (!demo || demo.done || !atStart || demo.id !== rep?.id) return;
-    if (demo.ply < demoLine.length) {
-      const t = setTimeout(() => setDemo((d) => (d ? { ...d, ply: d.ply + 1 } : d)), demo.ply === 0 ? 600 : 900);
+    if (demo.ply < Math.min(demoTarget, demoLine.length)) {
+      const t = setTimeout(() => setDemo((d) => (d ? { ...d, ply: d.ply + 1 } : d)), demo.ply === 0 ? 600 : introParts ? 700 : 900);
       return () => clearTimeout(t);
     }
+    if (demo.ply < demoLine.length) return; // the next sentence brings the next moves
     if (introSaying) return; // he is still reading: the line stays on the board until he finishes
     const t = setTimeout(() => setDemo((d) => (d ? { ...d, done: true } : d)), 600);
     return () => clearTimeout(t);
-  }, [demo, atStart, rep?.id, demoLine.length, introSaying]);
+  }, [demo, atStart, rep?.id, demoLine.length, introSaying, demoTarget, introParts]);
   /*
     WHAT HE IS TALKING ABOUT, ON THE BOARD (#324, owner 2026-11-17 and 11-18): the reason he is saying, or the one the
     player pressed, is marked in the list and its marks are drawn on the board in its kind's colour. A press on the
     selected reason clears it; a new move clears the selection. The marks come from the server with each reason.
   */
   const [picked, setPicked] = useState<{ id: string; i: number } | null>(null);
-  const shownReasons: Array<{ key: string; marks: string }> = training
+  const shownReasons: Array<{ key: string; marks: string }> = welcome
+    ? WELCOME_GOALS.map((g) => ({ key: g.key, marks: g.marks }))
+    : training
     ? (tShowReasons ? (tLastExpl?.r ?? []).map((r, i) => ({ key: r.k, marks: train.last?.marks?.[i] ?? '' })) : [])
     : (last?.explanation ?? []).map((r) => ({ key: r.key, marks: r.marks ?? '' }));
   // the queue starts with the move (and the variation), so his line i is reason i - that many; none is marked before
   // in training he says hints, not reasons, so no reason is marked as being said
-  const saying = training || voice.lineIndex === null ? null : voice.lineIndex - spokenFirst.length;
+  // on the welcome his line 0 is the intro, so goal i is his line i + 1 (#337)
+  const saying = training || voice.lineIndex === null ? null : voice.lineIndex - (welcome ? 1 : spokenFirst.length);
   const activeReason = picked && picked.id === sayId ? picked.i : saying !== null && saying >= 0 ? saying : null;
   const active = activeReason !== null && activeReason < shownReasons.length ? shownReasons[activeReason] : null;
   // explaining the opponent's move, its idea is their plan (blue, as Chess.com's coach)
   const theirMove = training ? train.last?.ours === false : !!last && !last.ours;
   // the marks in the colour of the side that made the move explained (owner, 2026-11-18: White blue, Black red)
-  const mover: 'white' | 'black' = (rep?.side === 'black') !== theirMove ? 'black' : 'white';
+  const mover: 'white' | 'black' = welcome ? 'white' : (rep?.side === 'black') !== theirMove ? 'black' : 'white';
   const marks = useMemo(() => (active ? boardMarks(active.marks, mover) : NO_MARKS), [active?.marks, mover]); // eslint-disable-line react-hooks/exhaustive-deps
   const brushes = useMemo(() => reasonBrushes(), []);
   const pickReason = (i: number) => setPicked((p) => (p && p.id === sayId && p.i === i ? { id: sayId, i: -1 } : { id: sayId, i }));
@@ -443,7 +507,7 @@ export default function OpeningTrainer() {
         : outside.failed ? 'The engine could not judge it.' : 'Checking the move.';
 
   // Arrow keys and the wheel: back, and forward as Next (through the moves played, then the next one).
-  const attachWheel = useBoardStepInput({ enabled: !!view && !training, onBack: walk.back, onForward: next });
+  const attachWheel = useBoardStepInput({ enabled: !!view && !training && !welcome, onBack: walk.back, onForward: next });
 
   /** E2a: the switch between the two modes, at the top of the Repertoire card. */
   const modeSwitch = (
@@ -728,7 +792,7 @@ export default function OpeningTrainer() {
             onForward={next}
             onReset={walk.toEnd}
             onFlip={() => setFlipped((f) => !f)}
-            historyDisabled={!view || training}
+            historyDisabled={!view || training || welcome}
           />
         }
         activity={training ? {
@@ -745,12 +809,14 @@ export default function OpeningTrainer() {
               <>
                 <span className="card-label inline-flex items-center gap-[0.35em]">
                   <BookOpen className="text-link" aria-hidden />
-                  Why this move
+                  {welcome ? 'The goals of the opening' : 'Why this move'}
                 </span>
                 <div className="card-body">
                   <div className="master-row">
                     <div className="master-row-status flex flex-col gap-[calc(var(--card-air)*2)]">
-                      {!view ? (
+                      {welcome ? (
+                        <p className="text-foreground">{WELCOME_INTRO}</p>
+                      ) : !view ? (
                         <Muted>{walk.error ? 'This position could not be loaded.' : 'Loading the repertoire.'}</Muted>
                       ) : !last ? (
                         <>
@@ -775,7 +841,15 @@ export default function OpeningTrainer() {
                     </div>
                     {MASTER_LIVE && <PuzzleMaster expression={masterExpression} voice={voice} onShown={setFaceShown} />}
                   </div>
-                  {view && last && (
+                  {welcome && (
+                    /* #337: the goals, in the reasons' own list (marker, divider, press to draw), then the invitation */
+                    <div className="flex min-h-0 flex-1 flex-col gap-[calc(var(--card-air)*2)]">
+                      <WorkspaceList label="The goals of the opening">
+                        <ReasonList reasons={WELCOME_GOALS as WelcomeGoal[]} empty="" active={activeReason} onSelect={pickReason} />
+                      </WorkspaceList>
+                    </div>
+                  )}
+                  {!welcome && view && last && (
                     <div className="flex min-h-0 flex-1 flex-col">
                       <WorkspaceList label="Reasons for the move">
                         <ReasonList reasons={last.explanation ?? []} empty={NO_REASON} active={activeReason} onSelect={pickReason} />
@@ -789,13 +863,16 @@ export default function OpeningTrainer() {
               <>
                 <span className="card-label inline-flex items-center gap-[0.35em]">
                   <ListTree aria-hidden />
-                  {ours ? 'Your move here' : 'Their replies'}
-                  {view?.position.junction && !walk.lineEnds && (
+                  {welcome ? 'Your first move' : ours ? 'Your move here' : 'Their replies'}
+                  {!welcome && view?.position.junction && !walk.lineEnds && (
                     <span className="ml-[0.4em] rounded-full bg-muted px-[0.6em] text-[0.8em] normal-case tracking-normal text-foreground">Junction</span>
                   )}
                 </span>
                 <div className="card-body">
-                  {walk.error && !view ? (
+                  {welcome ? (
+                    /* the welcome's closing line (#337), where the player's next step is */
+                    <p className="text-foreground">{WELCOME_END}</p>
+                  ) : walk.error && !view ? (
                     <button type="button" onClick={walk.retry} className="card-btn w-full text-[0.92em]">Try again</button>
                   ) : !view ? null : walk.lineEnds ? (
                     <div className="flex flex-col gap-[0.4em]">
@@ -924,7 +1001,7 @@ export default function OpeningTrainer() {
                       </WorkspaceList>
                     </div>
                   )}
-                  {walk.lineEnds && !walk.complete ? (
+                  {welcome ? null : walk.lineEnds && !walk.complete ? (
                     /* Q15: at the end of a line the board stays; this goes back to the junction with work left. */
                     <button
                       type="button"
@@ -978,10 +1055,13 @@ export default function OpeningTrainer() {
                       and more repertoires are coming. The chosen one is scrolled into view, within the list only.
                     */
                     <div className="flex min-h-0 flex-1 flex-col">
+                    {welcome && <span className="mb-[0.2em] px-[0.5em] text-[0.86em] font-semibold text-foreground">Choose an opening</span>}
                     <WorkspaceList label="Repertoires">
                     <div className="flex flex-col gap-[0.15em]" role="radiogroup" aria-label="Choose a repertoire">
                       {starters.map((s) => {
-                        const on = s.id === repertoireId;
+                        // nothing is chosen on the welcome (#337)
+                        const on = !welcome && s.id === repertoireId;
+                        const suits = REPERTOIRE_SUITS[s.id];
                         return (
                           <button
                             key={s.id}
@@ -992,26 +1072,44 @@ export default function OpeningTrainer() {
                             /* The mode is kept: choosing a repertoire while training goes on training (owner, 2026-11-10). */
                             onClick={() => {
                               if (on) return;
-                              setParams((prev) => { const n = new URLSearchParams(prev); n.set('repertoire', s.id); n.delete('from'); return n; });
+                              logGA4Event({ name: 'opening_repertoire_chosen', params: { repertoire: s.id, from_welcome: welcome } });
+                              setParams((prev) => { const n = new URLSearchParams(prev); n.set('repertoire', s.id); n.delete('from'); n.delete('welcome'); return n; });
                             }}
                             /* Selected as the active mode button is (owner: "needs to be clearly selected"). */
                             /* Each text sets its own colour: `.card-row` colours the row muted, and that beat a colour on the
                                button, so the chosen name printed muted on gold (owner, 2026-11-10). */
-                            className={`card-row w-full justify-between rounded px-[0.5em] py-[0.3em] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${on ? 'bg-primary' : 'hover:bg-muted'}`}
+                            className={`flex w-full flex-col rounded px-[0.5em] py-[0.3em] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${on ? 'bg-primary' : 'hover:bg-muted'}`}
                           >
-                            <span className={on ? 'font-medium text-primary-foreground' : 'text-foreground'}>{s.name}</span>
-                            <span className={`text-[0.86em] ${on ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{s.side === 'white' ? 'White' : 'Black'}</span>
+                            <span className="card-row w-full justify-between">
+                              <span className={on ? 'font-medium text-primary-foreground' : 'text-foreground'}>{s.name}</span>
+                              <span className={`text-[0.86em] ${on ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{s.side === 'white' ? 'White' : 'Black'}</span>
+                            </span>
+                            {/* who it suits (#337), the one line under its name */}
+                            {suits && <span className={`text-[0.8em] leading-snug ${on ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{suits}</span>}
                           </button>
                         );
                       })}
                     </div>
                     </WorkspaceList>
+                    {/* #337: the welcome again, on request (learning only: training has no welcome) */}
+                    {!welcome && !training && (
+                      <button
+                        type="button"
+                        onClick={() => setParams((prev) => { const n = new URLSearchParams(prev); n.set('welcome', '1'); n.delete('repertoire'); n.delete('from'); return n; })}
+                        className="mt-auto self-start px-[0.5em] pt-[0.3em] text-[0.86em] text-link hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        The goals of the opening
+                      </button>
+                    )}
                     </div>
                   )}
                 </div>
               </>
-            )),
-            slot('opening-line', 'list', (
+              /* #337: in learning the Repertoire card has 2 shares to the line's 1 (owner, 2026-11-18: room for more
+                 openings; the Current line card used ~130 of its 400px at 1536x746). In training the Session card in
+                 the same slot needs more (it overflowed by 9-21px at 1 share, 76px on a phone), so the two are equal. */
+            ), training ? 1 : 2),
+            slot('opening-line', 'text', (
               <>
                 <span className="card-label inline-flex items-center gap-[0.35em]">
                   <Route aria-hidden />
@@ -1219,7 +1317,8 @@ export default function OpeningTrainer() {
                   )}
                 </div>
               </>
-            ), 2),
+              /* #337: share 1, the Repertoire card's comment above says why */
+            )),
           ],
           foot: footSlot('theme-focus', (
             <PuzzleAppearanceCard

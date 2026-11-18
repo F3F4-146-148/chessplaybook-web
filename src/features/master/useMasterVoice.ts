@@ -74,6 +74,9 @@ function loadCues(url: string | undefined): Promise<MouthCue[]> {
 
 type VoicedLine = { text: string; audioUrl: string; cuesUrl?: string };
 
+/** The presses a browser counts as using the page, after which it allows sound (see the refusal in `say`). */
+const GESTURES = ['pointerdown', 'pointerup', 'keydown'] as const;
+
 /** Between two lines said one after the other (the puzzles card's headline, then the line under it). */
 const BETWEEN_LINES_MS = 200;
 
@@ -254,12 +257,35 @@ export function useMasterVoice(
         span = speechSpan(c);
         if (span && span.to <= span.from) span = null;
         try { if (span && current.currentTime < span.from) current.currentTime = span.from; } catch { /* plays whole */ }
-        current.play().catch(() => { if (audio !== current) return; done = true; stop(); if (live) onEndRef.current?.(); });
+        current.play().catch((e: unknown) => {
+          if (audio !== current) return;
+          /*
+            THE BROWSER REFUSED SOUND BEFORE THE PAGE WAS USED (owner, 2026-11-18: the welcome was silent with his
+            voice on). A browser plays sound only after a click or key press on the page, so a line said as the page
+            loads (the trainer's welcome, an opening's introduction opened from a link) was refused, and he never
+            tried again. He now waits for the first press and says the line then. The events are the ones a browser
+            counts as the visitor using the page: a mouse button down, a finger lifted, a key.
+          */
+          if ((e as { name?: string })?.name === 'NotAllowedError' && live) {
+            const retry = () => {
+              unlisten();
+              if (!live || audio !== current || done) return;
+              current.play().catch(() => { if (audio !== current) return; done = true; stop(); if (live) onEndRef.current?.(); });
+            };
+            const unlisten = () => { for (const t of GESTURES) window.removeEventListener(t, retry, true); waitingForGesture = null; };
+            for (const t of GESTURES) window.addEventListener(t, retry, true);
+            waitingForGesture = unlisten;
+            return;
+          }
+          done = true; stop(); if (live) onEndRef.current?.();
+        });
       });
     };
+    let waitingForGesture: (() => void) | null = null;
     say(0);
     return () => {
       live = false;
+      waitingForGesture?.();
       clearTimeout(gap);
       clearTimeout(tail);
       if (audio) release(audio);

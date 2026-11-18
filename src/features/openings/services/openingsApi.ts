@@ -43,6 +43,8 @@ export interface PositionView {
     rootSaid?: string[]; intro?: string | null;
     /** The moves the board plays during the introduction (after the starting ones), with the position after each. */
     introLine?: Array<{ uci: string; fen: string }> | null;
+    /** The introduction sentence by sentence, each with how many moves of `introLine` play while he says it. */
+    introParts?: Array<{ text: string; plies: number }> | null;
   };
   line: string[];
   ply: number;
