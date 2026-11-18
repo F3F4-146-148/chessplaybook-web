@@ -226,7 +226,7 @@ function SeekFallback({
         onClick={onPlayComputer}
         className="px-4 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-all"
       >
-        Play the computer instead
+        {MASTER_LIVE && MAIA_LIVE ? 'Play the Master instead' : 'Play the computer instead'}
       </button>
     </div>
   );
