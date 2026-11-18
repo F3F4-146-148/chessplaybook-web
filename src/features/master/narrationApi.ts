@@ -18,7 +18,7 @@ export interface MasterLine {
  * the OLD recordings, and a game mixed two voices (owner on staging, 2026-11-17: Polly for the first three moves,
  * George from move 4). A new voice means a new value here, so old answers are never reused. The server ignores it.
  */
-export const MASTER_VOICE = '2';
+export const MASTER_VOICE = '3'; // 3: master-v3, the g and "gains space" fixes (2026-11-18)
 
 export async function fetchNarration(fenBefore: string, uci: string, signal?: AbortSignal): Promise<MasterLine | null> {
   try {

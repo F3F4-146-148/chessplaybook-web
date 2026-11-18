@@ -1,7 +1,7 @@
 /**
  * The Master's mouth while he speaks (TALKING_MASTER_IMPLEMENTATION_PLAN C1, #298).
  *
- * Each recording in `audio/master-v2/` has a `.json` next to it: the mouth shape for every stretch of the
+ * Each recording in `audio/master-v3/` has a `.json` next to it: the mouth shape for every stretch of the
  * recording, made from the voice model's own sound timings (`backend/src/services/master/mouthCues.ts`). 'X' is
  * the pose's own closed mouth; the other six are the drawn mouth layers (`MASTER_LAYERS`).
  */

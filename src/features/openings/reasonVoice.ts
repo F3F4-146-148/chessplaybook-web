@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
  * (`audioKey` in the backend's narration). The browser only finds the file for a text it was given; a text not yet
  * recorded (a rebake added it) fails to load and he goes on to the next one, while the text stays on the card.
  */
-const AUDIO_BASE = '/audio/master-v2/';
+const AUDIO_BASE = '/audio/master-v3/';
 
 export type VoicedLine = { text: string; audioUrl: string; cuesUrl: string };
 

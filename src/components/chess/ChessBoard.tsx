@@ -5,6 +5,7 @@ import type { Config } from '@lichess-org/chessground/config';
 import type { Key, Color, Dests } from '@lichess-org/chessground/types';
 import { coordinateInk, getBoardTheme, type BoardTheme } from '@/config/boardThemes';
 import { useBoardTheme } from '@/hooks/useBoardTheme';
+import { knightArrowSvg } from './knightArrow';
 
 // Import chessground CSS + our theme overrides
 import '@lichess-org/chessground/assets/chessground.base.css';
@@ -333,8 +334,13 @@ export function ChessBoard({
         drawable: { brushes: Object.fromEntries(Object.entries(brushes).map(([k, v]) => [k, { key: k, ...v }])) as never },
       });
     }
-    apiRef.current.setAutoShapes(shapes);
-  }, [shapes, brushes]);
+    // A knight's jump in one of these brushes is drawn as an L, as Chess.com does (owner, 2026-11-18)
+    apiRef.current.setAutoShapes(shapes.map((s) => {
+      const b = s.dest && brushes?.[s.brush];
+      const svg = b && s.dest ? knightArrowSvg(s.orig, s.dest, orientation, b.color, b.opacity, b.lineWidth) : null;
+      return svg ? { orig: s.orig, customSvg: { html: svg } } : s;
+    }) as never);
+  }, [shapes, brushes, orientation]);
 
   // Tinted squares (#324)
   useEffect(() => {

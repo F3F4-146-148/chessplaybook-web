@@ -342,6 +342,9 @@ export default function OpeningTrainer() {
     : (last ? (last.explanation ?? []).map((r) => r.text) : null);
   // he says the move first, as on /play (owner, 2026-11-18, "by colour": "White pushes the pawn to d4"), then its reasons
   const moveSaid = reasonTexts === null ? null : (training ? train.last?.said : last?.said) ?? null;
+  // then the named variation the move reaches, if any ("This is the French Defense.", owner 2026-11-18)
+  const variationSaid = reasonTexts === null ? null : (training ? train.last?.announce : last?.announce) ?? null;
+  const spokenFirst = [moveSaid, variationSaid].filter((x): x is string => !!x);
   /*
     THE INTRODUCTION (owner, 2026-11-18): before the first move of learning mode he says the starting moves, each as
     the board plays it ("White pushes the pawn to e4."), then introduces the repertoire (backend
@@ -352,7 +355,7 @@ export default function OpeningTrainer() {
   const introTexts = atStart && rootSaid.every(Boolean) ? [...rootSaid, ...(rep?.intro ? [rep.intro] : [])] : null;
   const sayTexts = !faceShown ? null
     : introTexts?.length ? introTexts
-    : reasonTexts === null ? null : [...(moveSaid ? [moveSaid] : []), ...reasonTexts];
+    : reasonTexts === null ? null : [...spokenFirst, ...reasonTexts];
   const sayId = introTexts?.length ? `i:${rep!.id}`
     : training ? `t:${train.line.length}:${tLastLabel ?? ''}` : `l:${walk.viewPly}:${walk.line.slice(0, walk.viewPly).join(' ')}`;
   const reasonLines = useReasonVoice(sayTexts?.length ? sayId : null, sayTexts);
@@ -405,13 +408,15 @@ export default function OpeningTrainer() {
   const shownReasons: Array<{ key: string; marks: string }> = training
     ? (tShowReasons ? (tLastExpl?.r ?? []).map((r, i) => ({ key: r.k, marks: train.last?.marks?.[i] ?? '' })) : [])
     : (last?.explanation ?? []).map((r) => ({ key: r.key, marks: r.marks ?? '' }));
-  // the queue starts with the move, so his line i is reason i - 1 (none is marked while he says the move)
-  const saying = voice.lineIndex === null ? null : voice.lineIndex - (moveSaid ? 1 : 0);
+  // the queue starts with the move (and the variation), so his line i is reason i - that many; none is marked before
+  const saying = voice.lineIndex === null ? null : voice.lineIndex - spokenFirst.length;
   const activeReason = picked && picked.id === sayId ? picked.i : saying !== null && saying >= 0 ? saying : null;
   const active = activeReason !== null && activeReason < shownReasons.length ? shownReasons[activeReason] : null;
   // explaining the opponent's move, its idea is their plan (blue, as Chess.com's coach)
   const theirMove = training ? train.last?.ours === false : !!last && !last.ours;
-  const marks = useMemo(() => (active ? boardMarks(active.marks, active.key, theirMove) : NO_MARKS), [active?.marks, active?.key, theirMove]); // eslint-disable-line react-hooks/exhaustive-deps
+  // the marks in the colour of the side that made the move explained (owner, 2026-11-18: White blue, Black red)
+  const mover: 'white' | 'black' = (rep?.side === 'black') !== theirMove ? 'black' : 'white';
+  const marks = useMemo(() => (active ? boardMarks(active.marks, mover) : NO_MARKS), [active?.marks, mover]); // eslint-disable-line react-hooks/exhaustive-deps
   const brushes = useMemo(() => reasonBrushes(), []);
   const pickReason = (i: number) => setPicked((p) => (p && p.id === sayId && p.i === i ? { id: sayId, i: -1 } : { id: sayId, i }));
   // E3: a move outside the book is graded by the browser engine (F7), from the position before it to the one after.

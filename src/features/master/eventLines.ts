@@ -13,7 +13,7 @@ import type { MasterLine } from './narrationApi';
 export type MasterEvent = keyof typeof lines;
 
 /** George's voice and its mouth cues (#298), the same folder the server's `MASTER_AUDIO_BASE` names. */
-const AUDIO_BASE = '/audio/master-v2/';
+const AUDIO_BASE = '/audio/master-v3/';
 
 /** A fixed line of his with its recording and mouth cues, by the recording's name (`audioKey` of the text). */
 export function voicedLine(text: string, key: string): MasterLine {

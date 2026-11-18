@@ -28,6 +28,8 @@ export interface PositionMove {
   explanation: Array<{ key: string; text: string; marks?: string }> | null;
   /** What the Master says as the move is played, before its reasons; null for a move he does not explain. */
   said?: string | null;
+  /** The named variation the move reaches, said after the move ("This is the French Defense."); null if none. */
+  announce?: string | null;
   /** The opponent's turn: a main reply (walked first) or secondary; null at our turn. */
   main: boolean | null;
 }
@@ -105,6 +107,8 @@ export interface ExportMove {
   marks?: string[] | null;
   /** What the Master says as the move is played ("White pushes the pawn to d4"). */
   said?: string | null;
+  /** The named variation the move reaches, said after it ("This is the French Defense."). */
+  announce?: string | null;
   /** The evaluation after the move, White's point of view: cp, or mate in moves (+ White mates). */
   cp: number | null;
   mate: number | null;
@@ -123,7 +127,7 @@ export interface RepertoireExport {
  * once in `s`, an explanation naming them by index (backend repertoireExport.ts, WHAT IS SENT); it is unpacked here.
  */
 export async function fetchExport(repertoire: string, signal?: AbortSignal): Promise<RepertoireExport> {
-  type Packed = [string, string, string, number, 0 | 1, number | null, number | null, number | null, (string[] | null)?, (string | null)?];
+  type Packed = [string, string, string, number, 0 | 1, number | null, number | null, number | null, (string[] | null)?, (string | null)?, (string | null)?];
   type Raw = Omit<RepertoireExport, 'positions' | 'explanations'> & {
     positions: Record<string, { f: string; t: 'o' | 'x'; j: 0 | 1; m: Packed[] }>;
     s: string[];
@@ -139,7 +143,7 @@ export async function fetchExport(repertoire: string, signal?: AbortSignal): Pro
   for (const [key, p] of Object.entries(raw.positions)) {
     positions[key] = {
       f: p.f, t: p.t, j: p.j,
-      m: p.m.map((x) => ({ uci: x[0], san: x[1], child: x[2], share: x[3], flag: x[4], explanation: x[5], cp: x[6] ?? null, mate: x[7] ?? null, marks: x[8] ?? null, said: x[9] ?? null })),
+      m: p.m.map((x) => ({ uci: x[0], san: x[1], child: x[2], share: x[3], flag: x[4], explanation: x[5], cp: x[6] ?? null, mate: x[7] ?? null, marks: x[8] ?? null, said: x[9] ?? null, announce: x[10] ?? null })),
     };
   }
   return { ...raw, positions, explanations };
