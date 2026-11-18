@@ -1,13 +1,12 @@
 import { Link, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { NavThemeButton, MenuThemeChoice } from '@/components/ThemeToggle';
-import { Users, ChevronLeft, Radio, Swords, Newspaper, BarChart3, Menu, X, Crown, BookOpen, MessageSquare } from 'lucide-react';
+import { Home, Users, ChevronLeft, Radio, Swords, Newspaper, BarChart3, Menu, X, Crown, BookOpen, MessageSquare } from 'lucide-react';
 import { contactHref } from '@/components/support/ReportProblemLink';
 import { logGA4Event } from '@/services/analytics';
 import { MdPsychology } from 'react-icons/md';
 import { MATCH_LAST_DAY, MATCH_PATH, calendarState, gamePath, genevaDate } from '@/features/world-championship/match';
 import { lazy, Suspense, useState, useEffect, useRef, type CSSProperties } from 'react';
-import { DESIGN_V2_LIVE } from '@/design/designFlags';
 import { PlayMenu, PlayMenuGroup, isPlayPath } from '@/components/nav/PlayMenu';
 
 // Lazy-load auth (perf: defers 125KB aws-amplify vendor chunk from initial load)
@@ -199,23 +198,13 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
               `min-w-0` lets this group absorb the squeeze, so a long breadcrumb
               truncates instead of forcing the row to overflow. */}
           <div className="flex items-center gap-4 min-w-0">
-            <Link to="/" className="flex items-center gap-2 shrink-0 text-foreground hover:text-link transition-colors">
-              {(DESIGN_V2_LIVE || import.meta.env.DEV) ? (
-                /* Design v2: the same queen, cut out of our icon at its full resolution (43x91, owner
-                   2026-11-13: no vector of it exists; sharp at 2x, very slightly soft at 3x). BOTH LOGOS
-                   SHARE ONE GRID CELL and only their visibility changes with the theme, so switching
-                   theme moves no box (owner: layout the same in both themes; verify-theme-tokens).
-                   Rendered only when v2 can show: Chrome requests a hidden lazy image anyway, so with the
-                   switch off production keeps today's single image and never fetches this one. Both carry
-                   the alt text: a visibility-hidden image leaves the accessibility tree, so whichever is
-                   shown names the link (the wordmark is hidden at 1024-1279px). */
-                <span className="nav-logo-stack grid shrink-0">
-                  <img src="/chess-queen-icon-32.png" alt="Chess Playbook" className="nav-logo-v1 w-8 h-8 rounded-lg [grid-area:1/1]" width={32} height={32} />
-                  <img src="/chess-queen-icon-gold.png" alt="Chess Playbook" className="nav-logo-v2 w-8 h-8 object-contain [grid-area:1/1]" width={32} height={32} loading="lazy" />
-                </span>
-              ) : (
-                <img src="/chess-queen-icon-32.png" alt="Chess Playbook" className="nav-logo-v1 w-8 h-8 rounded-lg" width={32} height={32} />
-              )}
+            <Link to="/" aria-label="Chess Playbook" className="flex items-center gap-2 shrink-0 text-foreground hover:text-link transition-colors">
+              {/* A HOME ICON, LIKE EVERY OTHER MENU ITEM (owner, #330, 2026-11-18: option B of three). It
+                  replaces the queen logo rather than joining it: beside the queen it cost ~2px of every gap and
+                  at 840px wide (1.3px gaps) the items overlapped by 4.5px; in its place the row gains ~1px a gap.
+                  The queen stays the browser-tab and home-screen icon (index.html). Sized like the menu's icons
+                  (index.css, `[data-nav-home]`); the link's own label names it, the icon is decoration. */}
+              <Home data-nav-home aria-hidden="true" className="shrink-0" />
               {/* Hidden in the 1024–1279 band only. That is where the desktop
                   nav (7 items + dropdown) is revealed but the row is still
                   narrow, and the wordmark was the thing pushing it over — it

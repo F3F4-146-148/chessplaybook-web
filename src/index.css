@@ -374,6 +374,11 @@
     width: 18px;
     height: 18px;
   }
+  /* The home icon before the name (#330), the size the queen logo had here. */
+  [data-nav-row] [data-nav-home] {
+    width: 18px;
+    height: 18px;
+  }
   /*
     THE NAME SITS NEXT TO THE MARK, NOT IN THE MIDDLE OF THE BAR (owner,
     2026-08-15: *"for the mobile/stacked lets have the Chess Playbook text close
@@ -779,6 +784,12 @@
     [data-nav-wordmark] {
       font-size: var(--nav-type);
       line-height: 1.2;
+    }
+    /* THE HOME ICON IS A MENU ICON (owner, #330): the menu's icons are 16px at every width (their `h-4 w-4`
+       outranks the `[data-nav-desktop] svg` size above), so this one is too, not the logo tile's size. */
+    [data-nav-row] [data-nav-home] {
+      width: 16px;
+      height: 16px;
     }
     /* The group's own gap was a flat 1rem, i.e. wider than a link at 9px. */
     [data-nav-row] > div:first-of-type {
@@ -1617,10 +1628,6 @@
   border-radius: 0;
 }
 :root[data-design="v2"]:not([data-theme="light"]) [data-nav-row] [data-wordmark-accent] { color: hsl(var(--link)); }
-/* The two logos share one grid cell (Navigation.tsx); visibility, not display, so the theme moves no box. */
-.nav-logo-v2 { visibility: hidden; }
-:root[data-design="v2"]:not([data-theme="light"]) .nav-logo-v1 { visibility: hidden; }
-:root[data-design="v2"]:not([data-theme="light"]) .nav-logo-v2 { visibility: visible; }
 :root[data-design="v2"]:not([data-theme="light"]) .nav-account-slot button,
 :root[data-design="v2"]:not([data-theme="light"]) .nav-account-slot a {
   border-radius: 9999px;
