@@ -28,6 +28,8 @@ import { recordPuzzleTry } from '@/features/puzzles/services/puzzleTry';
  */
 const SETUP_MOVE_DELAY_MS = 250;
 const OPPONENT_REPLY_DELAY_MS = 300;
+/** Show solution: from the puzzle's starting position on the board to the first solution move. */
+const FIRST_SOLUTION_MOVE_MS = 500;
 
 export interface Puzzle {
   id: string;
@@ -672,12 +674,23 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     pendingTimersRef.current.forEach(clearTimeout);
     pendingTimersRef.current = [];
 
-    positionRef.current = pos;
-    setPosition(pos);
-    setStatus('solution');
-
+    /*
+      THE REVEAL STARTS WHERE THE PUZZLE STARTS (owner, 2026-11-18: the waits before the solution were too long).
+      It used to go back to before the opponent's setup move, wait 300 ms, replay it and wait 600 ms more: the
+      first solution move came 0.9 s after the press (or after the Master's line). Now the board shows the
+      position after the setup move at once, and the first solution move follows after FIRST_SOLUTION_MOVE_MS.
+    */
     let current = pos;
     let i = 0;
+    const setup = puz.moves[0] ? applyMove(pos, puz.moves[0]) : null;
+    if (setup) {
+      current = setup;
+      i = 1;
+      setLastMove([puz.moves[0].substring(0, 2) as Key, puz.moves[0].substring(2, 4) as Key]);
+    }
+    positionRef.current = current;
+    setPosition(current);
+    setStatus('solution');
     const playNext = () => {
       if (i >= puz.moves.length) {
         setMessage('Solution shown.');
@@ -704,7 +717,7 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
       pendingTimersRef.current.push(setTimeout(playNext, 600));
     };
 
-    pendingTimersRef.current.push(setTimeout(playNext, 300));
+    pendingTimersRef.current.push(setTimeout(playNext, setup ? FIRST_SOLUTION_MOVE_MS : 300));
   }, []);
 
   const state: PuzzleState = {

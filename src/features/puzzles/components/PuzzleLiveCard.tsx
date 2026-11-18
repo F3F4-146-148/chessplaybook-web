@@ -5,7 +5,7 @@ import { MasterPortrait } from '@/components/master/MasterPortrait';
 import { MASTER_LIVE } from '@/design/designFlags';
 import { puzzleMasterMoment, puzzleVoiceLine } from './puzzleMasterMoment';
 import { MasterVoiceButton } from '@/features/master/MasterVoiceButton';
-import { useMasterVoice } from '@/features/master/useMasterVoice';
+import { preloadMasterLines, useMasterVoice } from '@/features/master/useMasterVoice';
 
 /**
  * CARD 1 — what is happening on this position, and what to do about it.
@@ -234,6 +234,17 @@ export function PuzzleLiveCard({
     [isAnnouncing, solutionLine, silent, headlineText, sayDetail, detailText, puzzleId], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const voice = useMasterVoice(voiceLine, { onEnd: isAnnouncing ? reveal : undefined });
+  /* What he will say next for this puzzle is known now: loaded ahead, so he speaks the moment it happens (owner,
+     2026-11-18: the waits before "Correct! Puzzle solved." and the solution line were too long). */
+  useEffect(() => {
+    if (!voice.on || !faceShown || !MASTER_LIVE) return;
+    preloadMasterLines([
+      puzzleVoiceLine('Correct so far — keep going'),
+      puzzleVoiceLine('Correct! Puzzle solved.'),
+      puzzleVoiceLine(puzzleMasterMoment({ status: 'correct', isMidSolve: false, exploring: false, missed: false, quiet: false, puzzleId }).line),
+      solutionLine,
+    ]);
+  }, [voice.on, faceShown, puzzleId, solutionLine]);
   useEffect(() => {
     if (!isAnnouncing) return;
     const t = setTimeout(reveal, ANNOUNCE_MAX_MS);
@@ -393,7 +404,7 @@ const ANNOUNCE_MAX_MS = 6000;
 /** The smallest face shown with the 24 px speaker beside it (45 px faces are the tightest cards). */
 const SPEAKER_FACE_MIN = 50;
 
-function PuzzleMaster({ expression, voice, onShown }: {
+export function PuzzleMaster({ expression, voice, onShown }: {
   expression: Parameters<typeof MasterPortrait>[0]['expression'];
   voice: ReturnType<typeof useMasterVoice>;
   onShown: (shown: boolean) => void;

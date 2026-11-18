@@ -71,6 +71,54 @@ type VoicedLine = { text: string; audioUrl: string; cuesUrl?: string };
 /** Between two lines said one after the other (the puzzles card's headline, then the line under it). */
 const BETWEEN_LINES_MS = 200;
 
+/*
+  NO SILENCE AROUND HIS WORDS (owner, 2026-11-18: after "Correct! Puzzle solved." and Show solution "it waits too
+  much"). Every recording opens with ~0.3 s and closes with ~0.2-0.45 s of silence (Kokoro's own padding, measured
+  on the files). The mouth cues say where the speech starts and ends (`X` is the closed mouth), so each recording
+  starts just before its first word and counts as finished just after its last one. Without cues it plays whole.
+*/
+const LEAD_S = 0.04;
+const TAIL_S = 0.06;
+
+function speechSpan(cues: MouthCue[]): { from: number; to: number } | null {
+  const spoken = cues.filter((c) => c.shape !== 'X');
+  if (spoken.length === 0) return null;
+  return { from: Math.max(0, spoken[0].start - LEAD_S), to: spoken[spoken.length - 1].end + TAIL_S };
+}
+
+/*
+  LOADED BEFORE IT IS NEEDED: a page that knows what he will say next (the puzzles card: "Correct! Puzzle solved." and
+  the solution line) loads those recordings and cues ahead, so he speaks the moment it happens instead of after a
+  fetch. A preloaded element is used once; the next lines of a queue are loaded while the current one plays.
+*/
+const preloaded = new Map<string, HTMLAudioElement>();
+const PRELOAD_MAX = 16;
+
+export function preloadMasterLines(lines: readonly (VoicedLine | null | undefined)[]): void {
+  for (const l of lines) {
+    if (!l?.audioUrl || preloaded.has(l.audioUrl)) continue;
+    try {
+      const a = new Audio();
+      a.preload = 'auto';
+      a.src = l.audioUrl;
+      preloaded.set(l.audioUrl, a);
+    } catch {
+      continue;
+    }
+    void loadCues(l.cuesUrl);
+    if (preloaded.size > PRELOAD_MAX) preloaded.delete(preloaded.keys().next().value as string);
+  }
+}
+
+function takeAudio(url: string): HTMLAudioElement {
+  const a = preloaded.get(url);
+  if (a) {
+    preloaded.delete(url);
+    return a;
+  }
+  return new Audio(url);
+}
+
 /**
  * `line`: one line, or a few said in order (#298: the puzzles card says its headline, then the line under it). A new
  * value stops what he is saying and starts again, so pass a memoised value: a re-render must never restart him.
@@ -126,31 +174,58 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
     let live = true;
     let audio: HTMLAudioElement | null = null;
     let gap: ReturnType<typeof setTimeout> | undefined;
+    let tail: ReturnType<typeof setTimeout> | undefined;
     const stop = () => { setSpeaking(false); setSpeech(null); };
+    // the next line after a short gap; the end of the queue at once (Show solution's board waits on it)
+    const next = (i: number) => {
+      if (i + 1 >= queue.length) { if (live) onEndRef.current?.(); return; }
+      gap = setTimeout(() => say(i + 1), BETWEEN_LINES_MS);
+    };
     const say = (i: number) => {
       if (!live) return;
       if (i >= queue.length) { onEndRef.current?.(); return; }
-      const current = new Audio(queue[i].audioUrl);
+      const current = takeAudio(queue[i].audioUrl);
       current.volume = volumeRef.current;
       audioRef.current?.pause();
       audioRef.current = current;
       audio = current;
+      preloadMasterLines(queue.slice(i + 1, i + 3));
       let cues: MouthCue[] = [];
+      let span: { from: number; to: number } | null = null;
+      let done = false;
+      const finish = () => {
+        if (done || !live || audio !== current) return;
+        done = true;
+        clearTimeout(tail);
+        if (!current.ended) current.pause();
+        stop();
+        next(i);
+      };
+      // counts as finished just after the last word, not at the end of the trailing silence
+      const scheduleTail = () => {
+        clearTimeout(tail);
+        if (!span || current.paused) return;
+        tail = setTimeout(finish, Math.max(0, (span.to - current.currentTime) * 1000 / (current.playbackRate || 1)));
+      };
+      current.addEventListener('playing', () => { setSpeaking(true); setSpeech({ audio: current, cues }); scheduleTail(); });
+      current.addEventListener('ended', finish);
+      current.addEventListener('pause', () => { clearTimeout(tail); if (!current.ended && !done) stop(); });
+      current.addEventListener('error', () => { if (done) return; done = true; stop(); say(i + 1); });
+      // the cues come first (cached, and loading alongside the audio), so he starts at his first word
       void loadCues(queue[i].cuesUrl).then((c) => {
         if (!live || audio !== current) return;
         cues = c;
-        if (!current.paused) setSpeech({ audio: current, cues });
+        span = speechSpan(c);
+        if (span && span.to <= span.from) span = null;
+        try { if (span && current.currentTime < span.from) current.currentTime = span.from; } catch { /* plays whole */ }
+        current.play().catch(() => { if (audio !== current) return; done = true; stop(); if (live) onEndRef.current?.(); });
       });
-      current.addEventListener('playing', () => { setSpeaking(true); setSpeech({ audio: current, cues }); });
-      current.addEventListener('ended', () => { stop(); gap = setTimeout(() => say(i + 1), BETWEEN_LINES_MS); });
-      current.addEventListener('pause', () => { if (!current.ended) stop(); });
-      current.addEventListener('error', () => { stop(); say(i + 1); });
-      current.play().catch(() => { stop(); if (live) onEndRef.current?.(); });
     };
     say(0);
     return () => {
       live = false;
       clearTimeout(gap);
+      clearTimeout(tail);
       audio?.pause();
       stop();
     };

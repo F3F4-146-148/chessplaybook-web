@@ -19,6 +19,10 @@ import { linesInScope, linesFrom, progress, type ScopeProgress } from '../traini
 import { useAuth } from '@/features/auth/AuthContext';
 import { useOutsideGrade } from '../hooks/useOutsideGrade';
 import { ReasonList } from '../components/ReasonList';
+import { PuzzleMaster } from '@/features/puzzles/components/PuzzleLiveCard';
+import { useMasterVoice } from '@/features/master/useMasterVoice';
+import { MASTER_LIVE } from '@/design/designFlags';
+import { useReasonVoice } from '../reasonVoice';
 import { MoveMarker, MOVE_ROW_RULE } from '../components/MoveMarker';
 import { buildPositionHref } from '@/lib/positionDeepLink';
 import { applyMove, positionFromFen } from '@/components/chess/chessLogic';
@@ -310,6 +314,28 @@ export default function OpeningTrainer() {
   })();
   /** E4: a hint is on screen at our turn; the card then holds the hints alone (owner). */
   const showingHints = (tStatus.kind === 'your-move' || tStatus.kind === 'outside') && train.hints.length > 0;
+  const tShowReasons = !showingHints && !!train.last && (tStatus.kind === 'your-move' || tStatus.kind === 'right' || tStatus.kind === 'their-move' || tStatus.kind === 'line-end');
+
+  /*
+    THE MASTER IN WHY THIS MOVE (#309, owner 2026-11-17): his face at the card's top right, as on the puzzles card,
+    and he reads the reasons of the move on the board, "almost like a coach staying on the side and teaching you".
+    A new move stops him and he starts on its reasons. A move outside the book or another book move gets his face,
+    never words (the /play and puzzles rule, #186 D9). He speaks only while his speaker is on screen (his face shown
+    and big enough: `PuzzleMaster`), so he never talks where he cannot be muted.
+  */
+  const [faceShown, setFaceShown] = useState(false);
+  const masterExpression = training
+    ? (tStatus.kind === 'outside' || tStatus.kind === 'other-book' ? 'serious'
+      : tStatus.kind === 'right' || (tStatus.kind === 'line-end' && train.lineResult === true) ? 'pleased'
+      : showingHints ? 'thinking' : 'presenting')
+    // he explains the opponent's moves too, so the same face as for ours (owner, 2026-11-18: not the thinking pose)
+    : 'presenting';
+  const sayTexts = !faceShown ? null
+    : training ? (tShowReasons ? (tLastExpl?.r ?? []).map((r) => r.t) : null)
+    : (last ? (last.explanation ?? []).map((r) => r.text) : null);
+  const sayId = training ? `t:${train.line.length}:${tLastLabel ?? ''}` : `l:${walk.viewPly}:${walk.line.slice(0, walk.viewPly).join(' ')}`;
+  const reasonLines = useReasonVoice(sayTexts?.length ? sayId : null, sayTexts);
+  const voice = useMasterVoice(reasonLines);
   // E3: a move outside the book is graded by the browser engine (F7), from the position before it to the one after.
   const outside = useOutsideGrade(
     tStatus.kind === 'outside' ? train.here?.p.f ?? null : null,
@@ -357,6 +383,8 @@ export default function OpeningTrainer() {
           {showingHints ? 'Your move' : 'Why this move'}
         </span>
         <div className="card-body">
+          <div className="master-row">
+          <div className="master-row-status flex flex-col gap-[calc(var(--card-air)*2)]">
           {tStatus.kind === 'loading' ? (
             <Muted>Loading the repertoire.</Muted>
           ) : tStatus.kind === 'error' ? (
@@ -433,22 +461,25 @@ export default function OpeningTrainer() {
                   </ul>
                 </div>
               )}
-              {!showingHints && train.last && (tStatus.kind === 'your-move' || tStatus.kind === 'right' || tStatus.kind === 'their-move' || tStatus.kind === 'line-end') && (
-                <>
-                  <p className="flex items-baseline gap-[0.5em]">
-                    <span className="font-semibold text-foreground">{tLastLabel}</span>
-                    <span className="text-[0.86em] text-muted-foreground">
-                      {train.last.ours ? (tStatus.kind === 'right' || tStatus.kind === 'their-move' ? 'Right, your move' : 'Your move') : 'Their move'}
-                    </span>
-                  </p>
-                  <div className="flex min-h-0 flex-1 flex-col">
-                    <WorkspaceList label="Reasons for the move">
-                      <ReasonList reasons={(tLastExpl?.r ?? []).map((r) => ({ key: r.k, text: r.t }))} empty={NO_REASON} />
-                    </WorkspaceList>
-                  </div>
-                </>
+              {tShowReasons && train.last && (
+                <p className="flex items-baseline gap-[0.5em]">
+                  <span className="font-semibold text-foreground">{tLastLabel}</span>
+                  <span className="text-[0.86em] text-muted-foreground">
+                    {train.last.ours ? (tStatus.kind === 'right' || tStatus.kind === 'their-move' ? 'Right, your move' : 'Your move') : 'Their move'}
+                  </span>
+                </p>
               )}
             </>
+          )}
+          </div>
+          {MASTER_LIVE && <PuzzleMaster expression={masterExpression} voice={voice} onShown={setFaceShown} />}
+          </div>
+          {tShowReasons && (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <WorkspaceList label="Reasons for the move">
+                <ReasonList reasons={(tLastExpl?.r ?? []).map((r) => ({ key: r.k, text: r.t }))} empty={NO_REASON} />
+              </WorkspaceList>
+            </div>
           )}
         </div>
       </>
@@ -617,30 +648,37 @@ export default function OpeningTrainer() {
                   Why this move
                 </span>
                 <div className="card-body">
-                  {!view ? (
-                    <Muted>{walk.error ? 'This position could not be loaded.' : 'Loading the repertoire.'}</Muted>
-                  ) : !last ? (
-                    <>
-                      <p className="text-foreground">
-                        {rep!.rootSan.length
-                          ? `${rep!.name} starts after ${lineText(rep!.rootSan)}.`
-                          : `${rep!.name} starts from the first move.`}
-                      </p>
-                      <Muted>Press Next to play the first move. Its reasons appear here.</Muted>
-                    </>
-                  ) : (
-                    <>
-                      <p className="flex items-baseline gap-[0.5em]">
-                        <span className="font-semibold text-foreground">{numbered(rootPlies + walk.viewPly - 1, last.san)}</span>
-                        <span className="text-[0.86em] text-muted-foreground">{last.ours ? 'Your move' : 'Their move'}</span>
-                      </p>
-                      {positionName && <p className="text-[0.86em] leading-snug text-muted-foreground">{positionName}</p>}
-                      <div className="flex min-h-0 flex-1 flex-col">
-                        <WorkspaceList label="Reasons for the move">
-                          <ReasonList reasons={last.explanation ?? []} empty={NO_REASON} />
-                        </WorkspaceList>
-                      </div>
-                    </>
+                  <div className="master-row">
+                    <div className="master-row-status flex flex-col gap-[calc(var(--card-air)*2)]">
+                      {!view ? (
+                        <Muted>{walk.error ? 'This position could not be loaded.' : 'Loading the repertoire.'}</Muted>
+                      ) : !last ? (
+                        <>
+                          <p className="text-foreground">
+                            {rep!.rootSan.length
+                              ? `${rep!.name} starts after ${lineText(rep!.rootSan)}.`
+                              : `${rep!.name} starts from the first move.`}
+                          </p>
+                          <Muted>Press Next to play the first move. Its reasons appear here.</Muted>
+                        </>
+                      ) : (
+                        <>
+                          <p className="flex items-baseline gap-[0.5em]">
+                            <span className="font-semibold text-foreground">{numbered(rootPlies + walk.viewPly - 1, last.san)}</span>
+                            <span className="text-[0.86em] text-muted-foreground">{last.ours ? 'Your move' : 'Their move'}</span>
+                          </p>
+                          {positionName && <p className="text-[0.86em] leading-snug text-muted-foreground">{positionName}</p>}
+                        </>
+                      )}
+                    </div>
+                    {MASTER_LIVE && <PuzzleMaster expression={masterExpression} voice={voice} onShown={setFaceShown} />}
+                  </div>
+                  {view && last && (
+                    <div className="flex min-h-0 flex-1 flex-col">
+                      <WorkspaceList label="Reasons for the move">
+                        <ReasonList reasons={last.explanation ?? []} empty={NO_REASON} />
+                      </WorkspaceList>
+                    </div>
                   )}
                 </div>
               </>
