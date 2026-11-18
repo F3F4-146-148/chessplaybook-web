@@ -1264,6 +1264,11 @@
     display: flex;
     align-items: center;
   }
+  /* the opening card's introduction runs to several lines: his face stays at the top right (owner, #309), not centred
+     against the text (2026-11-18: it dropped to 83 px on desktop, 130 px on a phone) */
+  [data-skeleton-card="opening-explanation"] .master-row {
+    align-items: flex-start;
+  }
   [data-skeleton-card] .master-row-status {
     flex: 1 1 0;
     min-width: 0;

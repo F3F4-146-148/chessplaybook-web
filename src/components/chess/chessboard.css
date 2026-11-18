@@ -129,3 +129,26 @@
 .chess-board-wrapper cg-board square.current-premove {
   background-color: rgba(20, 30, 85, 0.5);
 }
+
+/* #324: the squares the reason being said names, in Chess.com's coach colours (owner, 2026-11-18: the language
+   players know; reasonBoardMarks.ts): orange the move's idea, red a threat, blue the other side. Strong, with a darker
+   edge, so they read on light and dark squares of every board theme (owner: the first pale tints did not), then a
+   step softer ("maybe a bit too strong"). The arrows use the same three colours. */
+.chess-board-wrapper cg-board square.reason-mark-idea {
+  background-color: hsl(var(--board-mark-idea) / 0.52); /* orange at 0.42 read tan over grey squares */
+  box-shadow: inset 0 0 0 2px hsl(var(--board-mark-idea-edge) / 0.75);
+}
+
+.chess-board-wrapper cg-board square.reason-mark-threat {
+  background-color: hsl(var(--board-mark) / 0.42);
+  box-shadow: inset 0 0 0 2px hsl(var(--board-mark-edge) / 0.75);
+}
+
+.chess-board-wrapper cg-board square.reason-mark-them {
+  background-color: hsl(var(--board-mark-them) / 0.42);
+  box-shadow: inset 0 0 0 2px hsl(var(--board-mark-them-edge) / 0.75);
+}
+
+/* #324: the opening trainer's arrows at full strength (chessground fades its whole arrow layer to 60% on every board;
+   owner, 2026-11-18: "the arrows need to be stronger"). Only on that board: arrows drawn elsewhere are unchanged. */
+.reason-marks-board .cg-wrap .cg-shapes { opacity: 1; }

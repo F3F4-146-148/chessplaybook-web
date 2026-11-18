@@ -57,6 +57,7 @@ export const COLOR_ROLES = [
   'move-brilliant', 'move-best', 'move-great', 'move-excellent', 'move-good',
   'move-inaccuracy', 'move-mistake', 'move-blunder', 'move-severe-blunder',
   'board-ink-dark', 'board-ink-dark-muted', 'board-ink-light', 'board-ink-light-muted',
+  'board-mark', 'board-mark-edge', 'board-mark-them', 'board-mark-them-edge', 'board-mark-idea', 'board-mark-idea-edge',
   'eval-white', 'eval-black',
   'medal-gold', 'medal-silver', 'medal-bronze',
   'clock-low', 'clock-low-foreground', 'clock-critical', 'clock-critical-foreground',
@@ -311,6 +312,13 @@ export const darkTheme: ColorTheme = {
     'board-ink-dark-muted': '215 25% 27%',
     'board-ink-light': '0 0% 100%',
     'board-ink-light-muted': '216 12% 84%',
+    // #324: the opening reasons' marks on the board (squares and arrows); the board is the same in both themes
+    'board-mark': '0 72% 51%',
+    'board-mark-edge': '0 70% 35%',
+    'board-mark-them': '217 91% 52%',
+    'board-mark-them-edge': '221 83% 33%',
+    'board-mark-idea': '30 100% 50%',
+    'board-mark-idea-edge': '26 90% 32%',
 
     /*
       B6. The evaluation rail's two halves are the two SIDES, not page colours:
@@ -504,6 +512,13 @@ export const lightTheme: ColorTheme = {
     'board-ink-dark-muted': '215 25% 27%',
     'board-ink-light': '0 0% 100%',
     'board-ink-light-muted': '216 12% 84%',
+    // #324: the opening reasons' marks on the board (squares and arrows); the board is the same in both themes
+    'board-mark': '0 72% 51%',
+    'board-mark-edge': '0 70% 35%',
+    'board-mark-them': '217 91% 52%',
+    'board-mark-them-edge': '221 83% 33%',
+    'board-mark-idea': '30 100% 50%',
+    'board-mark-idea-edge': '26 90% 32%',
 
     'eval-white': '0 0% 100%',
     'eval-black': '223 41% 3.3%',
@@ -618,6 +633,10 @@ export function tailwindColors() {
     'board-ink': {
       dark: ref('board-ink-dark'), 'dark-muted': ref('board-ink-dark-muted'),
       light: ref('board-ink-light'), 'light-muted': ref('board-ink-light-muted'),
+    },
+    'board-mark': {
+      DEFAULT: ref('board-mark'), edge: ref('board-mark-edge'), them: ref('board-mark-them'), 'them-edge': ref('board-mark-them-edge'),
+      idea: ref('board-mark-idea'), 'idea-edge': ref('board-mark-idea-edge'),
     },
     medal: { gold: ref('medal-gold'), silver: ref('medal-silver'), bronze: ref('medal-bronze') },
     clock: {

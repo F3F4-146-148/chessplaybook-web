@@ -25,7 +25,9 @@ export interface PositionMove {
   /** The opponent's turn: false for theory the repertoire does not cover (the TWIC book covers 5%+ replies). */
   covered?: boolean;
   /** The reasons as sentences, biggest first; [] when none was found; null for a book move outside the repertoire. */
-  explanation: Array<{ key: string; text: string }> | null;
+  explanation: Array<{ key: string; text: string; marks?: string }> | null;
+  /** What the Master says as the move is played, before its reasons; null for a move he does not explain. */
+  said?: string | null;
   /** The opponent's turn: a main reply (walked first) or secondary; null at our turn. */
   main: boolean | null;
 }
@@ -33,7 +35,11 @@ export interface PositionMove {
 export interface PositionView {
   bookVersion: string;
   /** `rootSan`: the moves played before the repertoire starts, in SAN (from the book's records). */
-  repertoire: { id: string; name: string; side: 'white' | 'black'; rootLine: string[]; rootSan: string[]; rootFens: string[]; maxPly: number };
+  repertoire: {
+    id: string; name: string; side: 'white' | 'black'; rootLine: string[]; rootSan: string[]; rootFens: string[]; maxPly: number;
+    /** What the Master says as each starting move is played, and how he introduces the repertoire (owner, 2026-11-18). */
+    rootSaid?: string[]; intro?: string | null;
+  };
   line: string[];
   ply: number;
   position: {
@@ -93,6 +99,10 @@ export interface ExportMove {
    *  At theirs: 1 main, 0 secondary, 3 theory the repertoire does not cover (no line goes through it). */
   flag: 0 | 1 | 2 | 3;
   explanation: number | null;
+  /** #324: per reason of the explanation, its board marks space separated ("f3d4" an arrow, "e5" a square). */
+  marks?: string[] | null;
+  /** What the Master says as the move is played ("White pushes the pawn to d4"). */
+  said?: string | null;
   /** The evaluation after the move, White's point of view: cp, or mate in moves (+ White mates). */
   cp: number | null;
   mate: number | null;
@@ -111,7 +121,7 @@ export interface RepertoireExport {
  * once in `s`, an explanation naming them by index (backend repertoireExport.ts, WHAT IS SENT); it is unpacked here.
  */
 export async function fetchExport(repertoire: string, signal?: AbortSignal): Promise<RepertoireExport> {
-  type Packed = [string, string, string, number, 0 | 1, number | null, number | null, number | null];
+  type Packed = [string, string, string, number, 0 | 1, number | null, number | null, number | null, (string[] | null)?, (string | null)?];
   type Raw = Omit<RepertoireExport, 'positions' | 'explanations'> & {
     positions: Record<string, { f: string; t: 'o' | 'x'; j: 0 | 1; m: Packed[] }>;
     s: string[];
@@ -127,7 +137,7 @@ export async function fetchExport(repertoire: string, signal?: AbortSignal): Pro
   for (const [key, p] of Object.entries(raw.positions)) {
     positions[key] = {
       f: p.f, t: p.t, j: p.j,
-      m: p.m.map((x) => ({ uci: x[0], san: x[1], child: x[2], share: x[3], flag: x[4], explanation: x[5], cp: x[6] ?? null, mate: x[7] ?? null })),
+      m: p.m.map((x) => ({ uci: x[0], san: x[1], child: x[2], share: x[3], flag: x[4], explanation: x[5], cp: x[6] ?? null, mate: x[7] ?? null, marks: x[8] ?? null, said: x[9] ?? null })),
     };
   }
   return { ...raw, positions, explanations };

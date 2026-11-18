@@ -60,6 +60,10 @@ export interface ChessBoardProps {
   onChange?: () => void;
   /** SVG shapes to draw on the board (arrows, circles) */
   shapes?: Array<{ orig: Key; dest?: Key; brush: string }>;
+  /** Extra brushes the shapes may name (#324: the reason kinds' colours), by name. */
+  brushes?: Record<string, { color: string; opacity: number; lineWidth: number }>;
+  /** Squares tinted with a class each (#324: the squares a reason names); an empty map clears them. */
+  squareClasses?: Map<Key, string>;
   /** Additional CSS class for the container */
   className?: string;
 }
@@ -113,6 +117,8 @@ export function ChessBoard({
   onMove,
   onChange,
   shapes,
+  brushes,
+  squareClasses,
   className = '',
 }: ChessBoardProps) {
   const boardRef = useRef<HTMLDivElement>(null);
@@ -319,11 +325,24 @@ export function ChessBoard({
     };
   }, []);
 
-  // Update shapes
+  // Update shapes (the brushes they name first)
   useEffect(() => {
     if (!apiRef.current || !shapes) return;
+    if (brushes) {
+      apiRef.current.set({
+        drawable: { brushes: Object.fromEntries(Object.entries(brushes).map(([k, v]) => [k, { key: k, ...v }])) as never },
+      });
+    }
     apiRef.current.setAutoShapes(shapes);
-  }, [shapes]);
+  }, [shapes, brushes]);
+
+  // Tinted squares (#324)
+  useEffect(() => {
+    if (!apiRef.current || !squareClasses) return;
+    // set, not merged: chessground's `set` merges a map into the old one, so an empty map would clear nothing
+    apiRef.current.state.highlight.custom = squareClasses;
+    apiRef.current.state.dom.redraw();
+  }, [squareClasses]);
 
   // Pre-computed set of "fIdx,rIdx" screen-coordinate keys for squares that have pieces.
   // Updated from FEN — no DOM querying, so pointermove handler is a pure O(1) lookup.

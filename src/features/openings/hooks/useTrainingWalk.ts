@@ -44,6 +44,10 @@ export interface PlayedMove {
   ours: boolean;
   /** The explanation id from the export, null when none. */
   explanation: number | null;
+  /** #324: the board marks of each reason (the export's). */
+  marks?: string[] | null;
+  /** What the Master says as the move is played (the export's). */
+  said?: string | null;
   /** Ours only: what the move earned (E6), for the end-of-line summary. */
   outcome?: MoveOutcome;
 }
@@ -123,7 +127,7 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
       const p = data.positions[key];
       const x = p?.m.find((m) => m.uci === uci);
       if (!p || !x) break;
-      played.push({ uci, san: x.san, ours: p.t === 'o', explanation: x.explanation });
+      played.push({ uci, san: x.san, ours: p.t === 'o', explanation: x.explanation, marks: x.marks, said: x.said });
       key = x.child;
     }
     return played;
@@ -184,7 +188,7 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
     setStatus((s) => (s.kind === 'right' ? s : { kind: 'their-move' }));
     replyTimer.current = setTimeout(() => {
       const r = pickReply(here.p.m, ucis, lines, isTrained);
-      if (r) setLine((l) => [...l, { uci: r.uci, san: r.san, ours: false, explanation: r.explanation }]);
+      if (r) setLine((l) => [...l, { uci: r.uci, san: r.san, ours: false, explanation: r.explanation, marks: r.marks, said: r.said }]);
       else setStatus({ kind: 'line-end' });
     }, REPLY_DELAY_MS);
     return () => { if (replyTimer.current) clearTimeout(replyTimer.current); };
@@ -255,7 +259,7 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
       wrongTries: attempt.current.wrongTries,
     });
     setStatus({ kind: 'right', move: x });
-    setLine((l) => [...l, { uci: x.uci, san: x.san, ours: true, explanation: x.explanation, outcome }]);
+    setLine((l) => [...l, { uci: x.uci, san: x.san, ours: true, explanation: x.explanation, marks: x.marks, said: x.said, outcome }]);
   }, [here, ucis, lineId, hintsShown]);
 
   /** A move the player made on the board, as (orig, dest). */

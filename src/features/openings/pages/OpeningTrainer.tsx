@@ -23,6 +23,7 @@ import { PuzzleMaster } from '@/features/puzzles/components/PuzzleLiveCard';
 import { useMasterVoice } from '@/features/master/useMasterVoice';
 import { MASTER_LIVE } from '@/design/designFlags';
 import { useReasonVoice } from '../reasonVoice';
+import { boardMarks, NO_MARKS, reasonBrushes } from '../reasonBoardMarks';
 import { MoveMarker, MOVE_ROW_RULE } from '../components/MoveMarker';
 import { buildPositionHref } from '@/lib/positionDeepLink';
 import { applyMove, positionFromFen } from '@/components/chess/chessLogic';
@@ -224,11 +225,6 @@ export default function OpeningTrainer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rep?.id]);
   const introRunning = !!intro && intro.id === rep?.id && intro.step <= rootFens.length && walk.viewPly === 0 && walk.line.length === 0;
-  useEffect(() => {
-    if (!introRunning) return;
-    const t = setTimeout(() => setIntro((i) => (i ? { ...i, step: i.step + 1 } : i)), intro!.step === 0 ? 400 : 500);
-    return () => clearTimeout(t);
-  }, [introRunning, intro]);
   const introDone = () => setIntro((i) => (i ? { ...i, step: rootFens.length + 1 } : i));
   const introStep = introRunning ? intro!.step : null;
   const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -330,12 +326,62 @@ export default function OpeningTrainer() {
       : showingHints ? 'thinking' : 'presenting')
     // he explains the opponent's moves too, so the same face as for ours (owner, 2026-11-18: not the thinking pose)
     : 'presenting';
-  const sayTexts = !faceShown ? null
-    : training ? (tShowReasons ? (tLastExpl?.r ?? []).map((r) => r.t) : null)
+  const reasonTexts = training ? (tShowReasons ? (tLastExpl?.r ?? []).map((r) => r.t) : null)
     : (last ? (last.explanation ?? []).map((r) => r.text) : null);
-  const sayId = training ? `t:${train.line.length}:${tLastLabel ?? ''}` : `l:${walk.viewPly}:${walk.line.slice(0, walk.viewPly).join(' ')}`;
+  // he says the move first, as on /play (owner, 2026-11-18, "by colour": "White pushes the pawn to d4"), then its reasons
+  const moveSaid = reasonTexts === null ? null : (training ? train.last?.said : last?.said) ?? null;
+  /*
+    THE INTRODUCTION (owner, 2026-11-18): before the first move of learning mode he says the starting moves, each as
+    the board plays it ("White pushes the pawn to e4."), then introduces the repertoire (backend
+    config/repertoireIntros.json). Without his voice the board plays them half a second apart, as before (D6).
+  */
+  const atStart = !training && !!rep && !!view && walk.viewPly === 0 && walk.line.length === 0;
+  const rootSaid = rep?.rootSaid ?? [];
+  const introTexts = atStart && rootSaid.every(Boolean) ? [...rootSaid, ...(rep?.intro ? [rep.intro] : [])] : null;
+  const sayTexts = !faceShown ? null
+    : introTexts?.length ? introTexts
+    : reasonTexts === null ? null : [...(moveSaid ? [moveSaid] : []), ...reasonTexts];
+  const sayId = introTexts?.length ? `i:${rep!.id}`
+    : training ? `t:${train.line.length}:${tLastLabel ?? ''}` : `l:${walk.viewPly}:${walk.line.slice(0, walk.viewPly).join(' ')}`;
   const reasonLines = useReasonVoice(sayTexts?.length ? sayId : null, sayTexts);
   const voice = useMasterVoice(reasonLines);
+  // the starting moves follow his voice: move i is played as he starts its sentence; if no line has started 3 s in
+  // (a recording missing), or his voice is off, they are played half a second apart
+  const [introStalled, setIntroStalled] = useState(false);
+  const introByVoice = MASTER_LIVE && voice.on && faceShown && !!introTexts?.length && !introStalled;
+  useEffect(() => {
+    if (!introRunning || !introByVoice || intro!.step > 0) return;
+    const t = setTimeout(() => setIntroStalled(true), 3000);
+    return () => clearTimeout(t);
+  }, [introRunning, introByVoice, intro]);
+  useEffect(() => {
+    if (!introRunning || !introByVoice || voice.lineIndex === null) return;
+    const step = Math.min(voice.lineIndex + 1, rootFens.length);
+    setIntro((i) => (i && i.step < step ? { ...i, step } : i));
+  }, [introRunning, introByVoice, voice.lineIndex, rootFens.length]);
+  useEffect(() => {
+    if (!introRunning || introByVoice) return;
+    const t = setTimeout(() => setIntro((i) => (i ? { ...i, step: i.step + 1 } : i)), intro!.step === 0 ? 400 : 500);
+    return () => clearTimeout(t);
+  }, [introRunning, introByVoice, intro]);
+  /*
+    WHAT HE IS TALKING ABOUT, ON THE BOARD (#324, owner 2026-11-17 and 11-18): the reason he is saying, or the one the
+    player pressed, is marked in the list and its marks are drawn on the board in its kind's colour. A press on the
+    selected reason clears it; a new move clears the selection. The marks come from the server with each reason.
+  */
+  const [picked, setPicked] = useState<{ id: string; i: number } | null>(null);
+  const shownReasons: Array<{ key: string; marks: string }> = training
+    ? (tShowReasons ? (tLastExpl?.r ?? []).map((r, i) => ({ key: r.k, marks: train.last?.marks?.[i] ?? '' })) : [])
+    : (last?.explanation ?? []).map((r) => ({ key: r.key, marks: r.marks ?? '' }));
+  // the queue starts with the move, so his line i is reason i - 1 (none is marked while he says the move)
+  const saying = voice.lineIndex === null ? null : voice.lineIndex - (moveSaid ? 1 : 0);
+  const activeReason = picked && picked.id === sayId ? picked.i : saying !== null && saying >= 0 ? saying : null;
+  const active = activeReason !== null && activeReason < shownReasons.length ? shownReasons[activeReason] : null;
+  // explaining the opponent's move, its idea is their plan (blue, as Chess.com's coach)
+  const theirMove = training ? train.last?.ours === false : !!last && !last.ours;
+  const marks = useMemo(() => (active ? boardMarks(active.marks, active.key, theirMove) : NO_MARKS), [active?.marks, active?.key, theirMove]); // eslint-disable-line react-hooks/exhaustive-deps
+  const brushes = useMemo(() => reasonBrushes(), []);
+  const pickReason = (i: number) => setPicked((p) => (p && p.id === sayId && p.i === i ? { id: sayId, i: -1 } : { id: sayId, i }));
   // E3: a move outside the book is graded by the browser engine (F7), from the position before it to the one after.
   const outside = useOutsideGrade(
     tStatus.kind === 'outside' ? train.here?.p.f ?? null : null,
@@ -477,7 +523,7 @@ export default function OpeningTrainer() {
           {tShowReasons && (
             <div className="flex min-h-0 flex-1 flex-col">
               <WorkspaceList label="Reasons for the move">
-                <ReasonList reasons={(tLastExpl?.r ?? []).map((r) => ({ key: r.k, text: r.t }))} empty={NO_REASON} />
+                <ReasonList reasons={(tLastExpl?.r ?? []).map((r) => ({ key: r.k, text: r.t }))} empty={NO_REASON} active={activeReason} onSelect={pickReason} />
               </WorkspaceList>
             </div>
           )}
@@ -603,7 +649,10 @@ export default function OpeningTrainer() {
                 turnColor={train.board?.turnColor}
                 movableColor={canPlay ? train.board!.turnColor : undefined}
                 onMove={canPlay ? train.playerMove : undefined}
-                shapes={revealShapes}
+                shapes={[...revealShapes, ...marks.shapes]}
+                brushes={brushes}
+                squareClasses={marks.squares}
+                className="reason-marks-board"
                 themeId={currentTheme.id}
               />
             ) : (
@@ -616,6 +665,10 @@ export default function OpeningTrainer() {
                 turnColor={learnTurn}
                 movableColor={learnMovable ? learnTurn : undefined}
                 onMove={learnMovable ? learnMove : undefined}
+                shapes={marks.shapes}
+                brushes={brushes}
+                squareClasses={marks.squares}
+                className="reason-marks-board"
                 themeId={currentTheme.id}
               />
             )}
@@ -655,9 +708,11 @@ export default function OpeningTrainer() {
                       ) : !last ? (
                         <>
                           <p className="text-foreground">
-                            {rep!.rootSan.length
-                              ? `${rep!.name} starts after ${lineText(rep!.rootSan)}.`
-                              : `${rep!.name} starts from the first move.`}
+                            {rep!.intro
+                              ? rep!.intro
+                              : rep!.rootSan.length
+                                ? `${rep!.name} starts after ${lineText(rep!.rootSan)}.`
+                                : `${rep!.name} starts from the first move.`}
                           </p>
                           <Muted>Press Next to play the first move. Its reasons appear here.</Muted>
                         </>
@@ -676,7 +731,7 @@ export default function OpeningTrainer() {
                   {view && last && (
                     <div className="flex min-h-0 flex-1 flex-col">
                       <WorkspaceList label="Reasons for the move">
-                        <ReasonList reasons={last.explanation ?? []} empty={NO_REASON} />
+                        <ReasonList reasons={last.explanation ?? []} empty={NO_REASON} active={activeReason} onSelect={pickReason} />
                       </WorkspaceList>
                     </div>
                   )}

@@ -132,6 +132,8 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
   volumeRef.current = volume;
   const [speaking, setSpeaking] = useState(false);
   const [speech, setSpeech] = useState<MasterSpeech | null>(null);
+  /** #324: the line of the queue he is saying (kept through the short gap between lines), null when he is not. */
+  const [lineIndex, setLineIndex] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // called when he has said the whole of `line` (or could not say it), never when a new line cut him off
   const onEndRef = useRef(options?.onEnd);
@@ -178,7 +180,7 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
     const stop = () => { setSpeaking(false); setSpeech(null); };
     // the next line after a short gap; the end of the queue at once (Show solution's board waits on it)
     const next = (i: number) => {
-      if (i + 1 >= queue.length) { if (live) onEndRef.current?.(); return; }
+      if (i + 1 >= queue.length) { setLineIndex(null); if (live) onEndRef.current?.(); return; }
       gap = setTimeout(() => say(i + 1), BETWEEN_LINES_MS);
     };
     const say = (i: number) => {
@@ -207,7 +209,7 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
         if (!span || current.paused) return;
         tail = setTimeout(finish, Math.max(0, (span.to - current.currentTime) * 1000 / (current.playbackRate || 1)));
       };
-      current.addEventListener('playing', () => { setSpeaking(true); setSpeech({ audio: current, cues }); scheduleTail(); });
+      current.addEventListener('playing', () => { setSpeaking(true); setSpeech({ audio: current, cues }); setLineIndex(i); scheduleTail(); });
       current.addEventListener('ended', finish);
       current.addEventListener('pause', () => { clearTimeout(tail); if (!current.ended && !done) stop(); });
       current.addEventListener('error', () => { if (done) return; done = true; stop(); say(i + 1); });
@@ -228,8 +230,9 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
       clearTimeout(tail);
       audio?.pause();
       stop();
+      setLineIndex(null);
     };
   }, [on, line]);
 
-  return { on, toggle, speaking, speech, volume, setVolume, commitVolume };
+  return { on, toggle, speaking, speech, volume, setVolume, commitVolume, lineIndex };
 }

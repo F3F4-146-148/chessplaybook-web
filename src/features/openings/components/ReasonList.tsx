@@ -35,26 +35,58 @@ const TONE: Record<ReasonKind, string> = {
   structure: 'text-reason-structure bg-reason-structure/15',
 };
 
+/* #324: the reason being said or selected, a soft tint of its kind with a bar in that colour on its left. */
+const ACTIVE: Record<ReasonKind, string> = {
+  threat: 'bg-reason-threat/10 shadow-[inset_3px_0_0_hsl(var(--reason-threat))]',
+  centre: 'bg-reason-centre/10 shadow-[inset_3px_0_0_hsl(var(--reason-centre))]',
+  development: 'bg-reason-development/10 shadow-[inset_3px_0_0_hsl(var(--reason-development))]',
+  king: 'bg-reason-king/10 shadow-[inset_3px_0_0_hsl(var(--reason-king))]',
+  structure: 'bg-reason-structure/10 shadow-[inset_3px_0_0_hsl(var(--reason-structure))]',
+};
+
 export interface ReasonItem { key?: string; text: string }
 
-export function ReasonList({ reasons, empty }: { reasons: ReasonItem[]; empty: string }) {
+/**
+ * `active`: the reason the board shows (#324: the one he is saying, or the one selected); `onSelect`: a press on a
+ * reason, which then shows its marks on the board. Without `onSelect` the rows are plain text, as before.
+ */
+export function ReasonList({ reasons, empty, active = null, onSelect }: {
+  reasons: ReasonItem[];
+  empty: string;
+  active?: number | null;
+  onSelect?: (index: number) => void;
+}) {
   if (!reasons.length) return <p className="leading-snug text-foreground">{empty}</p>;
   return (
     <ul className="flex flex-col text-foreground" data-reason-list>
       {reasons.map((r, i) => {
         const kind = reasonKind(r.key);
         const Icon = ICON[kind];
-        return (
-          <li
-            key={i}
-            data-reason-kind={kind}
-            className={`grid grid-cols-[1.45em_minmax(0,1fr)] items-start gap-[0.65em] border-t border-border py-[0.5em] leading-snug first:border-t-0 first:pt-[0.1em] ${i === 0 ? 'font-medium' : ''}`}
-          >
+        const on = active === i;
+        const row = `grid w-full grid-cols-[1.45em_minmax(0,1fr)] items-start gap-[0.65em] py-[0.5em] text-left leading-snug ${i === 0 ? 'font-medium' : ''}`;
+        const body = (
+          <>
             <span className={`mt-[0.02em] grid h-[1.45em] w-[1.45em] place-items-center rounded-[0.4em] ${TONE[kind]}`} title={REASON_KIND_NAMES[kind]}>
               {Icon({ className: 'h-[0.95em] w-[0.95em]' })}
               <span className="sr-only">{REASON_KIND_NAMES[kind]}: </span>
             </span>
             <span>{r.text}</span>
+          </>
+        );
+        return (
+          <li
+            key={i}
+            data-reason-kind={kind}
+            data-reason-active={on ? '' : undefined}
+            className={`border-t border-border first:border-t-0 [&:first-child>*]:pt-[0.1em] ${on ? `rounded-[0.35em] ${ACTIVE[kind]}` : ''}`}
+          >
+            {onSelect ? (
+              <button type="button" aria-pressed={on} onClick={() => onSelect(i)} className={`${row} rounded-[0.35em] px-[0.35em] hover:bg-muted/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring`}>
+                {body}
+              </button>
+            ) : (
+              <div className={row}>{body}</div>
+            )}
           </li>
         );
       })}
