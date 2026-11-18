@@ -179,6 +179,12 @@ export default defineConfig(({ mode, command }) => ({
       ...(!DEV_API_IS_PRODUCTION || DEV_API_WRITES_ALLOWED
         ? { '/ws': { target: DEV_API_TARGET, ws: true, changeOrigin: true, secure: true } }
         : {}),
+      /*
+        THE MASTER'S RECORDINGS, from the site (2026-11-18). They are not in git and run to tens of thousands of files
+        (the opening reasons, the move sentences); copied into `public/` they stalled the dev server for up to 90 s at
+        a time while it took them in, measured. The site has them all, read-only.
+      */
+      '/audio/master-v2': { target: 'https://www.chessplaybook.com', changeOrigin: true, secure: true },
     },
   },
   plugins: [react(), devApiWriteGuard, previewAssets, boardThemePrePaint, appThemePrePaint, mode === "development" && componentTagger()].filter(Boolean),

@@ -144,6 +144,12 @@
   box-shadow: inset 0 0 0 2px hsl(var(--board-mark-edge) / 0.75);
 }
 
+/* The squares a more active piece can now move to (owner, 2026-11-18: "slightly highlight the squares"): the same
+   colour, light and without an edge, so the piece and the new squares named in the line stand out among them. */
+.chess-board-wrapper cg-board square.reason-mark-soft-idea { background-color: hsl(var(--board-mark-idea) / 0.2); }
+.chess-board-wrapper cg-board square.reason-mark-soft-threat { background-color: hsl(var(--board-mark) / 0.2); }
+.chess-board-wrapper cg-board square.reason-mark-soft-them { background-color: hsl(var(--board-mark-them) / 0.2); }
+
 .chess-board-wrapper cg-board square.reason-mark-them {
   background-color: hsl(var(--board-mark-them) / 0.42);
   box-shadow: inset 0 0 0 2px hsl(var(--board-mark-them-edge) / 0.75);

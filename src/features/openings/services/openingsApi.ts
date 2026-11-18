@@ -39,6 +39,8 @@ export interface PositionView {
     id: string; name: string; side: 'white' | 'black'; rootLine: string[]; rootSan: string[]; rootFens: string[]; maxPly: number;
     /** What the Master says as each starting move is played, and how he introduces the repertoire (owner, 2026-11-18). */
     rootSaid?: string[]; intro?: string | null;
+    /** The moves the board plays during the introduction (after the starting ones), with the position after each. */
+    introLine?: Array<{ uci: string; fen: string }> | null;
   };
   line: string[];
   ply: number;

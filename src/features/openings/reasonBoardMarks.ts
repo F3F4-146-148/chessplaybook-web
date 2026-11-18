@@ -35,6 +35,8 @@ export function boardMarks(marks: string | undefined | null, key: string | undef
     if (/^[a-h][1-8][a-h][1-8]$/.test(m)) shapes.push({ orig: m.slice(0, 2) as Key, dest: m.slice(2, 4) as Key, brush: `mark-${mover}` });
     else if (/^[a-h][1-8]$/.test(m)) squares.set(m as Key, `reason-mark-${mover}`);
     else if (/^![a-h][1-8]$/.test(m)) squares.set(m.slice(1) as Key, `reason-mark-${other}`);
+    // "~d3": a light tint (the squares a more active piece can now move to, owner 2026-11-18)
+    else if (/^~[a-h][1-8]$/.test(m)) squares.set(m.slice(1) as Key, `reason-mark-soft-${mover}`);
   }
   return { shapes, squares };
 }

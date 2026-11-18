@@ -94,6 +94,30 @@ function speechSpan(cues: MouthCue[]): { from: number; to: number } | null {
 const preloaded = new Map<string, HTMLAudioElement>();
 const PRELOAD_MAX = 16;
 
+/*
+  AN AUDIO ELEMENT IS RELEASED WHEN IT IS DONE WITH (found 2026-11-18): an element that stopped mid-file, or was loaded
+  ahead and never played, keeps fetching and holds its connection. Over HTTP/1.1 (the dev server) a browser has six
+  per host, so after a few cut-off lines the page's next recording, and the next page, waited for ever. Removing the
+  source and calling load() aborts the fetch.
+*/
+function release(a: HTMLAudioElement): void {
+  try {
+    a.pause();
+    a.removeAttribute('src');
+    a.load();
+  } catch {
+    /* already gone */
+  }
+}
+
+/** Drops loaded-ahead recordings no longer wanted (a queue cut off before reaching them). */
+function dropPreloaded(urls: readonly string[]): void {
+  for (const u of urls) {
+    const a = preloaded.get(u);
+    if (a) { preloaded.delete(u); release(a); }
+  }
+}
+
 export function preloadMasterLines(lines: readonly (VoicedLine | null | undefined)[]): void {
   for (const l of lines) {
     if (!l?.audioUrl || preloaded.has(l.audioUrl)) continue;
@@ -106,7 +130,7 @@ export function preloadMasterLines(lines: readonly (VoicedLine | null | undefine
       continue;
     }
     void loadCues(l.cuesUrl);
-    if (preloaded.size > PRELOAD_MAX) preloaded.delete(preloaded.keys().next().value as string);
+    if (preloaded.size > PRELOAD_MAX) dropPreloaded([preloaded.keys().next().value as string]);
   }
 }
 
@@ -199,7 +223,7 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
         if (done || !live || audio !== current) return;
         done = true;
         clearTimeout(tail);
-        if (!current.ended) current.pause();
+        release(current); // it stops after the last word: the rest of the file is not fetched
         stop();
         next(i);
       };
@@ -228,7 +252,8 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
       live = false;
       clearTimeout(gap);
       clearTimeout(tail);
-      audio?.pause();
+      if (audio) release(audio);
+      dropPreloaded(queue.map((l) => l.audioUrl)); // the lines he did not reach
       stop();
       setLineIndex(null);
     };

@@ -235,6 +235,17 @@ export default function OpeningTrainer() {
   const shownUci = introStep !== null ? introUci : lastUci;
   const boardLast = shownUci ? [shownUci.slice(0, 2) as Key, shownUci.slice(2, 4) as Key] : undefined;
   const next = () => { introDone(); walk.next(); };
+  /*
+    THE LINE SHOWN DURING THE INTRODUCTION (owner, 2026-11-18: "for beginners it is very hard, they don't visualize
+    the board yet"): while he reads the introduction, the board plays the repertoire's first moves (its `introLine`,
+    the owner's approved line), about one a second, then goes back to the starting position when he finishes.
+    `ply` is how many of its moves are on the board; the analysis card stays on the real position.
+  */
+  const [demo, setDemo] = useState<{ id: string; ply: number; done: boolean } | null>(null);
+  const demoLine = rep?.introLine ?? [];
+  const demoOn = !training && !!demo && demo.id === rep?.id && !demo.done && demo.ply > 0 && walk.viewPly === 0 && walk.line.length === 0;
+  const demoFen = demoOn ? demoLine[demo!.ply - 1].fen : null;
+  const demoUci = demoOn ? demoLine[demo!.ply - 1].uci : null;
 
   /*
     Learning (owner, 2026-11-11): the board takes a move by mouse, as the card's row (or Next) would play it. At our turn
@@ -271,9 +282,10 @@ export default function OpeningTrainer() {
     if (walk.viewPly < walk.line.length && walk.line[walk.viewPly] === m.move) walk.goTo(walk.viewPly + 1);
     else walk.play(m.move);
   };
-  const learnFen = learnPending && learnPending.from === viewKey ? learnPending.fen : boardFen;
-  const learnLast = learnPending && learnPending.from === viewKey
-    ? [learnPending.move.slice(0, 2) as Key, learnPending.move.slice(2, 4) as Key] : boardLast;
+  const learnFen = demoFen ?? (learnPending && learnPending.from === viewKey ? learnPending.fen : boardFen);
+  const learnLast = demoUci ? [demoUci.slice(0, 2) as Key, demoUci.slice(2, 4) as Key]
+    : learnPending && learnPending.from === viewKey
+      ? [learnPending.move.slice(0, 2) as Key, learnPending.move.slice(2, 4) as Key] : boardLast;
 
   // Training (E2): the board shows the position, or the player's move while the trainer answers it.
   const tStatus = train.status;
@@ -364,6 +376,26 @@ export default function OpeningTrainer() {
     const t = setTimeout(() => setIntro((i) => (i ? { ...i, step: i.step + 1 } : i)), intro!.step === 0 ? 400 : 500);
     return () => clearTimeout(t);
   }, [introRunning, introByVoice, intro]);
+  // the introduction's line plays while he reads the introduction, a move about every 0.9 s, and stays until he has
+  // finished. Only with his voice: without it nobody is reading, and the board is the player's from the start (a
+  // line playing on its own made a move on the board miss). A press on the board ends it at once.
+  const introSaying = introByVoice && voice.lineIndex !== null && voice.lineIndex >= rootSaid.length;
+  useEffect(() => {
+    if (!atStart || !rep || !demoLine.length) { if (!atStart) setDemo(null); return; }
+    if (demo && demo.id === rep.id) return;
+    if (introSaying) setDemo({ id: rep.id, ply: 0, done: false });
+  }, [atStart, rep, demoLine.length, demo, introSaying]);
+  const endDemo = () => { if (demoOn) setDemo((d) => (d ? { ...d, done: true } : d)); };
+  useEffect(() => {
+    if (!demo || demo.done || !atStart || demo.id !== rep?.id) return;
+    if (demo.ply < demoLine.length) {
+      const t = setTimeout(() => setDemo((d) => (d ? { ...d, ply: d.ply + 1 } : d)), demo.ply === 0 ? 600 : 900);
+      return () => clearTimeout(t);
+    }
+    if (introSaying) return; // he is still reading: the line stays on the board until he finishes
+    const t = setTimeout(() => setDemo((d) => (d ? { ...d, done: true } : d)), 600);
+    return () => clearTimeout(t);
+  }, [demo, atStart, rep?.id, demoLine.length, introSaying]);
   /*
     WHAT HE IS TALKING ABOUT, ON THE BOARD (#324, owner 2026-11-17 and 11-18): the reason he is saying, or the one the
     player pressed, is marked in the list and its marks are drawn on the board in its kind's colour. A press on the
@@ -636,7 +668,7 @@ export default function OpeningTrainer() {
         focus={focusMode}
         onModeChange={setWorkspaceMode}
         board={
-          <div ref={attachWheel} data-skeleton-card="board" className="w-full" role="group" aria-label="Opening trainer board">
+          <div ref={attachWheel} data-skeleton-card="board" className="w-full" role="group" aria-label="Opening trainer board" onPointerDownCapture={endDemo}>
             {training ? (
               <ChessBoard
                 fen={tFen}
