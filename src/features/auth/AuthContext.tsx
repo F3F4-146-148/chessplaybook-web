@@ -1,5 +1,4 @@
 import { reloadBoardTheme } from '@/hooks/useBoardTheme';
-import { reloadShowMaster } from '@/components/master/showMasterStore';
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import {
   fetchAuthSession,
@@ -121,7 +120,6 @@ export function AuthProvider({ children, onValue }: { children?: React.ReactNode
       await migrateGuestData(user.userId);
       // The account may carry its own board theme (B4: the store loads once).
       reloadBoardTheme();
-      reloadShowMaster();
     })();
   }, [user]);
 
@@ -227,7 +225,6 @@ export function AuthProvider({ children, onValue }: { children?: React.ReactNode
     clearAmplifyTokens();
     clearUserLocalStorage();
     reloadBoardTheme();
-    reloadShowMaster();
     setUser(null);
   };
 

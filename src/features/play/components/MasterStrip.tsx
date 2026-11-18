@@ -15,13 +15,13 @@ import type { useMasterVoice } from '@/features/master/useMasterVoice';
  * - `strip`: during and after a game, a row of FIXED height above the move list: his face and his current line.
  *   The row's height does not depend on the line, so a new line never moves the list.
  *
- * He is in the right lane, so the pictures are used as made (he turns left, to the board). With "Show the Master"
- * off the picture goes and his words stay, as the plan says.
+ * He is in the right lane, so the pictures are used as made (he turns left, to the board).
+ * He is always shown (owner, 2026-11-18: "his primary role is to make the site more lively"; the "Show the
+ * Master" switch was removed).
  */
 export interface MasterStripProps {
   expression: MasterExpression;
   line: string;
-  show: boolean;
   variant: 'invitation' | 'strip';
   stacked: boolean;
   /** The voice (D8): shown in the game strip only. `speech` is the playing recording and its mouth cues (#298). */
@@ -30,16 +30,14 @@ export interface MasterStripProps {
 
 const STRIP_FACE = { columns: 64, stacked: 52 };
 
-export function MasterStrip({ expression, line, show, variant, stacked, voice }: MasterStripProps) {
+export function MasterStrip({ expression, line, variant, stacked, voice }: MasterStripProps) {
   if (variant === 'invitation' && !stacked) {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center" style={{ gap: 'var(--card-air)' }} data-master="invitation">
         <p className="self-stretch rounded-[0.6em] bg-muted px-[0.7em] py-[0.4em] text-[0.92em] text-foreground">{line}</p>
-        {show && (
-          <div className="flex min-h-0 w-full flex-1 items-end justify-center">
-            <HalfBody expression={expression} />
-          </div>
-        )}
+        <div className="flex min-h-0 w-full flex-1 items-end justify-center">
+          <HalfBody expression={expression} />
+        </div>
       </div>
     );
   }
@@ -47,9 +45,9 @@ export function MasterStrip({ expression, line, show, variant, stacked, voice }:
   const face = stacked ? STRIP_FACE.stacked : STRIP_FACE.columns;
   const size = variant === 'invitation' ? 96 : face;
   return (
-    <div className="flex shrink-0 items-center" style={{ gap: 'calc(var(--card-air) * 2)', height: show ? size : '3.6em' }} data-master={variant}>
+    <div className="flex shrink-0 items-center" style={{ gap: 'calc(var(--card-air) * 2)', height: size }} data-master={variant}>
       {/* mirrored: the v4 heads turn away from the board as drawn (owner, 2026-11-17); the half body is not (his hand presents the board) */}
-      {show && <MasterPortrait expression={expression} variant="head" facing="right" size={size} speech={voice?.speech} />}
+      <MasterPortrait expression={expression} variant="head" facing="right" size={size} speech={voice?.speech} />
       <p className="min-w-0 flex-1 rounded-[0.6em] bg-muted px-[0.7em] py-[0.4em] text-[0.92em] leading-snug text-foreground line-clamp-2">{line}</p>
       {voice && (
         <MasterVoiceButton

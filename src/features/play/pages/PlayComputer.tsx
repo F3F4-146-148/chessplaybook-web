@@ -20,7 +20,6 @@ import { useBoardTheme } from '@/hooks/useBoardTheme';
 import { positionFromFen, applyMove, isPromotion, toUci } from '@/components/chess/chessLogic';
 import type { ChessPosition } from '@/components/chess/chessLogic';
 import { PuzzleAppearanceCard } from '@/features/puzzles/components/PuzzleAppearanceCard';
-import { useShowMaster } from '@/components/master/showMasterStore';
 import { PuzzleAnalysisCard } from '@/features/puzzles/components/PuzzleAnalysisCard';
 import { ChessClock } from '@/features/online/components/ChessClock';
 import { soundService } from '@/services/SoundService';
@@ -140,7 +139,6 @@ export function PlayComputer() {
   useEffect(() => { if (fromPosition) setSelectedColor(fromPosition.orientation); }, [fromPosition]);
   const [activeColor, setActiveColor] = useState<Color>('white');
   const [selectedLevelId, setSelectedLevelId] = useState(() => defaultLevelId(MAIA_LIVE));
-  const { show: showMaster, setShow: setShowMaster } = useShowMaster();
   const [selectedTimeControl, setSelectedTimeControl] = useState<(typeof TIME_CONTROLS)[number]>(TIME_CONTROLS[0]);
   const [activeTimeControl, setActiveTimeControl] = useState<(typeof TIME_CONTROLS)[number]>(TIME_CONTROLS[0]);
   const [whiteMs, setWhiteMs] = useState<number | null>(null);
@@ -434,18 +432,18 @@ export function PlayComputer() {
                 <span className="card-row text-[0.86em]">{levelShort(levelInPlay)} · {timeControl.label}</span>
                 {gameState.gameStatus === 'idle' ? (
                   <>
-                  {masterHere && !stacked && <MasterStrip variant="invitation" stacked={false} expression={master.expression} line={master.line} show={showMaster} />}
+                  {masterHere && !stacked && <MasterStrip variant="invitation" stacked={false} expression={master.expression} line={master.line} />}
                   <div className="ws-push-end flex flex-col" style={{ gap: 'calc(var(--card-air) * 2)' }}>
                     <button type="button" onClick={() => startGame()} disabled={!gameState.isEngineReady} className="card-btn card-btn-primary w-full disabled:opacity-50">
                       {!gameState.isEngineReady ? 'Loading engine…' : fromPosition ? 'Play from this position' : 'New game'}
                     </button>
                     {otherWays}
                   </div>
-                  {masterHere && stacked && <MasterStrip variant="invitation" stacked expression={master.expression} line={master.line} show={showMaster} />}
+                  {masterHere && stacked && <MasterStrip variant="invitation" stacked expression={master.expression} line={master.line} />}
                   </>
                 ) : (
                   <>
-                    {masterHere && <MasterStrip variant="strip" stacked={stacked} expression={master.expression} line={master.line} show={showMaster} voice={voice} />}
+                    {masterHere && <MasterStrip variant="strip" stacked={stacked} expression={master.expression} line={master.line} voice={voice} />}
                     <span className="card-row justify-between text-[0.8em] uppercase tracking-wide">
                       <span>Moves</span>
                       {/* No position label (owner: "Latest position" removed 2026-10-08,
@@ -556,7 +554,7 @@ export function PlayComputer() {
             )),
           ],
           foot: footSlot('theme-focus', (
-            <PuzzleAppearanceCard currentThemeId={currentTheme.id} onThemeChange={changeTheme} analyticsSurface="play_computer" focusMode={focusMode} onToggleFocusMode={canFocus ? () => setFocusMode(value => !value) : undefined} soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(soundService.toggleEnabled())} {...(MASTER_LIVE ? { showMaster, onToggleShowMaster: () => setShowMaster(!showMaster) } : {})} />
+            <PuzzleAppearanceCard currentThemeId={currentTheme.id} onThemeChange={changeTheme} analyticsSurface="play_computer" focusMode={focusMode} onToggleFocusMode={canFocus ? () => setFocusMode(value => !value) : undefined} soundEnabled={soundEnabled} onToggleSound={() => setSoundEnabled(soundService.toggleEnabled())} />
           )),
         }}
       />

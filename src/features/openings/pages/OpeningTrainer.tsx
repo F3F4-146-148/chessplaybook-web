@@ -20,7 +20,7 @@ import { useAuth } from '@/features/auth/AuthContext';
 import { useOutsideGrade } from '../hooks/useOutsideGrade';
 import { ReasonList } from '../components/ReasonList';
 import { PuzzleMaster } from '@/features/puzzles/components/PuzzleLiveCard';
-import { useMasterVoice } from '@/features/master/useMasterVoice';
+import { OPENINGS_VOICE_KEY, useMasterVoice } from '@/features/master/useMasterVoice';
 import { MASTER_LIVE } from '@/design/designFlags';
 import { useReasonVoice } from '../reasonVoice';
 import { boardMarks, NO_MARKS, reasonBrushes } from '../reasonBoardMarks';
@@ -353,13 +353,22 @@ export default function OpeningTrainer() {
   const atStart = !training && !!rep && !!view && walk.viewPly === 0 && walk.line.length === 0;
   const rootSaid = rep?.rootSaid ?? [];
   const introTexts = atStart && rootSaid.every(Boolean) ? [...rootSaid, ...(rep?.intro ? [rep.intro] : [])] : null;
+  /*
+    QUIET IN TRAINING (#336, owner 2026-11-18: "a bit annoying to have The Master start talking after you make the
+    moves"). Training is recall: after a move he says nothing (the reasons stay on the card and their marks on the
+    board). He speaks when a hint appears, the newest one, because a hint is help the player asked for (or waited a
+    minute for). Learning mode keeps him reading every move. His face is always there (owner: "his primary role is
+    to make the site more lively"); the trainer has its own voice switch (`OPENINGS_VOICE_KEY`).
+  */
+  const hintSaid = training && showingHints ? [train.hints[train.hints.length - 1]] : null;
   const sayTexts = !faceShown ? null
     : introTexts?.length ? introTexts
+    : training ? hintSaid
     : reasonTexts === null ? null : [...spokenFirst, ...reasonTexts];
   const sayId = introTexts?.length ? `i:${rep!.id}`
-    : training ? `t:${train.line.length}:${tLastLabel ?? ''}` : `l:${walk.viewPly}:${walk.line.slice(0, walk.viewPly).join(' ')}`;
+    : training ? `h:${train.line.length}:${tLastLabel ?? ''}:${train.hints.length}` : `l:${walk.viewPly}:${walk.line.slice(0, walk.viewPly).join(' ')}`;
   const reasonLines = useReasonVoice(sayTexts?.length ? sayId : null, sayTexts);
-  const voice = useMasterVoice(reasonLines);
+  const voice = useMasterVoice(reasonLines, { voiceKey: OPENINGS_VOICE_KEY });
   // the starting moves follow his voice: move i is played as he starts its sentence; if no line has started 3 s in
   // (a recording missing), or his voice is off, they are played half a second apart
   const [introStalled, setIntroStalled] = useState(false);
@@ -409,7 +418,8 @@ export default function OpeningTrainer() {
     ? (tShowReasons ? (tLastExpl?.r ?? []).map((r, i) => ({ key: r.k, marks: train.last?.marks?.[i] ?? '' })) : [])
     : (last?.explanation ?? []).map((r) => ({ key: r.key, marks: r.marks ?? '' }));
   // the queue starts with the move (and the variation), so his line i is reason i - that many; none is marked before
-  const saying = voice.lineIndex === null ? null : voice.lineIndex - spokenFirst.length;
+  // in training he says hints, not reasons, so no reason is marked as being said
+  const saying = training || voice.lineIndex === null ? null : voice.lineIndex - spokenFirst.length;
   const activeReason = picked && picked.id === sayId ? picked.i : saying !== null && saying >= 0 ? saying : null;
   const active = activeReason !== null && activeReason < shownReasons.length ? shownReasons[activeReason] : null;
   // explaining the opponent's move, its idea is their plan (blue, as Chess.com's coach)

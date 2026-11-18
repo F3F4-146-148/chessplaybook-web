@@ -184,7 +184,8 @@ export default defineConfig(({ mode, command }) => ({
         (the opening reasons, the move sentences); copied into `public/` they stalled the dev server for up to 90 s at
         a time while it took them in, measured. The site has them all, read-only.
       */
-      '/audio/master-v2': { target: 'https://www.chessplaybook.com', changeOrigin: true, secure: true },
+      // every voice folder (master-v2, master-v3, ...): naming one left the dev server silent after the move to v3
+      '/audio': { target: 'https://www.chessplaybook.com', changeOrigin: true, secure: true },
     },
   },
   plugins: [react(), devApiWriteGuard, previewAssets, boardThemePrePaint, appThemePrePaint, mode === "development" && componentTagger()].filter(Boolean),

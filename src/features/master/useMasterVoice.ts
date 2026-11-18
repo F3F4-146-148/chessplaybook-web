@@ -14,10 +14,16 @@ import { logGA4Event } from '@/services/analytics';
  * fail to load leave his mouth closed while the voice plays.
  */
 const KEY = 'cp_master_voice';
+/**
+ * The opening trainer's own voice switch (#336, owner 2026-11-18: "a voice switch for the trainer only"). Until the
+ * player chooses there, it follows the site-wide choice, so nobody's voice changes the day it ships.
+ */
+export const OPENINGS_VOICE_KEY = 'cp_master_voice_openings';
 
-function stored(): boolean {
+function stored(key: string): boolean {
   try {
-    return window.localStorage.getItem(KEY) === '1';
+    const own = window.localStorage.getItem(key);
+    return (own ?? (key === KEY ? null : window.localStorage.getItem(KEY))) === '1';
   } catch {
     return false;
   }
@@ -147,8 +153,12 @@ function takeAudio(url: string): HTMLAudioElement {
  * `line`: one line, or a few said in order (#298: the puzzles card says its headline, then the line under it). A new
  * value stops what he is saying and starts again, so pass a memoised value: a re-render must never restart him.
  */
-export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, options?: { onEnd?: () => void }) {
-  const [on, setOn] = useState(stored);
+export function useMasterVoice(
+  line: VoicedLine | readonly VoicedLine[] | null,
+  options?: { onEnd?: () => void; /** where on/off is remembered; the site-wide switch when absent (#336) */ voiceKey?: string },
+) {
+  const voiceKey = options?.voiceKey ?? KEY;
+  const [on, setOn] = useState(() => stored(voiceKey));
   const onRef = useRef(on);
   onRef.current = on;
   const [volume, setVolumeState] = useState(storedVolume);
@@ -166,12 +176,12 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
   const toggle = useCallback(() => {
     setOn((was) => {
       const next = !was;
-      try { window.localStorage.setItem(KEY, next ? '1' : '0'); } catch { /* remembered for this visit only */ }
-      logGA4Event({ name: 'master_voice_toggled', params: { enabled: next } });
+      try { window.localStorage.setItem(voiceKey, next ? '1' : '0'); } catch { /* remembered for this visit only */ }
+      logGA4Event({ name: 'master_voice_toggled', params: { enabled: next, ...(voiceKey === KEY ? {} : { surface: 'opening_trainer' }) } });
       if (!next) audioRef.current?.pause();
       return next;
     });
-  }, []);
+  }, [voiceKey]);
 
   /**
    * Sets the level and applies it to the line playing. Moving it while he is muted turns his voice on (the slider is
@@ -185,9 +195,9 @@ export function useMasterVoice(line: VoicedLine | readonly VoicedLine[] | null, 
     if (onRef.current || v === 0) return;
     onRef.current = true;
     setOn(true);
-    try { window.localStorage.setItem(KEY, '1'); } catch { /* remembered for this visit only */ }
-    logGA4Event({ name: 'master_voice_toggled', params: { enabled: true } });
-  }, []);
+    try { window.localStorage.setItem(voiceKey, '1'); } catch { /* remembered for this visit only */ }
+    logGA4Event({ name: 'master_voice_toggled', params: { enabled: true, ...(voiceKey === KEY ? {} : { surface: 'opening_trainer' }) } });
+  }, [voiceKey]);
 
   /** The level chosen, reported once when the slider is let go (not on every step of a drag). */
   const commitVolume = useCallback((v: number) => {

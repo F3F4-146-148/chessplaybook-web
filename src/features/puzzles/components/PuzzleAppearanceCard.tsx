@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Maximize2, Minimize2, Palette, UserRound, UserRoundX, Volume2, VolumeX } from 'lucide-react';
+import { Maximize2, Minimize2, Palette, Volume2, VolumeX } from 'lucide-react';
 
 import { BoardThemePicker } from '@/components/chess/BoardThemePicker';
 import { logGA4Event } from '@/services/analytics';
@@ -45,12 +45,6 @@ export interface PuzzleAppearanceCardProps {
   onToggleFocusMode?: () => void;
   soundEnabled?: boolean;
   onToggleSound?: () => void;
-  /**
-   * The "Show the Master" switch (#186). Passed only by pages where he appears, so the control is never a
-   * promise about something that is not on the page (the rule above for focus mode).
-   */
-  showMaster?: boolean;
-  onToggleShowMaster?: () => void;
 }
 
 export function PuzzleAppearanceCard({
@@ -61,8 +55,6 @@ export function PuzzleAppearanceCard({
   onToggleFocusMode,
   soundEnabled = true,
   onToggleSound,
-  showMaster = true,
-  onToggleShowMaster,
 }: PuzzleAppearanceCardProps) {
   /*
     THREE CONTROLS SHOW ICONS ONLY (layout redesign D1, 2026-10-08). With the
@@ -72,7 +64,7 @@ export function PuzzleAppearanceCard({
     The sound toggle was already icon-only; Theme and Focus join it. Their names
     stay in `aria-label` and the tooltip. Two controls (/puzzles) keep labels.
   */
-  const iconsOnly = Boolean(onToggleSound || onToggleShowMaster);
+  const iconsOnly = Boolean(onToggleSound);
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -314,21 +306,6 @@ export function PuzzleAppearanceCard({
         four 36-40px controls fit where four labelled ones would not (measured, plan A0). The icon shows the
         state, as Sound's does: a figure while he is shown, a crossed figure while he is hidden.
       */}
-      {onToggleShowMaster && (
-        <button
-          type="button"
-          onClick={() => {
-            logGA4Event({ name: 'master_visibility_toggled', params: { shown: !showMaster, surface: analyticsSurface } });
-            onToggleShowMaster();
-          }}
-          aria-pressed={showMaster}
-          title={showMaster ? 'Hide the Master' : 'Show the Master'}
-          aria-label={showMaster ? 'Hide the Master' : 'Show the Master'}
-          className={`${onToggleSound ? '' : 'ml-auto '}inline-flex min-h-10 min-w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
-        >
-          {showMaster ? <UserRound className="h-5 w-5" aria-hidden /> : <UserRoundX className="h-5 w-5" aria-hidden />}
-        </button>
-      )}
 
       {/*
         FOCUS MODE, beside the theme rather than in a menu. It is a thing you
