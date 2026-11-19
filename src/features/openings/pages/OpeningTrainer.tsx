@@ -229,6 +229,8 @@ export default function OpeningTrainer() {
   // Focus mode: as every Workspace page has it (columns only, and only while it would stay columns).
   const [focusMode, setFocusMode] = useState(false);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode | null>(null);
+  /** The Session card gets the larger share only in training, stacked (a phone): see the Repertoire card's comment. */
+  const sessionTall = training && workspaceMode?.mode === 'stacked';
   const canFocus = workspaceMode?.mode === 'columns' && workspaceMode.focusHolds;
   useEffect(() => {
     if (workspaceMode?.mode === 'stacked') setFocusMode(false);
@@ -1165,12 +1167,12 @@ export default function OpeningTrainer() {
                   )}
                 </div>
               </>
-              /* #337: in learning the Repertoire card has 2 shares to the line's 1 (owner, 2026-11-18: room for more
-                 openings; the Current line card used ~130 of its 400px at 1536x746). In training it is 1 to the
-                 Session card's 2, as before #337: the Session card holds the choices, Start, Reset and, after a
-                 session, a guest's sign-in note, which at equal shares ran 39px past its edge on a phone (2026-11-19).
-                 The openings list scrolls inside its card. */
-            ), training ? 1 : 2),
+              /* #337 (owner, 2026-11-18, and again 2026-11-19): the Repertoire card has 2 shares to the line's 1 in
+                 BOTH modes (room for more openings; the Current line card used ~130 of its 400px at 1536x746). The
+                 Session card fits in 1 because its choices and its move list scroll inside it (#339); the openings
+                 list scrolls inside its card. Stacked (a phone) in training is the one exception, 1 to 2: there a
+                 guest's sign-in note, Start and Reset after a session need 31px more than a third of the lane. */
+            ), sessionTall ? 1 : 2),
             slot('opening-line', 'text', (
               <>
                 <span className="card-label inline-flex items-center gap-[0.35em]">
@@ -1435,8 +1437,8 @@ export default function OpeningTrainer() {
                   )}
                 </div>
               </>
-              /* #337: 1 share in learning, 2 in training (the Repertoire card's comment above says why) */
-            ), training ? 2 : 1),
+              /* #337: 1 share, 2 only in training on a phone (the Repertoire card's comment above says why) */
+            ), sessionTall ? 2 : 1),
           ],
           foot: footSlot('theme-focus', (
             <PuzzleAppearanceCard
