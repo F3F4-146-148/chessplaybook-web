@@ -163,13 +163,24 @@ const GameViewer = () => {
     );
   }
 
+  /*
+    A SOFT 404 IN SEARCH CONSOLE (2026-11-19). A game number past the end of the list (game numbers shifted when the
+    11-11 repair removed ~650 games that were not the champion's) rendered the homepage's title over "Error: Game not
+    found", with no heading and no robots tag: 12 soft 404s. It says what it is now, and noindex like every game page
+    (so a failed load says it too, which costs nothing: no game page is indexed).
+  */
   if (error || !game) {
+    const notFound = !error || error === 'Game not found';
     return (
       <div className="flex h-full items-center justify-center">
+        <Helmet>
+          <title>{notFound ? 'Game Not Found' : 'Game Could Not Be Loaded'} | Chess Playbook</title>
+          <meta name="robots" content="noindex, follow" />
+        </Helmet>
         <div className="text-center">
-          <div className="mb-4 text-xl text-destructive">
-            Error: {error || 'Game not found'}
-          </div>
+          <h1 className="mb-4 text-xl text-destructive">
+            {notFound ? 'Game not found' : 'The game could not be loaded'}
+          </h1>
           <Link to={`/champions/${name}/games`}>
             <Button>Back to Game List</Button>
           </Link>

@@ -9,6 +9,9 @@ import { ChevronDown, ChevronRight, Minimize2, Radio, Swords, Trophy, CircleUser
 import { ChessBoard } from '@/components/chess/ChessBoard';
 import { BoardControls } from '@/components/chess/BoardControls';
 import { GameMoveList } from '@/components/chess/GameMoveList';
+import { GameReviewActions } from '@/components/game-viewer/GameReviewActions';
+import { parseGame } from '@/lib/game/gameModel';
+import type { ChessGame } from '@/types/chess';
 import { Workspace, WorkspaceList, type WorkspaceMode } from '@/components/workspace/Workspace';
 import { slot, footSlot } from '@/components/workspace/slots';
 import { useAnchoredPopover } from '@/components/workspace/useAnchoredPopover';
@@ -258,6 +261,35 @@ export function PlayComputer() {
   const boardCheck = reviewPosition?.position.isCheck ?? historyEntry?.isCheck ?? gameState.isCheck;
   const boardLastMove = reviewPosition?.lastMove ?? historyEntry?.lastMove ?? gameState.lastMove;
   const canMove = gameState.gameStatus === 'playing' && viewPly === null;
+
+  /*
+    THE FINISHED GAME'S REPORT (owner, 2026-11-19, as on /play-online #359): the champion viewer's Game report
+    and Explain position. The model is built from the moves as a PGN (with the start position's [FEN] for a
+    game from a position, where the row offers Explain position only, D36). It reads the GAME's position at
+    the viewed move, never a what-if move made on the board after the game.
+  */
+  /* The score for the move list's result line: "White wins ...", "Black wins ...", else a draw. */
+  const resultScore: '1-0' | '0-1' | '1/2-1/2' | null = !isEnded || !gameState.gameResult ? null
+    : gameState.gameResult.startsWith('White') ? '1-0' : gameState.gameResult.startsWith('Black') ? '0-1' : '1/2-1/2';
+  const finishedGame = useMemo(() => {
+    if (!isEnded || !gameState.gameResult || gameState.sanMoves.length === 0) return null;
+    const fenTags = gameStartFen === STARTING_FEN ? '' : `[SetUp "1"]
+[FEN "${gameStartFen}"]
+
+`;
+    const parsed = parseGame(fenTags + gameState.sanMoves.join(' '));
+    if (!parsed.ok || parsed.game.plies.length !== gameState.sanMoves.length) return null;
+    const winner: 'white' | 'black' | 'draw' = resultScore === '1-0' ? 'white' : resultScore === '0-1' ? 'black' : 'draw';
+    const engine = levelInPlay.kind === 'master' ? 'The Master' : `Stockfish Level ${levelInPlay.stockfish.level}`;
+    const metadata: ChessGame = {
+      playerName: '',
+      white: gameState.playerColor === 'white' ? 'Player' : engine,
+      black: gameState.playerColor === 'white' ? engine : 'Player',
+      result: resultScore ?? '1/2-1/2',
+      event: `Chess Playbook, ${levelShort(levelInPlay)}`, site: 'chessplaybook.com', date: '',
+    };
+    return { plies: parsed.game.plies, startFen: parsed.game.startFen, metadata, winner };
+  }, [isEnded, gameState.gameResult, gameState.sanMoves, gameState.playerColor, gameStartFen, levelInPlay, resultScore]);
   // The move list shows and sets the VIEWED move, as the step buttons do (D30): ply k is
   // the position after move k-1 in the list's 0-based count, ply 0 the start.
   const jumpToMove = (moveIndex: number) => {
@@ -451,14 +483,18 @@ export function PlayComputer() {
                     </span>
                     <div className="flex min-h-0 flex-1 flex-col">
                       <WorkspaceList label="Moves">
-                        <GameMoveList moves={gameState.sanMoves} startFen={gameStartFen === STARTING_FEN ? undefined : gameStartFen} currentMoveIndex={currentPly - 1} onMoveClick={jumpToMove} scrolls={false} className="text-[0.92em]" />
+                        {/* The result below the last move, as on /play-online (owner, 2026-11-19): 1-0, 0-1 or 1/2-1/2. */}
+                        <GameMoveList
+                          moves={gameState.sanMoves}
+                          startFen={gameStartFen === STARTING_FEN ? undefined : gameStartFen}
+                          currentMoveIndex={currentPly - 1}
+                          onMoveClick={jumpToMove}
+                          scrolls={false}
+                          className="text-[0.92em]"
+                          result={resultScore ?? undefined}
+                        />
                       </WorkspaceList>
                     </div>
-                    {gameState.gameResult && (
-                      <span className="card-row justify-center rounded-[0.4em] border border-primary/30 bg-primary/5 py-[0.3em] font-medium text-foreground">
-                        <span className="truncate">{gameState.gameResult}</span>
-                      </span>
-                    )}
                     {gameState.gameStatus === 'playing' && (
                       <button type="button" onClick={actions.resign} className="card-btn w-full border border-destructive/50 text-destructive" style={{ background: 'transparent' }}>
                         Resign
@@ -466,6 +502,17 @@ export function PlayComputer() {
                     )}
                     {isEnded && (
                       <>
+                        {finishedGame && (
+                          <GameReviewActions
+                            fen={historyEntry?.fen ?? gameState.fen}
+                            startFen={finishedGame.startFen}
+                            plies={finishedGame.plies}
+                            ply={currentPly - 1}
+                            onGoTo={jumpToMove}
+                            metadata={finishedGame.metadata}
+                            gameResult={finishedGame.winner}
+                          />
+                        )}
                         <button type="button" onClick={() => startGame()} className="card-btn card-btn-primary w-full">{fromPosition ? 'Play this position again' : 'New game'}</button>
                         {otherWays}
                       </>
