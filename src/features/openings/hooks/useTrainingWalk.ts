@@ -76,10 +76,11 @@ export interface TrainingWalkOptions {
   /** `cleanHere`: every one of our moves right first time, judged in the browser (a session that is not saved). */
   onLineEnd: (line: string[], lineId: string, cleanHere: boolean) => Promise<boolean | null>;
   /**
-   * #338: a session of only the mistakes. `mistakeKeys` are the positions (at our turn) still wrong now; the lines are
-   * those through the ones wrong when the session started, and a line is done once none of its positions is wrong.
+   * #338 / #339: a session of only the mistakes, or of the positions due for review. `focusKeys` are those positions
+   * (at our turn) still wanted now; the lines are those through the ones wanted when the session started, and a line
+   * is done once none of its positions is wanted any more.
    */
-  mistakeKeys?: readonly string[] | null;
+  focusKeys?: readonly string[] | null;
 }
 
 const REPLY_DELAY_MS = 600;
@@ -162,15 +163,15 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
   }, [data, session?.id]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const mistakeKeys = opts.mistakeKeys ?? null;
-  const focusMistakes = mistakeKeys !== null;
+  const focusKeys = opts.focusKeys ?? null;
+  const focusing = focusKeys !== null;
   /** #338: the positions a mistakes session set out to fix, kept from its start (a line never vanishes mid-play). */
-  const [startMistakes, setStartMistakes] = useState<{ session: string; keys: Set<string> } | null>(null);
+  const [startFocus, setStartFocus] = useState<{ session: string; keys: Set<string> } | null>(null);
   useEffect(() => {
-    if (!focusMistakes || !session) { setStartMistakes(null); return; }
-    setStartMistakes((m) => (m && m.session === session.id ? m : { session: session.id, keys: new Set(mistakeKeys) }));
+    if (!focusing || !session) { setStartFocus(null); return; }
+    setStartFocus((m) => (m && m.session === session.id ? m : { session: session.id, keys: new Set(focusKeys) }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusMistakes, session?.id]);
+  }, [focusing, session?.id]);
   /** The positions at our turn along a line, by key. */
   const ourKeys = useCallback((l: Line): string[] => {
     if (!data) return [];
@@ -189,16 +190,16 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
   const lines = useMemo<Line[]>(() => {
     if (!data) return [];
     const all = linesInScope(data, scope);
-    if (!focusMistakes) return all;
-    const keys = startMistakes?.keys ?? new Set(mistakeKeys);
+    if (!focusing) return all;
+    const keys = startFocus?.keys ?? new Set(focusKeys);
     return all.filter((l) => ourKeys(l).some((k) => keys.has(k)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, scope, focusMistakes, startMistakes, ourKeys]);
+  }, [data, scope, focusing, startFocus, ourKeys]);
   const cleanCheck = useMemo(() => makeTrainedCheck(cleanPaths), [cleanPaths]);
-  const wrongNow = useMemo(() => new Set(mistakeKeys ?? []), [mistakeKeys]);
+  const wrongNow = useMemo(() => new Set(focusKeys ?? []), [focusKeys]);
   const isTrained = useMemo(
-    () => (focusMistakes ? (l: Line) => !ourKeys(l).some((k) => wrongNow.has(k)) : cleanCheck),
-    [focusMistakes, ourKeys, wrongNow, cleanCheck],
+    () => (focusing ? (l: Line) => !ourKeys(l).some((k) => wrongNow.has(k)) : cleanCheck),
+    [focusing, ourKeys, wrongNow, cleanCheck],
   );
   const ucis = useMemo(() => line.map((m) => m.uci), [line]);
 

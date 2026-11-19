@@ -31,6 +31,8 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
   const [focus, setFocus] = useState<TrainingFocus | null>(null);
   const setScope = useCallback((s: TrainingScope) => { setScopeState(s); setFocus(null); }, []);
   const chooseMistakes = useCallback(() => { setScopeState('both'); setFocus('mistakes'); }, []);
+  /** #339: a session of the positions due for review (also an 'all lines' session). */
+  const chooseReview = useCallback(() => { setScopeState('both'); setFocus('review'); }, []);
   /** #338: the session just ended's mistakes still to fix, the recap ("these positions need work"). */
   const [recap, setRecap] = useState<TrainingMistake[] | null>(null);
   const sessionMisses = useRef(new Map<string, TrainingMistake>());
@@ -56,7 +58,7 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
         if (signal?.aborted) return;
         setLoadError(true);
         // Owner, 2026-11-17: a failed read never stops training; it starts from no progress, said on the card.
-        setState((st) => st ?? { bookVersion: '', open: null, lastScope: null, cleanPaths: [], linesPlayed: 0, mistakes: [] });
+        setState((st) => st ?? { bookVersion: '', open: null, lastScope: null, cleanPaths: [], linesPlayed: 0, mistakes: [], due: [], nextReviewAt: null });
       });
   }, [repertoireId]);
 
@@ -150,12 +152,16 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
       setSession(null);
       setState((st) => (st ? { ...st, open: how === 'paused' ? ended : null } : st));
       setJustEnded(how);
+      // #339: the review schedule is the server's, worked out from every result: read it again for the card
+      trainingApi.state(repertoireId)
+        .then((fresh) => setState((st) => (st ? { ...st, due: fresh.due ?? [], nextReviewAt: fresh.nextReviewAt ?? null } : st)))
+        .catch(() => { /* the card keeps what it had */ });
     } catch (e) {
       failed(e);
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [repertoireId]);
 
   /** Reset the whole repertoire, or only the lines through the position trained from (E7). */
   const reset = useCallback(async () => {
@@ -166,7 +172,7 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
         // The part's lines stop counting; the count of lines played is re-read from the server.
         await load();
       } else {
-        setState((st) => (st ? { ...st, cleanPaths: [], linesPlayed: 0, mistakes: [] } : st));
+        setState((st) => (st ? { ...st, cleanPaths: [], linesPlayed: 0, mistakes: [], due: [], nextReviewAt: null } : st));
       }
     } catch (e) {
       failed(e);
@@ -185,7 +191,8 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
     setState((st) => {
       if (!st) return st;
       const rest = (st.mistakes ?? []).filter((x) => x.key !== m.key);
-      return { ...st, mistakes: r.outcome === 'first_time' ? rest : [...rest, m] };
+      // #339: a due position played, right or not, is not due any more (right: the next step; wrong: in a day)
+      return { ...st, mistakes: r.outcome === 'first_time' ? rest : [...rest, m], due: (st.due ?? []).filter((x) => x.key !== m.key) };
     });
     if (s.local) return;
     trainingApi.move(s.id, r).then(() => setSaveError(null)).catch(failed);
@@ -233,6 +240,10 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
     /** #338: 'mistakes' while "My mistakes" is chosen (scope 'both'); null otherwise. */
     focus,
     chooseMistakes,
+    chooseReview,
+    /** #339: the positions due for review now, and when the next one will be (null: none scheduled). */
+    due: state?.due ?? [],
+    nextReviewAt: state?.nextReviewAt ?? null,
     /** #338: the mistakes to train, and the recap of the session just ended (null before one ends). */
     mistakes: state?.mistakes ?? [],
     recap,

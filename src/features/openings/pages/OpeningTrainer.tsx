@@ -145,11 +145,22 @@ export default function OpeningTrainer() {
   const sess = useTrainingSession(repertoireId, training, from);
   /** #338: the mistakes, the positions whose latest result is not right first time, over the whole repertoire. */
   const mistakesHere = sess.mistakes;
-  const mistakeKeys = useMemo(() => (sess.focus === 'mistakes' ? mistakesHere.map((m) => m.key) : null), [sess.focus, mistakesHere]);
+  /** #339: the positions due for review now. */
+  const dueNow = sess.due;
+  const focusKeys = useMemo(
+    () => (sess.focus === 'mistakes' ? mistakesHere.map((m) => m.key) : sess.focus === 'review' ? dueNow.map((d) => d.key) : null),
+    [sess.focus, mistakesHere, dueNow],
+  );
+  /** #339: "later today", "tomorrow", "in 3 days", by the visitor's own calendar. */
+  const reviewWhen = (iso: string) => {
+    const day = (d: Date) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86_400_000;
+    const n = day(new Date(iso)) - day(new Date());
+    return n <= 0 ? 'later today' : n === 1 ? 'tomorrow' : `in ${n} days`;
+  };
   // none left and nothing running: the choice goes back to the lines under it (the row is gone, Start would be dead)
   useEffect(() => {
-    if (!sess.session && sess.focus === 'mistakes' && mistakesHere.length === 0) sess.setScope(sess.scope);
-  }, [sess.session, sess.focus, mistakesHere.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!sess.session && ((sess.focus === 'mistakes' && mistakesHere.length === 0) || (sess.focus === 'review' && dueNow.length === 0))) sess.setScope(sess.scope);
+  }, [sess.session, sess.focus, mistakesHere.length, dueNow.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const train = useTrainingWalk(repertoireId, training, {
     session: sess.session,
     scope: sess.scope,
@@ -157,7 +168,7 @@ export default function OpeningTrainer() {
     cleanPaths: sess.state?.cleanPaths ?? NO_PATHS,
     onMove: sess.recordMove,
     onLineEnd: sess.recordLine,
-    mistakeKeys,
+    focusKeys,
   });
   const { user } = useAuth();
   /** Lines trained, per scope, over the whole repertoire (owner, 2026-11-19: never only from the position). */
@@ -1182,7 +1193,14 @@ export default function OpeningTrainer() {
                         {fromLabel(train.fromLine) && (
                           <p className="truncate text-[0.92em] text-foreground">From {fromLabel(train.fromLine)}</p>
                         )}
-                        {sess.session.focus === 'mistakes' ? (
+                        {sess.session.focus === 'review' ? (
+                          /* #339: a session of the positions due for review, until none is left */
+                          <p className="text-[0.92em] text-muted-foreground">
+                            {dueNow.length
+                              ? `Review: ${dueNow.length} ${dueNow.length === 1 ? 'position' : 'positions'} left`
+                              : "Today's review is done."}
+                          </p>
+                        ) : sess.session.focus === 'mistakes' ? (
                           /* #338: a session of only the mistakes, until none is left */
                           <p className="text-[0.92em] text-muted-foreground">
                             {mistakesHere.length
@@ -1230,9 +1248,11 @@ export default function OpeningTrainer() {
                           </div>
                         )}
                         <span className="text-[0.86em] text-muted-foreground">Lines trained</span>
+                        {/* the choices scroll inside the card when it is short (a phone, with the sign-in note): #339 */}
+                        <WorkspaceList>
                         <div className="flex flex-col gap-[0.15em]" role="radiogroup" aria-label="What to train">
                           {SCOPES.map(({ id, label }) => {
-                            const on = sess.focus !== 'mistakes' && id === sess.scope;
+                            const on = !sess.focus && id === sess.scope;
                             const pr = scopeProgress?.[id];
                             return (
                               <button
@@ -1267,11 +1287,36 @@ export default function OpeningTrainer() {
                               </span>
                             </button>
                           )}
+                          {/*
+                            #339 (owner, 2026-11-19): spaced review. Each position comes back after 1, 3, 7, 16, 35 and
+                            75 days when right first time, after a day when not; chosen when some are due, else it says
+                            when the next one is.
+                          */}
+                          {(dueNow.length > 0 || sess.nextReviewAt) && (
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={sess.focus === 'review'}
+                              disabled={dueNow.length === 0}
+                              onClick={sess.chooseReview}
+                              className={`card-row w-full justify-between rounded px-[0.5em] py-[0.2em] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${sess.focus === 'review' ? 'bg-primary' : dueNow.length ? 'hover:bg-muted' : ''}`}
+                            >
+                              <span className={sess.focus === 'review' ? 'font-medium text-primary-foreground' : dueNow.length ? 'text-foreground' : 'text-muted-foreground'}>
+                                {dueNow.length ? 'Due for review' : 'Review'}
+                              </span>
+                              <span className={`text-[0.86em] tabular-nums ${sess.focus === 'review' ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
+                                {dueNow.length
+                                  ? `${dueNow.length} ${dueNow.length === 1 ? 'position' : 'positions'}`
+                                  : `next ${reviewWhen(sess.nextReviewAt!)}`}
+                              </span>
+                            </button>
+                          )}
                         </div>
+                        </WorkspaceList>
                         {sess.resumable && (
                           <Muted>{`You paused in ${scopeLabel(sess.resumable.scope)}, ${sess.resumable.currentLine.length} moves into a line.`}</Muted>
                         )}
-                        {sess.focus !== 'mistakes' && fromLines && fromLines[sess.scope] === 0 && !sess.resumable && (
+                        {!sess.focus && fromLines && fromLines[sess.scope] === 0 && !sess.resumable && (
                           <Muted>{`No ${sess.scope === 'both' ? 'lines' : scopeLabel(sess.scope).toLowerCase()} go through this position.${sess.scope === 'both' ? '' : ' Choose another set of lines.'}`}</Muted>
                         )}
                         {/* Soft accounts: offered when progress has just been saved, never blocking. */}
@@ -1304,7 +1349,7 @@ export default function OpeningTrainer() {
                             <button
                               type="button"
                               onClick={sess.start}
-                              disabled={sess.busy || (sess.focus === 'mistakes' ? mistakesHere.length === 0 : !!(fromLines ? fromLines[sess.scope] === 0 : scopeProgress && scopeProgress[sess.scope].total === 0))}
+                              disabled={sess.busy || (sess.focus === 'mistakes' ? mistakesHere.length === 0 : sess.focus === 'review' ? dueNow.length === 0 : !!(fromLines ? fromLines[sess.scope] === 0 : scopeProgress && scopeProgress[sess.scope].total === 0))}
                               className="card-btn card-btn-primary w-full disabled:opacity-50"
                             >
                               <Play aria-hidden />

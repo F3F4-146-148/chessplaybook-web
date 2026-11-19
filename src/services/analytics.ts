@@ -320,7 +320,7 @@ type GA4Event =
   // Opening trainer (plan F1, F13): a training session started (a Resume too), and a line
   // played to its end, `trained` when every move was right first time. The return measure
   // itself is server-side (feature_uses + opening_sessions); these segment it in GA4.
-  | { name: 'opening_session_started'; params: { repertoire: string; scope: 'main' | 'secondary' | 'both'; resumed: boolean; from_position: boolean; focus?: 'mistakes' } }
+  | { name: 'opening_session_started'; params: { repertoire: string; scope: 'main' | 'secondary' | 'both'; resumed: boolean; from_position: boolean; focus?: 'mistakes' | 'review' } }
   | { name: 'opening_line_finished'; params: { repertoire: string; trained: boolean } }
   // #337: an opening chosen in the Repertoire card; `from_welcome` when it ended the welcome (a first visit, or asked for again).
   | { name: 'opening_repertoire_chosen'; params: { repertoire: string; from_welcome: boolean } }

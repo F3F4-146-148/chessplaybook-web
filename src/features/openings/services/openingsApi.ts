@@ -161,8 +161,10 @@ export async function fetchRepertoires(signal?: AbortSignal): Promise<Repertoire
  * ------------------------------------------------------------------------------------------------------------- */
 
 export type TrainingScope = 'main' | 'secondary' | 'both';
-/** #338: a session that trains only the mistakes (an 'all lines' session on the server). */
-export type TrainingFocus = 'mistakes';
+/** #338: a session that trains only the mistakes; #339: only the positions due for review (an 'all lines' session). */
+export type TrainingFocus = 'mistakes' | 'review';
+/** #339: a position due for review: its key, our move there, the line to it. */
+export interface TrainingDue { key: string; move: string; line: string[] }
 /** One of the player's mistakes: the position (key) and our move there, its last result, and the line to it. */
 export interface TrainingMistake { key: string; move: string; outcome: MoveOutcome; line: string[] }
 export type MoveOutcome = 'first_time' | 'with_help' | 'after_retry' | 'revealed';
@@ -193,6 +195,9 @@ export interface TrainingState {
   linesPlayed: number;
   /** #338: the positions whose latest result is not right first time (absent from an older server). */
   mistakes?: TrainingMistake[];
+  /** #339: the positions due for review now, and when the next one not yet due will be (absent from an older server). */
+  due?: TrainingDue[];
+  nextReviewAt?: string | null;
 }
 
 async function sendJson<T>(method: 'GET' | 'POST', path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
