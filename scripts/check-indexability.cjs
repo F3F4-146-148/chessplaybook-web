@@ -194,7 +194,10 @@ function main() {
   }
 
   const routesSrc = fs.readFileSync(ROUTES_FILE, 'utf-8');
-  const components = buildComponentMap(routesSrc);
+  // The prerendered pages are defined with their loaders in prerenderRoutes.tsx (prerender plan A5) and imported
+  // into routes.tsx by name, so their components are resolved from there too.
+  const prerenderSrc = fs.readFileSync(path.join(ROOT, 'src/app/prerenderRoutes.tsx'), 'utf-8');
+  const components = buildComponentMap(routesSrc + '\n' + prerenderSrc);
   const routes = parseRoutes(routesSrc);
 
   if (routes.length === 0) {

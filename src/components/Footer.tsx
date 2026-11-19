@@ -1,3 +1,4 @@
+import { startTransition, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { COMPANY } from '@/config/company';
 
@@ -11,7 +12,10 @@ import { COMPANY } from '@/config/company';
  * was the probe that was wrong.
  */
 export const Footer = () => {
-  const currentYear = new Date().getFullYear();
+  // Prerender plan A4: the build's year first (the same in the built page and the browser's first render), today's after.
+  const [currentYear, setCurrentYear] = useState<number>(() => (typeof __BUILD_YEAR__ !== 'undefined' ? __BUILD_YEAR__ : new Date().getFullYear()));
+  // a transition, held until a built page is taken over (see ThemeProvider)
+  useEffect(() => { startTransition(() => setCurrentYear(new Date().getFullYear())); }, []);
 
   const footerSections = [
     {

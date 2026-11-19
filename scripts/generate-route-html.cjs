@@ -44,6 +44,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 
 /*
   THE SITE THIS BUILD IS FOR (#34).
@@ -258,6 +259,87 @@ function injectNoscript(html, block) {
 }
 
 /**
+ * THE BUILT PAGE (prerender plan A8, 2026-11-19): the page's own content, rendered at build from the same components
+ * the browser renders (src/entry-prerender.tsx), written into #root. `data-prerendered` tells main.tsx the page may be
+ * taken over in place (hydrated); `data-built-at` is the build's time, which the first render of anything that shows a
+ * date uses (A4). A built page has no <noscript> copy: its real content is the page.
+ */
+function injectPrerendered(html, body, routeKey, builtAt) {
+  const rootPattern = /<div\b[^>]*\bid=["']root["'][^>]*>\s*<\/div>/i;
+  if (!rootPattern.test(html)) {
+    throw new Error('index.html has no empty #root element to render into');
+  }
+  return html.replace(
+    rootPattern,
+    () => `<div id="root" data-prerendered="${attr(routeKey)}" data-built-at="${attr(builtAt)}">${body}</div>`,
+  );
+}
+
+/**
+ * THE HEAD CHECK OF A BUILT PAGE (prerender plan A10). src/app/hydrateCheck.js decides whether the browser may take the
+ * built page over in place; its source is copied here, comments removed, so the head and main.tsx run the same rules.
+ * When the answer is no, a class on <html> hides the built body before the first paint, and main.tsx (removing the
+ * marker) builds the page from scratch as before: the built text never shows and then disappears. Without JavaScript
+ * nothing is hidden, which is what a crawler that does not run it reads.
+ */
+const HYDRATE_CHECK_PATH = path.join(__dirname, '../src/app/hydrateCheck.js');
+function hydrateHeadScript(routeKey) {
+  const source = fs.readFileSync(HYDRATE_CHECK_PATH, 'utf-8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .replace(/\bexport\s+/g, '')
+    .replace(/\n\s*\n+/g, '\n')
+    .trim();
+  if (!/function shouldHydrate\(/.test(source) || !/PRERENDER_HYDRATE\s*=/.test(source)) {
+    throw new Error('prerender: src/app/hydrateCheck.js no longer defines shouldHydrate and PRERENDER_HYDRATE');
+  }
+  const key = JSON.stringify(routeKey);
+  return '<style>html.cp-no-hydrate #root[data-prerendered]{display:none}</style>' +
+    `<script>(function(){${source}\ntry{if(!PRERENDER_HYDRATE||!shouldHydrate(location.search,${key},window.localStorage))` +
+    `document.documentElement.classList.add('cp-no-hydrate')}catch(e){document.documentElement.classList.add('cp-no-hydrate')}})()</script>`;
+}
+
+/**
+ * Which pages are built (prerender plan A8): the allowlist, unless `PRERENDER=off` (the rollback switch, A11). Every
+ * key must be a route the generator writes and a page of the registry (src/app/prerenderRoutes.tsx); the render
+ * refuses the second, and the check after the loop the first.
+ */
+const ALLOWLIST_PATH = path.join(__dirname, 'prerender-allowlist.json');
+/** A built document over this, compressed and with its critical CSS, is not prerendered (plan §2); the build warns. */
+const PRERENDER_MAX_GZIP = 30 * 1024;
+const SSR_ENTRY = path.join(__dirname, '../dist-ssr/entry-prerender.js');
+
+/**
+ * A BUILT PAGE'S OWN STYLESHEETS (prerender plan B4, 2026-11-19). Vite puts a page's CSS (the Workspace's, for one) in
+ * its chunk's stylesheet, which the browser fetches only with the page's JavaScript. The built body painted without it
+ * (the lanes at 0x0) and moved by 0.92 CLS when it arrived. Every stylesheet the page's module imports, from the client
+ * manifest, is linked here, before the critical CSS step, which inlines what the body uses and loads the rest without
+ * blocking. Vite then finds the link already there and does not add it again.
+ */
+const CLIENT_MANIFEST = path.join(__dirname, '../dist/.vite/manifest.json');
+function withPageStylesheets(html, source) {
+  const manifest = JSON.parse(fs.readFileSync(CLIENT_MANIFEST, 'utf-8'));
+  if (!manifest[source]) throw new Error(`prerender: ${source} is not in the client manifest (the registry's source is wrong)`);
+  const css = new Set();
+  const seen = new Set();
+  (function walk(key) {
+    if (seen.has(key) || !manifest[key]) return;
+    seen.add(key);
+    for (const c of manifest[key].css || []) css.add(c);
+    for (const i of manifest[key].imports || []) walk(i);
+  })(source);
+  const links = [...css]
+    .filter((c) => !html.includes(`href="/${c}"`))
+    .map((c) => `<link rel="stylesheet" crossorigin href="/${c}">`);
+  return links.length ? html.replace('</head>', `    ${links.join('')}
+  </head>`) : html;
+}
+function prerenderAllowlist() {
+  if (process.env.PRERENDER === 'off') return new Set();
+  return new Set(JSON.parse(fs.readFileSync(ALLOWLIST_PATH, 'utf-8')).routes);
+}
+
+/**
  * News routes, added after the article launch showed the SPA-fallback cost twice:
  * `x-cache: Error from cloudfront` on every article fetch (the 403→index.html
  * error path, slower and poorly cached at the edge), and generic homepage meta on
@@ -333,7 +415,7 @@ function buildRoutes(playersData) {
   return routes;
 }
 
-function generate() {
+async function generate() {
   if (!fs.existsSync(INDEX_PATH)) {
     console.error(`Error: ${INDEX_PATH} not found. Run the build first.`);
     process.exit(1);
@@ -365,9 +447,34 @@ function generate() {
   const homeMeta = allMeta.find(r => r.key === '');
   const routes = buildRoutes(playersData).concat(allMeta.filter(r => r.key !== ''));
 
-  routes.forEach(route => {
+  // Prerender plan A8: the build's own render of the allowlisted pages, from dist-ssr/ (built just before).
+  const allow = prerenderAllowlist();
+  let renderPage = null;
+  let pageSource = null;
+  if (allow.size) {
+    if (!fs.existsSync(SSR_ENTRY)) throw new Error(`prerender: ${SSR_ENTRY} not found (vite build --ssr runs before this)`);
+    ({ render: renderPage, pageSource } = await import(pathToFileURL(SSR_ENTRY).href));
+  }
+  const builtAt = new Date().toISOString();
+  const rendered = [];
+  const overCap = [];
+  // A9: a built page starts from the raw page (before the shell's critical CSS) and gets the critical CSS of its own
+  // content, then the route preload, as the shell does.
+  let rawTemplate = null;
+  let criticalize = null;
+  let preload = null;
+  if (allow.size) {
+    ({ criticalize, RAW_PATH: rawTemplate } = require('./inline-critical-css.cjs'));
+    rawTemplate = fs.readFileSync(rawTemplate, 'utf-8');
+    preload = require('./preload-route-chunks.cjs').preloadScript();
+  }
+
+  for (const route of routes) {
     const url = `${DOMAIN}/${route.key}`;
-    let html = template;
+    const building = allow.has(route.key);
+    // The route's head (title, description, canonical, social tags, schema), applied to either starting page (A9).
+    const withMeta = (start) => {
+    let html = start;
 
     // The site-level schema belongs to the homepage alone; see above.
     html = stripWebsiteJsonLd(html, route.key);
@@ -418,10 +525,31 @@ function generate() {
       );
     }
 
-    html = injectNoscript(
-      html,
-      `<h1>${text(route.heading)}</h1><p>${text(route.body)}</p>`
-    );
+    return html;
+    };
+    let html = withMeta(template);
+    let built = null;
+    if (building) {
+      built = injectPrerendered(withMeta(rawTemplate), await renderPage(`/${route.key}`), route.key, builtAt);
+      built = withPageStylesheets(built, pageSource(`/${route.key}`));
+      built = await criticalize(built);
+      if (preload) built = built.replace('</head>', `    ${preload}\n  </head>`);
+      built = built.replace('</head>', `    ${hydrateHeadScript(route.key)}\n  </head>`);
+      const size = require('zlib').gzipSync(built).length;
+      if (size > PRERENDER_MAX_GZIP) {
+        overCap.push(`${route.key} (${(size / 1024).toFixed(1)} KB)`);
+        built = null; // served as before: the shell's critical CSS, the noscript copy
+      }
+    }
+    if (built) {
+      html = built;
+      rendered.push(route.key);
+    } else {
+      html = injectNoscript(
+        html,
+        `<h1>${text(route.heading)}</h1><p>${text(route.body)}</p>`
+      );
+    }
 
     // All route HTML goes under dist/_routes/ with '/' flattened to '__',
     // because S3's flat keyspace allows `news` and `news/x` to coexist while a
@@ -431,7 +559,15 @@ function generate() {
     const outPath = path.join(ROUTES_DIR, route.key.replace(/\//g, '__'));
     fs.writeFileSync(outPath, html, 'utf-8');
     manifest.push(`${route.key.replace(/\//g, '__')}\t${route.key}`);
-  });
+  }
+
+  if (overCap.length) console.warn(`  ! not prerendered, over ${PRERENDER_MAX_GZIP / 1024} KB compressed: ${overCap.join(', ')}`);
+  // An allowlisted key that is not a route file would be built nowhere, silently.
+  const unknown = [...allow].filter((k) => !rendered.includes(k) && !overCap.some((o) => o.startsWith(`${k} `)));
+  if (unknown.length) throw new Error(`prerender: allowlisted but not a route file: ${unknown.join(', ')}`);
+  // What was actually built, for the guards (A12) and the tests.
+  fs.writeFileSync(path.join(DIST_DIR, 'prerendered.json'), JSON.stringify({ builtAt, routes: rendered }, null, 2) + '\n', 'utf-8');
+  console.log(`  Prerendered: ${rendered.length ? rendered.join(', ') : 'none'}${process.env.PRERENDER === 'off' ? ' (PRERENDER=off)' : ''}`);
 
   fs.writeFileSync(path.join(ROUTES_DIR, 'manifest.tsv'), manifest.join('\n') + '\n', 'utf-8');
 
@@ -483,12 +619,10 @@ function generate() {
 
 // Run as a script (the build); a test requires it for buildRoutes alone.
 if (require.main === module) {
-  try {
-    generate();
-  } catch (error) {
+  generate().catch((error) => {
     console.error('Error generating route HTML:', error);
     process.exit(1);
-  }
+  });
 }
 
 module.exports = { buildRoutes };

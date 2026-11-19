@@ -28,7 +28,7 @@ import { MoveMarker, MOVE_ROW_RULE } from '../components/MoveMarker';
 import { buildPositionHref } from '@/lib/positionDeepLink';
 import { applyMove, positionFromFen } from '@/components/chess/chessLogic';
 import { fetchRepertoires, type RepertoireListing, type TrainingScope } from '../services/openingsApi';
-import { REPERTOIRE_SUITS, WELCOME_END, WELCOME_GOALS, WELCOME_INTRO, readLastRepertoire, welcomeTexts, writeLastRepertoire, type WelcomeGoal } from '../welcome';
+import { REPERTOIRE_SUITS, WRITTEN_STARTERS, WELCOME_END, WELCOME_GOALS, WELCOME_INTRO, readLastRepertoire, welcomeTexts, writeLastRepertoire, type WelcomeGoal } from '../welcome';
 
 /** What the Master says on the welcome (#337), one stable list. */
 const WELCOME_TEXTS = welcomeTexts();
@@ -1108,9 +1108,8 @@ export default function OpeningTrainer() {
                 </span>
                 <div className="card-body">
                   {modeSwitch}
-                  {!starters ? (
-                    <Muted>Loading.</Muted>
-                  ) : (
+                  {/* B1a: until the server's list arrives, the openings as written (WRITTEN_STARTERS), never "Loading." */}
+                  {(
                     /*
                       D6: the starters to choose from; the one being learned is marked. The list scrolls inside the card
                       (owner, 2026-11-11): at 800x600 and on phones the third row fell 22-37px below the card's edge,
@@ -1120,7 +1119,7 @@ export default function OpeningTrainer() {
                     {welcome && <span className="mb-[0.2em] px-[0.5em] text-[0.86em] font-semibold text-foreground">Choose an opening</span>}
                     <WorkspaceList label="Repertoires">
                     <div className="flex flex-col gap-[0.15em]" role="radiogroup" aria-label="Choose a repertoire">
-                      {starters.map((s) => {
+                      {(starters ?? WRITTEN_STARTERS).map((s) => {
                         // nothing is chosen on the welcome (#337)
                         const on = !welcome && s.id === repertoireId;
                         const suits = REPERTOIRE_SUITS[s.id];

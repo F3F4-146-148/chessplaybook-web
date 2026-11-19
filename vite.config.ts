@@ -153,7 +153,7 @@ const previewAssets: Plugin = {
   },
 };
 
-export default defineConfig(({ mode, command }) => ({
+export default defineConfig(({ mode, command, isSsrBuild }) => ({
   server: {
     host: "::",
     port: 8080,
@@ -195,6 +195,12 @@ export default defineConfig(({ mode, command }) => ({
     },
   },
   define: {
+    /*
+      THE BUILD'S YEAR (prerender plan A4, 2026-11-19): the footer's first render shows it, in the build's render and
+      the browser's alike, then the visitor's year after hydration. A year read during render would differ between a
+      page built in December and a visit in January.
+    */
+    __BUILD_YEAR__: JSON.stringify(new Date().getFullYear()),
     /*
       The single API-origin source of truth, consumed via src/config/env.ts.
 
@@ -259,16 +265,30 @@ export default defineConfig(({ mode, command }) => ({
       ? ['console.log', 'console.info', 'console.debug']
       : [],
   },
-  build: {
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-slot', '@radix-ui/react-select', '@radix-ui/react-tabs'],
-          'vendor-chess': ['chess.js', '@lichess-org/chessground'],
-          'vendor-aws': ['aws-amplify'],
+  /*
+    THE BUILD-TIME RENDER (prerender plan A6, 2026-11-19): `vite build --ssr src/entry-prerender.tsx --outDir dist-ssr`
+    builds the site's own code for Node, so scripts/generate-route-html.cjs can render the allowlisted pages into their
+    HTML. It is never deployed (dist-ssr/ sits outside dist/). react-helmet-async is bundled: as an external CommonJS
+    module its named exports do not resolve under Node's ESM loader (measured 2026-11-19).
+  */
+  ssr: {
+    noExternal: ['react-helmet-async'],
+  },
+  build: isSsrBuild
+    ? { outDir: 'dist-ssr', emptyOutDir: true, copyPublicDir: false }
+    : {
+      // The client manifest maps each route's source to its hashed chunk, for the modulepreload of a built page
+      // (A9). It lands in dist/.vite/, which deploy.sh does not upload.
+      manifest: true,
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+            'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-slot', '@radix-ui/react-select', '@radix-ui/react-tabs'],
+            'vendor-chess': ['chess.js', '@lichess-org/chessground'],
+            'vendor-aws': ['aws-amplify'],
+          },
         },
       },
     },
-  },
 }));

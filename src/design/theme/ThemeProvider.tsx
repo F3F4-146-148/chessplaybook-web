@@ -17,7 +17,7 @@
  * (`THEME_CHOICE_LIVE`); the dev server honours it so B5 can be checked in
  * light.
  */
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, startTransition, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DESIGN_V2_LIVE, HOME_V2_LIVE } from '../designFlags';
 import {
@@ -66,13 +66,19 @@ const ThemeContext = createContext<ThemeContextValue>({
   setPath: () => {},
 });
 
+/** `useLayoutEffect` in the browser, `useEffect` in the build's render (where neither runs, and the first warns). */
+const useBrowserLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 export function ThemeProvider({
   children,
   choiceEnabled = THEME_CHOICE_LIVE || import.meta.env.DEV,
+  initialPath,
 }: {
   children: ReactNode;
   /** Overridable for tests; the default is the rule above. */
   choiceEnabled?: boolean;
+  /** Prerender plan A4: the page's path at build (the build has no address bar); the browser reads its own. */
+  initialPath?: string;
 }) {
   const [preference, setPreferenceState] = useState<ThemePreference>(() =>
     choiceEnabled ? readStoredPreference() ?? DEFAULT_PREFERENCE : 'dark',
@@ -80,20 +86,37 @@ export function ThemeProvider({
   const [systemDark, setSystemDark] = useState(systemPrefersDark);
   // The path, for the homepage rule (themeCore.ts `isAlwaysDarkPath`); ThemeRouteSync keeps it current on in-app
   // navigation. It starts from the address bar, as the pre-paint script does.
-  const [path, setPath] = useState(() => (typeof window === 'undefined' ? '' : window.location.pathname));
+  const [path, setPath] = useState(() => initialPath ?? (typeof window === 'undefined' ? '' : window.location.pathname));
+  /*
+    PRERENDER PLAN A4 (2026-11-19): components render the DEFAULT theme first, the visitor's right after, so a page
+    built at deploy time (no stored theme there) and the browser's first render agree, and React can take over the
+    built page. The page's colours do not wait: `<html>` gets the visitor's theme from the pre-paint script and from
+    applyTheme below, which read the real preference. What follows a visitor's choice in the DOM (the theme button's
+    icon) changes once, before the browser paints on a page React renders itself.
+  */
+  const [mounted, setMounted] = useState(false);
+  /*
+    On a built page React is taking over (`#root[data-prerendered]`, kept by main.tsx only when it hydrates), the switch
+    to the visitor's theme is a transition: React holds it until the page is taken over. Applied at once, it reached the
+    parts not yet taken over and React drew them again (two recoverable errors for a light-theme visitor, A10). On a page
+    React renders itself it stays a layout effect, before paint, so the button's icon never flickers there.
+  */
+  const [takingOver] = useState(() => typeof document !== 'undefined' && document.getElementById('root')?.hasAttribute('data-prerendered') === true);
+  useBrowserLayoutEffect(() => { if (!takingOver) setMounted(true); }, []);
+  useEffect(() => { if (takingOver) startTransition(() => setMounted(true)); }, []);
 
   const resolved = choiceEnabled ? resolveThemeForPath(path, preference, systemDark) : 'dark';
   const designV2 = designV2ForPath(path);
   const themeFixed = isAlwaysDarkPath(path);
 
   // Before paint, so a change never shows one frame of the old theme.
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     applyTheme(document.documentElement, choiceEnabled ? preference : 'dark', resolved, designV2);
   }, [choiceEnabled, preference, resolved, designV2]);
 
   // The v2 homepage draws design v2 even while the design switch is off (C3), and only there: set and cleared
   // with the path. Untouched otherwise, so the DEV preview switch and the build's attribute stay in charge.
-  useLayoutEffect(() => {
+  useBrowserLayoutEffect(() => {
     if (!HOME_V2_LIVE || DESIGN_V2_LIVE) return;
     const root = document.documentElement;
     if (designV2) root.setAttribute('data-design', 'v2'); else root.removeAttribute('data-design');
@@ -134,9 +157,12 @@ export function ThemeProvider({
     [choiceEnabled],
   );
 
+  // What components render: the default until mounted (A4), then the real values.
+  const shownPreference: ThemePreference = !choiceEnabled ? 'dark' : mounted ? preference : DEFAULT_PREFERENCE;
+  const shownResolved = !choiceEnabled ? 'dark' : mounted ? resolved : resolveThemeForPath(path, DEFAULT_PREFERENCE, false);
   const value = useMemo(
-    () => ({ preference: choiceEnabled ? preference : 'dark' as const, resolved, choiceEnabled, setPreference, themeFixed, setPath }),
-    [choiceEnabled, preference, resolved, setPreference, themeFixed],
+    () => ({ preference: shownPreference, resolved: shownResolved, choiceEnabled, setPreference, themeFixed, setPath }),
+    [choiceEnabled, shownPreference, shownResolved, setPreference, themeFixed],
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
@@ -153,6 +179,6 @@ export function useTheme(): ThemeContextValue {
 export function ThemeRouteSync() {
   const { pathname } = useLocation();
   const { setPath } = useTheme();
-  useLayoutEffect(() => { setPath(pathname); }, [pathname, setPath]);
+  useBrowserLayoutEffect(() => { setPath(pathname); }, [pathname, setPath]);
   return null;
 }

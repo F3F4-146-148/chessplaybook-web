@@ -286,6 +286,8 @@ type GA4Event =
   | { name: 'puzzle_explanation_opened'; params: { outcome: 'solved' | 'revealed'; puzzle_rating: number; in_run: boolean } }
   | { name: 'puzzle_explanation_result'; params: { status: 'ready' | 'pending' | 'unavailable' } }
   | { name: 'puzzle_explanation_closed'; params: { ms_open: number; via: 'close' | 'next_puzzle' } }
+  /** B3: the "About this trainer" panel opened from the Go to card. */
+  | { name: 'puzzle_about_opened'; params: { in_run: boolean } }
   // ── Board workspace controls (2026-08-13) ───────────────────────────────
   // THESE HAD NO EVENTS AT ALL, which is why focus mode "never triggered": it
   // was never instrumented, so no usage level could have produced a row. The
@@ -320,6 +322,10 @@ type GA4Event =
   // Opening trainer (plan F1, F13): a training session started (a Resume too), and a line
   // played to its end, `trained` when every move was right first time. The return measure
   // itself is server-side (feature_uses + opening_sessions); these segment it in GA4.
+  // Prerender plan A14 (2026-11-19): once per load of a page built at deploy time: taken over in place (hydrate) or
+  // built from scratch (create), and how many hydration mismatches React recovered from. The production signal that a
+  // built page and the browser's first render agree.
+  | { name: 'prerender_load'; params: { route: string; mode: 'hydrate' | 'create'; recoverable_errors: number } }
   | { name: 'opening_session_started'; params: { repertoire: string; scope: 'main' | 'secondary' | 'both'; resumed: boolean; from_position: boolean; focus?: 'mistakes' | 'review' } }
   | { name: 'opening_line_finished'; params: { repertoire: string; trained: boolean } }
   // #337: an opening chosen in the Repertoire card; `from_welcome` when it ended the welcome (a first visit, or asked for again).

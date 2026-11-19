@@ -27,7 +27,17 @@ interface GameMoveListProps {
    * Black to move opens on "40. ... Kd7".
    */
   startFen?: string;
+  /**
+   * The game's result once it is over, as a score sheet records it ("1-0", "0-1",
+   * "1/2-1/2", written as is). It sits on its own line below the last
+   * move, centred under the two columns of moves (owner, 2026-11-19, #360). The
+   * result only, no reason (owner).
+   */
+  result?: '1-0' | '0-1' | '1/2-1/2';
 }
+
+/* What a screen reader says for the score, which reads poorly as figures. */
+const RESULT_WORDS = { '1-0': 'White won', '0-1': 'Black won', '1/2-1/2': 'draw' } as const;
 
 /**
  * A game's moves in two-column notation, the one move list for every board page
@@ -48,31 +58,45 @@ export function GameMoveList({
   className = '',
   scrolls = true,
   startFen,
+  result,
 }: GameMoveListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const activeMoveRef = useRef<HTMLElement | null>(null);
+  const resultRef = useRef<HTMLDivElement>(null);
   const last = moves.length - 1;
   const current = Math.min(currentMoveIndex, last);
 
-  // Auto-scroll to current move within the container only (never scroll the page)
+  /*
+    Auto-scroll to the current move within the container only (never scroll the page). At the last move
+    of a finished game the target is the result line below it, so the result is in view too (#360: on a
+    phone it sat under the list's edge). It runs again when the box changes height: a card's rows can
+    settle after the first paint (the Game report row on /play-online, #359), and a move kept in view
+    by the first run can end up under the edge.
+  */
   useEffect(() => {
     /* The box that scrolls: this list, or the `WorkspaceList` it sits in. */
     const container = scrolls
       ? scrollRef.current
       : scrollRef.current?.closest<HTMLElement>('[data-workspace-list]') ?? null;
-    const active = activeMoveRef.current;
-    if (!active || !container) return;
-
-    const containerRect = container.getBoundingClientRect();
-    const activeRect = active.getBoundingClientRect();
-
-    // Only scroll if the active move is outside the visible area of the container
-    if (activeRect.bottom > containerRect.bottom) {
-      container.scrollTop += activeRect.bottom - containerRect.bottom + 4;
-    } else if (activeRect.top < containerRect.top) {
-      container.scrollTop -= containerRect.top - activeRect.top + 4;
-    }
-  }, [current, scrolls]);
+    if (!container) return;
+    const keepInView = () => {
+      const target = current === last && resultRef.current ? resultRef.current : activeMoveRef.current;
+      if (!target) return;
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      // Only scroll if the target is outside the visible area of the container
+      if (targetRect.bottom > containerRect.bottom) {
+        container.scrollTop += targetRect.bottom - containerRect.bottom + 4;
+      } else if (targetRect.top < containerRect.top) {
+        container.scrollTop -= containerRect.top - targetRect.top + 4;
+      }
+    };
+    keepInView();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(keepInView);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [current, last, scrolls, result]);
 
   /*
     FOCUS FOLLOWS THE MOVE, but only when it is already in the list: stepping with
@@ -156,7 +180,7 @@ export function GameMoveList({
     <>
       <div
         ref={scrollRef}
-        className={`${scrolls ? 'overflow-y-auto ' : ''}text-sm font-mono ${className}`}
+        className={`${scrolls ? 'overflow-y-auto ' : ''}${result ? 'grid grid-cols-[max-content] ' : ''}text-sm font-mono ${className}`}
         onKeyDown={onKeyDown}
       >
         {movePairs.map((pair) => (
@@ -170,6 +194,21 @@ export function GameMoveList({
             {pair.black !== undefined && renderMove(moves[pair.black], pair.black, '')}
           </div>
         ))}
+        {/*
+          CENTRED UNDER THE MOVES AS DRAWN (owner, 2026-11-19). With a result the list is a one-column grid
+          as wide as its widest row, so every row, this one included, takes that width. Its cell then runs
+          from the left of White's column to the right of the widest move, both with the moves' own 4px
+          padding, and the score centres in it. Centring on the boundary between the columns (the first
+          version) put it 12px right: a short move like "d4" fills only the left of its column.
+        */}
+        {result && (
+          <div ref={resultRef} className="flex items-baseline gap-1 py-0.5" data-move-result aria-label={`Result: ${RESULT_WORDS[result]}`}>
+            <span className="w-8 shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1 text-center font-bold text-foreground" aria-hidden>
+              {result}
+            </span>
+          </div>
+        )}
         {moves.length === 0 && (
           <div className="text-muted-foreground italic py-2">No moves yet</div>
         )}

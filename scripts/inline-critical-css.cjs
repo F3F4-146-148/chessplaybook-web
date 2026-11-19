@@ -16,10 +16,17 @@ const Beasties = require('beasties');
 */
 const LIGHT_THEME_BLOCK = /^\[data-theme=["']?light["']?\]$/;
 
-async function run() {
-  const htmlPath = path.resolve(__dirname, '../dist/index.html');
-  const html = fs.readFileSync(htmlPath, 'utf-8');
+/*
+  PRERENDERED PAGES (prerender plan A9, 2026-11-19): a page whose content is built into its HTML needs the critical CSS of
+  THAT content, not the empty shell's, or it paints half-styled until the stylesheet arrives. Beasties cannot run twice
+  on a page (measured: it duplicates the stylesheet links and turns one into media='print'), so this step keeps the raw
+  page as dist/.vite/index.raw.html (never deployed) and exports `criticalize`, which scripts/generate-route-html.cjs runs
+  once on each built page made from it.
+*/
+const RAW_PATH = path.resolve(__dirname, '../dist/.vite/index.raw.html');
 
+/** The page with its critical CSS inlined and the full stylesheet loaded after paint. */
+async function criticalize(html) {
   const beasties = new Beasties({
     path: path.resolve(__dirname, '../dist'),
     preload: 'media',
@@ -35,15 +42,23 @@ async function run() {
       `data-design` (switch off).
     */
     allowRules: [/^:root\[data-design=/, LIGHT_THEME_BLOCK],
-    logLevel: 'info',
+    logLevel: 'warn',
   });
+  return beasties.process(html);
+}
 
-  const result = await beasties.process(html);
-  fs.writeFileSync(htmlPath, result);
+async function run() {
+  const htmlPath = path.resolve(__dirname, '../dist/index.html');
+  const html = fs.readFileSync(htmlPath, 'utf-8');
+  fs.mkdirSync(path.dirname(RAW_PATH), { recursive: true });
+  fs.writeFileSync(RAW_PATH, html);
+  fs.writeFileSync(htmlPath, await criticalize(html));
   console.log('Critical CSS inlined successfully!');
 }
 
-run().catch(err => {
+module.exports = { criticalize, RAW_PATH };
+
+if (require.main === module) run().catch(err => {
   // Fail the build (audit P2 #14): exiting 0 here shipped a perf regression
   // invisibly — the site works without inlined critical CSS, just slower,
   // which is exactly the kind of break nobody notices for months.

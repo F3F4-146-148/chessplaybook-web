@@ -5,6 +5,9 @@ import { DocumentLayout } from "@/app/DocumentLayout";
 import { FocusedLayout } from "@/app/FocusedLayout";
 import { WorkspaceKindLayout } from "@/app/WorkspaceKindLayout";
 import { MATCH_PATH, calendarState, gamePath } from "@/features/world-championship/match";
+// `lazyRetry` (a chunk that fails on a flaky connection retries) and the prerendered pages, defined once with their
+// loaders (prerender plan A5): see prerenderRoutes.tsx.
+import { lazyRetry, Terms, Privacy, RefundPolicy, OpeningTrainer, PuzzleTrainer } from "@/app/prerenderRoutes";
 
 // Critical pages � eagerly loaded (above-the-fold, high traffic)
 import Index from "@/pages/Index";
@@ -17,21 +20,6 @@ import NotFound from "@/pages/NotFound";
 // which are not needed on landing pages. Users only reach GameViewer after clicking a game.
 const GameViewer = lazy(() => lazyRetry(() => import("@/pages/GameViewer")));
 
-/**
- * Retry a dynamic import up to `retries` times with exponential backoff.
- * Handles flaky mobile networks where chunk downloads intermittently fail.
- */
-function lazyRetry<T extends { default: React.ComponentType<unknown> }>(
-  factory: () => Promise<T>,
-  retries = 2,
-): Promise<T> {
-  return factory().catch((err: unknown) => {
-    if (retries <= 0) throw err;
-    return new Promise<T>((resolve) =>
-      setTimeout(() => resolve(lazyRetry(factory, retries - 1)), 1000),
-    );
-  });
-}
 
 // Lazy-loaded pages (with automatic retry on chunk load failure)
 const BestGames = lazy(() => lazyRetry(() => import("@/pages/BestGames")));
@@ -39,9 +27,6 @@ const LiveEventsHub = lazy(() => lazyRetry(() => import("@/pages/LiveEventsHub")
 const WorldCup2025Hub = lazy(() => lazyRetry(() => import("@/pages/WorldCup2025Hub")));
 const WorldCup2025GameDay = lazy(() => lazyRetry(() => import("@/pages/WorldCup2025GameDay")));
 const LiveGameViewer = lazy(() => lazyRetry(() => import("@/pages/live-game/LiveGameViewer")));
-const Privacy = lazy(() => lazyRetry(() => import("@/pages/Privacy")));
-const Terms = lazy(() => lazyRetry(() => import("@/pages/Terms")));
-const RefundPolicy = lazy(() => lazyRetry(() => import("@/pages/RefundPolicy")));
 const Premium = lazy(() => lazyRetry(() => import("@/pages/Premium")));
 const Contact = lazy(() => lazyRetry(() => import("@/pages/Contact")));
 const Reminders = lazy(() => lazyRetry(() => import("@/pages/Reminders")));
@@ -85,9 +70,10 @@ const HomeV2Preview = import.meta.env.DEV
   both at once would make the swap unreviewable.
 
   `lazyRetry` like every other route: a chunk that fails to load on a flaky
-  connection retries rather than leaving a blank page.
+  connection retries rather than leaving a blank page. Since the prerender
+  plan's Phase B (2026-11-19) it is `PuzzleTrainer`, defined in
+  prerenderRoutes.tsx, because its HTML is built at deploy time.
 */
-const PuzzlesV3 = lazy(() => lazyRetry(() => import("@/features/puzzles/components/TrainerLayoutSkeleton")));
 /*
   AND IT KEEPS ITS DEV URL, which is not redundant. Every layout guard on this
   page - `verify-layout-frozen`, `verify-card-content-fits`,
@@ -100,7 +86,7 @@ const PuzzlesV3 = lazy(() => lazyRetry(() => import("@/features/puzzles/componen
   built artefact: `/dev/puzzles-layout` 404s there while `/puzzles` renders.
 */
 // Opening trainer: at `/openings` since its release (plan F2, 2026-11-13); it was `/dev/openings`, dev-only.
-const OpeningTrainer = lazy(() => import("@/features/openings/pages/OpeningTrainer"));
+// Built at deploy time since the prerender plan's Phase B: `OpeningTrainer` comes from prerenderRoutes.tsx.
 const TrainerLayoutSkeleton = import.meta.env.DEV
   ? lazy(() => import("@/features/puzzles/components/TrainerLayoutSkeleton"))
   : null;
@@ -227,7 +213,7 @@ export function AppRoutes() {
           `?trainer=` / `VITE_PUZZLE_TRAINER_VERSION` switch between them, so a
           rollback is now a deploy of an older ref (decision log Q2).
         */}
-        <Route path="/puzzles" element={<PuzzlesV3 />} />
+        <Route path="/puzzles" element={<PuzzleTrainer />} />
         {/* D1: `/play` on the Workspace, the second page after `/puzzles`. */}
         <Route path="/play" element={<Play />} />
         {/* D2a: `/play-online`, the third. */}

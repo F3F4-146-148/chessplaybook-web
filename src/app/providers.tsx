@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, startTransition, useCallback, useContext, useEffect, useState } from "react";
 import shareImage from '@/config/share-image.json';
 import routeMeta from '@/config/route-meta.json';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -42,13 +42,17 @@ function DeferredAuthProvider({ children }: { children: React.ReactNode }) {
   const [RealProvider, setRealProvider] = useState<React.ComponentType<{ onValue: (v: AuthValue) => void }> | null>(null);
   /* The real provider's value, handed up once it has loaded (null until then: useAuth reads the stub). */
   const [authValue, setAuthValue] = useState<AuthValue | null>(null);
+  // The real provider's value, handed up as a transition for the same reason (its first value comes at load).
+  const handUp = useCallback((v: AuthValue) => startTransition(() => setAuthValue(v)), []);
 
   useEffect(() => {
     // Defer auth loading until browser is idle — don't compete with critical resources.
     // On slow 4G, loading the 125KB aws-amplify chunk during initial render tanks FCP.
     const load = () => {
       import("@/features/auth/AuthContext").then(m => {
-        setRealProvider(() => m.AuthProvider);
+        // A transition (prerender plan A16): on a slow phone the idle callback can come while React is still taking
+        // over a built page, and an urgent update then made it draw a part again (React error 421, seen on staging).
+        startTransition(() => setRealProvider(() => m.AuthProvider));
       });
     };
 
@@ -71,7 +75,7 @@ function DeferredAuthProvider({ children }: { children: React.ReactNode }) {
   */
   return (
     <>
-      {RealProvider && <RealProvider onValue={setAuthValue} />}
+      {RealProvider && <RealProvider onValue={handUp} />}
       <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>
     </>
   );
@@ -83,6 +87,12 @@ const queryClient = new QueryClient();
 
 interface ProvidersProps {
   children: React.ReactNode;
+  /** Prerender plan A3: the build gives each page its own; the browser uses the module's one. */
+  queryClient?: QueryClient;
+  /** Prerender plan A3: the build's Helmet context, discarded (the head is generate-route-html.cjs's). */
+  helmetContext?: object;
+  /** Prerender plan A4: the page's path at build, for the theme's page rules. */
+  initialPath?: string;
 }
 
 /**
@@ -122,11 +132,11 @@ function SeoDefaults() {
   );
 }
 
-export function Providers({ children }: ProvidersProps) {
+export function Providers({ children, queryClient: client, helmetContext, initialPath }: ProvidersProps) {
   return (
-    <HelmetProvider>
-      <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
+    <HelmetProvider context={helmetContext}>
+      <ThemeProvider initialPath={initialPath}>
+      <QueryClientProvider client={client ?? queryClient}>
         <DeferredAuthProvider>
           <TooltipProvider>
             <SeoDefaults />

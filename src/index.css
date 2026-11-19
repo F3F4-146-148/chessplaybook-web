@@ -2002,3 +2002,12 @@
   height: 1.1em;
   margin: 0.15em;
 }
+
+/*
+  "HOW IT WORKS" ONLY WHERE FOUR ROWS FIT (prerender plan B3, owner 2026-11-19). The Go to card (a size container)
+  holds four rows for a guest from 97px tall; below that its type is at its 10px floor and the last row ended up to 9px
+  past the card (measured over 52 windows). Hidden under 100px; the text stays in the page for search and screen readers.
+*/
+@container (max-height: 99.98px) {
+  [data-testid="go-to-about"] { display: none; }
+}

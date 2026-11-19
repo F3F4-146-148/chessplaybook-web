@@ -13,7 +13,8 @@ import { logGA4Event } from '@/services/analytics';
  * `speech` hands the playing audio and its mouth cues to the portrait, so his mouth follows the words. Cues that
  * fail to load leave his mouth closed while the voice plays.
  */
-const KEY = 'cp_master_voice';
+export const MASTER_VOICE_KEY = 'cp_master_voice';
+const KEY = MASTER_VOICE_KEY;
 /**
  * The opening trainer's own voice switch (#336, owner 2026-11-18: "a voice switch for the trainer only"). Until the
  * player chooses there, it follows the site-wide choice, so nobody's voice changes the day it ships.
@@ -34,7 +35,7 @@ function stored(key: string): boolean {
   each recording as it starts and to the one playing when it changes. iPhone and iPad Safari ignore `audio.volume`
   (it stays 1 whatever is set), so the slider is offered only where setting it works: `volumeSettable()`.
 */
-const VOLUME_KEY = 'cp_master_volume';
+export const VOLUME_KEY = 'cp_master_volume';
 
 function storedVolume(): number {
   try {

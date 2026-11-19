@@ -8,6 +8,8 @@ import { PuzzleLiveCard } from './PuzzleLiveCard';
 import { PuzzleSettingsCard } from './PuzzleSettingsCard';
 import { PuzzleAppearanceCard } from './PuzzleAppearanceCard';
 import { PuzzleStandingsCard } from './PuzzleStandingsCard';
+import { AboutTrainerText, PuzzleAboutPanel } from './PuzzleAboutPanel';
+import { ABOUT_TRAINER_TITLE } from '../aboutTrainer';
 import { PuzzleAnalysisCard } from './PuzzleAnalysisCard';
 import { PuzzleRunSetupCard } from './PuzzleRunSetupCard';
 import { usePuzzleSettings } from '../hooks/usePuzzleSettings';
@@ -32,6 +34,14 @@ import { useReminderOffer } from '@/features/reminders/useReminderOffer';
 import { ReminderOfferLine } from '@/features/reminders/ReminderOfferLine';
 import RouteHeading from '@/components/RouteHeading';
 import { CheckCircle2, Clock, History, Minimize2, PieChart, TrendingUp, XCircle, Zap } from 'lucide-react';
+
+/**
+ * The address's query string, read once in state initialisers. Empty in the build's render (prerender plan B2a): the
+ * built page is a first visit with a plain address, and the head check builds any other address from scratch.
+ */
+function addressSearch(): string {
+  return typeof window === 'undefined' ? '' : window.location.search;
+}
 
 /**
  * THE PUZZLE TRAINER (`/puzzles`, v3), ON THE WORKSPACE.
@@ -70,9 +80,9 @@ export default function TrainerLayoutSkeleton() {
   */
   const settings = usePuzzleSettings();
   /* "Replay them" on the training record opens the run card on "Missed before" (#108). */
-  const [linkedRun] = useState(() => linkedRunSelection(new URLSearchParams(window.location.search)));
+  const [linkedRun] = useState(() => linkedRunSelection(new URLSearchParams(addressSearch())));
   /* ...and a Patterns row's "Replay" limits that run to its pattern (#109). */
-  const [linkedTheme] = useState(() => linkedRunTheme(new URLSearchParams(window.location.search)));
+  const [linkedTheme] = useState(() => linkedRunTheme(new URLSearchParams(addressSearch())));
   const run = usePuzzleRun(linkedRun, linkedTheme);
   /*
     A LINK THAT NAMES A FILTER WINS OVER THE REMEMBERED ONE (C9).
@@ -110,13 +120,13 @@ export default function TrainerLayoutSkeleton() {
     `fromLink` stays as it arrived: it answers how the visit STARTED.
   */
   const [linked, setLinked] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(addressSearch());
     const fromUrl = resolveLinkedFilters(params, '');
     return { ...fromUrl, fromLink: Boolean(fromUrl.theme || fromUrl.area) };
   });
   /* `?daily=YYYY-MM-DD`, the reminder email's "Solve today's puzzle": read once, at mount. */
   const [dailyDate] = useState(() => {
-    const asked = new URLSearchParams(window.location.search).get('daily');
+    const asked = new URLSearchParams(addressSearch()).get('daily');
     return asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) ? asked : null;
   });
   const puzzle = usePuzzleBoard({
@@ -496,6 +506,22 @@ export default function TrainerLayoutSkeleton() {
     return () => window.removeEventListener('keydown', onKey);
   }, [explainOpen, closeExplanation]);
 
+  /*
+    "ABOUT THIS TRAINER" (prerender plan B3, owner 2026-11-19), over the context lane. Escape closes it, and focus goes
+    back to the row that opened it.
+  */
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const closeAbout = useCallback(() => {
+    setAboutOpen(false);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-testid="go-to-about"]')?.focus());
+  }, []);
+  useEffect(() => {
+    if (!aboutOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeAbout(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [aboutOpen, closeAbout]);
+
   const startPlanSession = useCallback(async (item: PlanItem) => {
     if (!await plan.start(item.id)) return;
     logGA4Event({
@@ -541,7 +567,14 @@ export default function TrainerLayoutSkeleton() {
         (PRD 5.2). Both read `src/config/route-meta.json`.
       */}
       <SeoHead routeKey="puzzles" />
-      <div className="sr-only"><RouteHeading routeKey="puzzles" /></div>
+      {/*
+        HOW IT WORKS, IN THE PAGE (B3): the same text the About panel shows, here for screen readers and search engines
+        while the panel is closed (it is the built HTML's written content). Open, only the panel has it.
+      */}
+      <div className="sr-only">
+        <RouteHeading routeKey="puzzles" />
+        {!aboutOpen && <><h2>{ABOUT_TRAINER_TITLE}</h2><AboutTrainerText headingLevel="h3" /></>}
+      </div>
 
       {/*
         THE WAY OUT, AND IT CANNOT LIVE IN THE LANE THE MODE HIDES (2026-08-15:
@@ -857,8 +890,16 @@ export default function TrainerLayoutSkeleton() {
                 </div>
               </>
             )),
-            slot('standings', 'puzzleStandings', <PuzzleStandingsCard />),
+            slot('standings', 'puzzleStandings', (
+              <PuzzleStandingsCard
+                onAbout={() => {
+                  logGA4Event({ name: 'puzzle_about_opened', params: { in_run: run.running } });
+                  setAboutOpen(true);
+                }}
+              />
+            )),
           ],
+          overlay: aboutOpen ? { label: ABOUT_TRAINER_TITLE, content: <PuzzleAboutPanel onClose={closeAbout} /> } : null,
           foot: footSlot('theme-focus', (
             <PuzzleAppearanceCard
               currentThemeId={currentTheme.id}

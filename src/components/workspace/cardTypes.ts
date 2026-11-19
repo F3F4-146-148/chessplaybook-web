@@ -79,7 +79,8 @@ export const CARD_TYPES = {
   puzzleSettings: { rows: 3, reserve: 0, content: 6.52, gaps: 3, spacers: 0, nested: 0 },
   /** A record card (session or overall): a title over a two-column stat grid. */
   puzzleRecord: { rows: 4, reserve: 0, content: 6.97, gaps: 1, spacers: 0, nested: 2 },
-  /** Standings: a title and three links. */
+  /** Standings: a title and three links, four for a guest from 2026-11-19 ("How it works", shown only on a card 100px
+   *  or taller: index.css). `content` is unchanged: below 100px the fourth row is not there. */
   puzzleStandings: { rows: 4, reserve: 0, content: 6.36, gaps: 3, spacers: 0, nested: 0 },
 
   /*

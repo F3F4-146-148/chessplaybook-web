@@ -340,19 +340,13 @@ describe('the real route table', () => {
     page not built for it; outside it, a Workspace page would scroll the
     document instead of being locked to the window.
   */
+  // Routes whose HTML is built at deploy time declare their page in prerenderRoutes.tsx (prerender plan A5, Phase B).
+  const registrySource = readFileSync('src/app/prerenderRoutes.tsx', 'utf8');
   const lazyImports = new Map<string, string>(
-    [...source.matchAll(/const (\w+)\s*=[^;]*?import\("@\/([^"]+)"\)/g)].map((m) => [m[1], `src/${m[2]}.tsx`]),
+    [...source.matchAll(/const (\w+)\s*=[^;]*?import\("@\/([^"]+)"\)/g),
+      ...registrySource.matchAll(/export const (\w+)\s*=[^;]*?import\('@\/([^']+)'\)/g)]
+      .map((m) => [m[1], `src/${m[2]}.tsx`]),
   );
-  /*
-    `/puzzles` IS SERVED THROUGH `PuzzlesRoute`, which picks a trainer by flag.
-    Its default, and the page in this group, is v3 (`PuzzlesV3`); v1 and v2 are
-    rollbacks C6 deletes. Named here rather than inferred, so a change to the
-    default is a visible edit to this test.
-  */
-  for (const [route, page] of [['PuzzlesRoute', 'PuzzlesV3']] as const) {
-    const file = lazyImports.get(page);
-    if (file) lazyImports.set(route, file);
-  }
   /*
     A ROUTE PAGE THAT HANDS THE BOARD TO A COMPONENT. Champion Challenge's
     session route (#68) resolves the champion and owns the SEO; the Workspace is

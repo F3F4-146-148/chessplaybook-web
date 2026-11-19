@@ -37,6 +37,17 @@ export const REPERTOIRE_SUITS: Readonly<Record<string, string>> = {
   slav: 'Solid and sound against 1.d4.',
 };
 
+/**
+ * The openings as the Repertoire card lists them before the server's list arrives (prerender plan B1a, 2026-11-19): their
+ * names and sides are written text, so a built page shows them instead of "Loading.". The server's list replaces it,
+ * so a new opening appears once it is served; keep these in the server's order and words (`/api/openings/repertoires`).
+ */
+export const WRITTEN_STARTERS: ReadonlyArray<{ id: string; name: string; side: 'white' | 'black' }> = [
+  { id: 'london', name: 'London System', side: 'white' },
+  { id: 'french', name: 'French Defense', side: 'black' },
+  { id: 'slav', name: 'Slav Defense', side: 'black' },
+];
+
 /** The opening last used in this browser: a returning player goes straight to it (#337). */
 export const LAST_REPERTOIRE_KEY = 'cp_openings_repertoire';
 

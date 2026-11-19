@@ -6,11 +6,13 @@ import { contactHref } from '@/components/support/ReportProblemLink';
 import { logGA4Event } from '@/services/analytics';
 import { MdPsychology } from 'react-icons/md';
 import { MATCH_LAST_DAY, MATCH_PATH, calendarState, gamePath, genevaDate } from '@/features/world-championship/match';
-import { lazy, Suspense, useState, useEffect, useRef, type CSSProperties } from 'react';
+import { startTransition, Suspense, useState, useEffect, useRef, type CSSProperties } from 'react';
+import { preloadWithEveryBuiltPage, prerenderable } from '@/app/prerenderRoutes';
 import { PlayMenu, PlayMenuGroup, isPlayPath } from '@/components/nav/PlayMenu';
 
 // Lazy-load auth (perf: defers 125KB aws-amplify vendor chunk from initial load)
-const UserDropdown = lazy(() => import('@/features/auth/components/UserDropdown').then(m => ({ default: m.UserDropdown })));
+// Loaded with the page's code before a built page is taken over (prerender plan A16; see prerenderRoutes.tsx).
+const UserDropdown = preloadWithEveryBuiltPage(prerenderable(() => import('@/features/auth/components/UserDropdown').then(m => ({ default: m.UserDropdown }))));
 
 /*
   THE SHELL TAKES NO PROPS, BECAUSE A PROP IS A WAY FOR A PAGE TO CHANGE IT
@@ -97,11 +99,14 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
     const now = new Date();
     const { duringMatch, todaysGame, liveNow } = calendarState(now);
     const beforeOrDuring = genevaDate(now) <= MATCH_LAST_DAY;
-    setIsEventLive(liveNow);
-    setIsTournamentDay(duringMatch);
-    setLiveTarget(
-      todaysGame ? gamePath(todaysGame.game) : beforeOrDuring ? MATCH_PATH : null,
-    );
+    // A transition: never urgent, and held while React is still taking over a built page (prerender plan A16).
+    startTransition(() => {
+      setIsEventLive(liveNow);
+      setIsTournamentDay(duringMatch);
+      setLiveTarget(
+        todaysGame ? gamePath(todaysGame.game) : beforeOrDuring ? MATCH_PATH : null,
+      );
+    });
   };
 
   useEffect(() => {

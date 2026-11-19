@@ -68,6 +68,22 @@ describe('GameMoveList', () => {
     expect(container.querySelector('.font-mono')?.children).toHaveLength(3);
   });
 
+  it('puts the result on its own line after the last move (#360)', () => {
+    const { container } = render(
+      <GameMoveList moves={['d4', 'Nf6', 'c4', 'e6']} result="1/2-1/2" />,
+    );
+    const rows = [...container.querySelectorAll('.font-mono > div')];
+    expect(rows).toHaveLength(3);
+    expect(rows[2].hasAttribute('data-move-result')).toBe(true);
+    expect(rows[2].textContent).toBe('1/2-1/2');
+    expect(rows[2].getAttribute('aria-label')).toBe('Result: draw');
+  });
+
+  it('shows no result line while the game is on', () => {
+    const { container } = render(<GameMoveList moves={MOVES} />);
+    expect(container.querySelector('[data-move-result]')).toBeNull();
+  });
+
   it('numbers a game from a FEN from its own move, Black first (E6)', () => {
     const { container } = render(
       <GameMoveList moves={['Kd7', 'e4', 'Ke6']} startFen="4k3/8/8/8/8/8/4P3/4K3 b - - 0 40" currentMoveIndex={0} onMoveClick={() => {}} />,

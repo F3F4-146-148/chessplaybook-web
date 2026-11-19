@@ -38,11 +38,15 @@ const ROUTES = [
   // round trip on every ad click.
   { pattern: '^/explain$', chunk: 'Explain' },
   { pattern: '^/analysis(/|$)', chunk: 'Analysis' },
+  // Prerender plan A9: a built page's code, so main.tsx can take the page over (hydrate) without waiting a round trip.
+  { pattern: '^/terms$', chunk: 'Terms' },
+  { pattern: '^/privacy$', chunk: 'Privacy' },
+  { pattern: '^/refund-policy$', chunk: 'RefundPolicy' },
 ];
 
-function run() {
+/** The inline script that adds the matching route's modulepreload; null when no route chunk was built. */
+function preloadScript(log = false) {
   const dist = path.resolve(__dirname, '../dist');
-  const htmlPath = path.join(dist, 'index.html');
   const assets = fs.readdirSync(path.join(dist, 'assets'));
 
   const entries = [];
@@ -51,30 +55,36 @@ function run() {
     // `ChampionChallengeSomethingElse`.
     const match = assets.find((f) => new RegExp(`^${chunk}-[A-Za-z0-9_-]+\\.js$`).test(f));
     if (!match) {
-      console.warn(`  ! no built chunk for ${chunk} — skipping preload`);
+      if (log) console.warn(`  ! no built chunk for ${chunk} — skipping preload`);
       continue;
     }
     entries.push({ pattern, href: `/assets/${match}` });
   }
+  if (log) for (const e of entries) console.log(`  ${e.pattern} -> ${e.href}`);
+  if (entries.length === 0) return null;
+  return (
+    `<script>(function(){var r=${JSON.stringify(entries)};` +
+    `for(var i=0;i<r.length;i++){if(new RegExp(r[i].pattern).test(location.pathname)){` +
+    `document.head.insertAdjacentHTML('beforeend','<link rel="modulepreload" href="'+r[i].href+'">')}}})()</script>`
+  );
+}
 
-  if (entries.length === 0) {
+function run() {
+  const htmlPath = path.join(path.resolve(__dirname, '../dist'), 'index.html');
+  const script = preloadScript(true);
+  if (!script) {
     console.log('Route chunk preload: nothing to inject.');
     return;
   }
-
-  const script =
-    `<script>(function(){var r=${JSON.stringify(entries)};` +
-    `for(var i=0;i<r.length;i++){if(new RegExp(r[i].pattern).test(location.pathname)){` +
-    `document.head.insertAdjacentHTML('beforeend','<link rel="modulepreload" href="'+r[i].href+'">')}}})()</script>`;
-
   const html = fs.readFileSync(htmlPath, 'utf-8');
   if (html.includes('rel="modulepreload" href=\'')) {
     console.log('Route chunk preload: already present.');
     return;
   }
   fs.writeFileSync(htmlPath, html.replace('</head>', `    ${script}\n  </head>`));
-  console.log(`Route chunk preload injected for ${entries.length} route(s):`);
-  for (const e of entries) console.log(`  ${e.pattern} -> ${e.href}`);
+  console.log('Route chunk preload injected.');
 }
 
-run();
+module.exports = { preloadScript };
+
+if (require.main === module) run();

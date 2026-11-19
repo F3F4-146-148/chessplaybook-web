@@ -14,7 +14,8 @@ export interface PuzzleProgress {
   lastPlayed: string;
 }
 
-const STORAGE_KEY = 'chessplaybook_puzzle_progress';
+export const PROGRESS_STORAGE_KEY = 'chessplaybook_puzzle_progress';
+const STORAGE_KEY = PROGRESS_STORAGE_KEY;
 
 /**
  * How far outside a pinned band the player's rating may be before an attempt

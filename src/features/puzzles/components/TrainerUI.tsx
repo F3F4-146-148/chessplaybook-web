@@ -585,8 +585,11 @@ export function LiveStatus({
             {/* `1.35em` of indent is the MARK AND ITS GAP. The visible headline
                 carries a `1em` icon with a `0.35em` gap, so a sizer without it
                 wraps later than the sentence it stands in for. */}
+            {/* THE WORDS ARE A PSEUDO-ELEMENT'S, NOT THE PAGE'S (prerender plan B2a, 2026-11-19). As text they were
+                in the built HTML, so a search engine read "Error loading puzzle position." on /puzzles; generated
+                content lays out and wraps exactly as the text did, and is not part of the document's text. */}
             {HEADLINE_VOCABULARY.map(s => (
-              <div key={s} className="[grid-area:1/-1] ps-[1.35em]">{s}</div>
+              <div key={s} data-sizer={s} className="[grid-area:1/-1] ps-[1.35em] before:content-[attr(data-sizer)]" />
             ))}
           </div>
           <div className="min-h-[1.45em] text-[1em]" />

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ChevronRight, Compass, Target, Trophy } from 'lucide-react';
+import { ChevronRight, Compass, Info, Target, Trophy } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthContext';
 import { fetchPuzzleStanding, type PuzzleStanding } from '../services/StandingService';
 import { StandingOffer, StandingRow } from './StandingOffer';
@@ -24,7 +24,7 @@ import { StandingOffer, StandingRow } from './StandingOffer';
  * they should middle-click, open in a new tab, and be readable as links by
  * anything that reads links.
  */
-export function PuzzleStandingsCard() {
+export function PuzzleStandingsCard({ onAbout }: { onAbout?: () => void } = {}) {
   const { user } = useAuth();
   const location = useLocation();
   const [standing, setStanding] = useState<PuzzleStanding | null>(null);
@@ -73,6 +73,17 @@ export function PuzzleStandingsCard() {
           Puzzle rankings
           <ChevronRight className="ml-auto w-[1em] h-[1em] shrink-0" />
         </Link>
+        {/*
+          HOW IT WORKS (B3, owner 2026-11-19): a row like the others, never in the title (every card's title row holds
+          its title only). A button, since it goes nowhere: the text opens over this lane.
+        */}
+        {onAbout && (
+          <button type="button" onClick={onAbout} className={`${row} text-left`} data-testid="go-to-about">
+            <Info className="w-[1em] h-[1em] shrink-0" />
+            How it works
+            <ChevronRight className="ml-auto w-[1em] h-[1em] shrink-0" />
+          </button>
+        )}
         {!user && (
           <StandingRow
             standing={standing}

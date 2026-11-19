@@ -12,6 +12,9 @@ import SeoHead from '@/components/SeoHead';
 import RouteHeading from '@/components/RouteHeading';
 import { useBoardStepInput } from '@/components/chess/useBoardStepInput';
 import { GameMoveList } from '@/components/chess/GameMoveList';
+import { GameReviewActions } from '@/components/game-viewer/GameReviewActions';
+import { parseGame } from '@/lib/game/gameModel';
+import type { ChessGame } from '@/types/chess';
 import { GuestBadge } from '@/components/GuestBadge';
 import { useAuth } from '@/features/auth/AuthContext';
 import { ChessClock } from '../components/ChessClock';
@@ -652,6 +655,28 @@ export function PlayOnline() {
   );
   const activeReviewPosition = reviewPosition?.position ?? reviewBasePosition;
   const boardFen = reviewPosition?.position.fen ?? reviewBaseFen;
+
+  /*
+    THE FINISHED GAME'S REPORT (#359, owner 2026-11-19): the champion viewer's Game report and Explain
+    position, on the game just played. The game model is built from the moves as a PGN so the report
+    gets the same plies (SAN, UCI) it gets everywhere else. It reads the GAME's position at the viewed
+    move (`reviewBaseFen`), never a what-if move made on the board after the game.
+  */
+  const finishedGame = useMemo(() => {
+    if (!isGameOver || !gameResult || !opponent || sanMoves.length === 0) return null;
+    const pgn = sanMoves.map((san, i) => (i % 2 === 0 ? `${i / 2 + 1}. ${san}` : san)).join(' ');
+    const parsed = parseGame(pgn);
+    if (!parsed.ok) return null;
+    const me = user?.username ?? 'Guest player';
+    const white = playerColor === 'white' ? me : opponent.username;
+    const black = playerColor === 'white' ? opponent.username : me;
+    const metadata: ChessGame = {
+      playerName: '', white, black, result: gameResult.result,
+      event: `Chess Playbook online, ${selectedPreset.name}`, site: 'chessplaybook.com', date: '',
+    };
+    const winner: 'white' | 'black' | 'draw' = gameResult.result === '1-0' ? 'white' : gameResult.result === '0-1' ? 'black' : 'draw';
+    return { plies: parsed.game.plies, startFen: parsed.game.startFen, metadata, winner };
+  }, [isGameOver, gameResult, opponent, sanMoves, user?.username, playerColor, selectedPreset.name]);
   const naturalOrientation = isInGame ? playerColor : 'white';
   const boardOrientation = boardFlipped
     ? (naturalOrientation === 'white' ? 'black' : 'white')
@@ -1015,7 +1040,18 @@ export function PlayOnline() {
                     </span>
                     <div className="flex min-h-0 flex-1 flex-col">
                       <WorkspaceList label="Moves">
-                        <GameMoveList moves={sanMoves} currentMoveIndex={currentPly - 1} onMoveClick={jumpToMove} scrolls={false} className="text-[0.92em]" />
+                        {/*
+                          The result below the last move, as a score sheet records it (#360). The overlay on the
+                          board closes itself after 2s, so this is where the result stays.
+                        */}
+                        <GameMoveList
+                          moves={sanMoves}
+                          currentMoveIndex={currentPly - 1}
+                          onMoveClick={jumpToMove}
+                          scrolls={false}
+                          className="text-[0.92em]"
+                          result={phase === 'ended' && gameResult ? gameResult.result as '1-0' | '0-1' | '1/2-1/2' : undefined}
+                        />
                       </WorkspaceList>
                     </div>
                   </>
@@ -1052,6 +1088,17 @@ export function PlayOnline() {
                 )}
                 {phase === 'ended' && (
                   <div className="flex flex-col" style={{ gap: 'calc(var(--card-air) * 2)' }}>
+                    {finishedGame && jumpToMove && (
+                      <GameReviewActions
+                        fen={reviewBaseFen}
+                        startFen={finishedGame.startFen}
+                        plies={finishedGame.plies}
+                        ply={currentPly - 1}
+                        onGoTo={jumpToMove}
+                        metadata={finishedGame.metadata}
+                        gameResult={finishedGame.winner}
+                      />
+                    )}
                     <button type="button" onClick={handleNewGame} className="card-btn card-btn-primary w-full">New game</button>
                     {otherWays(handlePostGameChallenge)}
                   </div>
