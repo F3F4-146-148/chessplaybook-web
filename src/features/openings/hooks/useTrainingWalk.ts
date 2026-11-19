@@ -4,7 +4,7 @@ import { positionFromFen } from '@/components/chess/chessLogic';
 import {
   fetchExport, type RepertoireExport, type ExportMove, type TrainingScope, type TrainingSession, type MoveOutcome,
 } from '../services/openingsApi';
-import { linesInScope, linesFrom, makeTrainedCheck, isLineEnd, repeatsPosition, pickReply, moveOutcome, startsWith, type Line } from '../training/trainingLines';
+import { linesInScope, makeTrainedCheck, isLineEnd, repeatsPosition, pickReply, moveOutcome, startsWith, type Line } from '../training/trainingLines';
 
 /**
  * Training mode (opening trainer E2-E7): the player plays the repertoire's side, the trainer the opponent's.
@@ -75,6 +75,11 @@ export interface TrainingWalkOptions {
   /** A line played to its end. Resolves with whether the server found it clean, or null when it could not say. */
   /** `cleanHere`: every one of our moves right first time, judged in the browser (a session that is not saved). */
   onLineEnd: (line: string[], lineId: string, cleanHere: boolean) => Promise<boolean | null>;
+  /**
+   * #338: a session of only the mistakes. `mistakeKeys` are the positions (at our turn) still wrong now; the lines are
+   * those through the ones wrong when the session started, and a line is done once none of its positions is wrong.
+   */
+  mistakeKeys?: readonly string[] | null;
 }
 
 const REPLY_DELAY_MS = 600;
@@ -85,9 +90,13 @@ const newLineId = () => crypto.randomUUID();
 
 export function useTrainingWalk(repertoireId: string, active: boolean, opts: TrainingWalkOptions) {
   const { session, scope, cleanPaths } = opts;
-  /** E7: the moves up to the position trained from, played for the player at the start of every line. */
+  /*
+    E7, as the owner ruled on 2026-11-19: "Train from here" only reaches that variation without the risk of the
+    opponent's replies never going there. It starts a new session's FIRST line; it is never the returning point. Next
+    line starts from the root, a Resume continues the line left (or starts from the root), and the lines and progress
+    are the whole scope's.
+  */
   const startLine = session ? session.startLine : opts.startLine;
-  const startKey = startLine.join(' ');
   const running = !!session && session.status === 'active';
   const [data, setData] = useState<RepertoireExport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -135,10 +144,16 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
     return played;
   }, [data]);
 
+  /** The moves the current line began with, played for the player (E7's position, or a resumed line). */
+  const [base, setBase] = useState(0);
   useEffect(() => {
     if (!data || !session) return;
-    // A paused line continues; otherwise the line starts with the moves up to the position trained from (E7).
-    setLine(replay(session.currentLine.length ? session.currentLine : session.startLine));
+    // A paused line continues; a new session starts at the position trained from (E7); a resumed one with no line
+    // open starts from the root.
+    const first = replay(session.currentLine.length ? session.currentLine : session.resumedFrom ? [] : session.startLine);
+    setLine(first);
+    setBase(session.currentLine.length ? 0 : first.length);
+    setStatus({ kind: 'loading' }); // never the last line's end, with this line already in place
     setLineId(session.currentLineId ?? newLineId());
     setLineResult(null);
     reported.current = null;
@@ -147,8 +162,44 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
   }, [data, session?.id]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const lines = useMemo<Line[]>(() => (data ? linesFrom(linesInScope(data, scope), startLine) : []), [data, scope, startKey]);
-  const isTrained = useMemo(() => makeTrainedCheck(cleanPaths), [cleanPaths]);
+  const mistakeKeys = opts.mistakeKeys ?? null;
+  const focusMistakes = mistakeKeys !== null;
+  /** #338: the positions a mistakes session set out to fix, kept from its start (a line never vanishes mid-play). */
+  const [startMistakes, setStartMistakes] = useState<{ session: string; keys: Set<string> } | null>(null);
+  useEffect(() => {
+    if (!focusMistakes || !session) { setStartMistakes(null); return; }
+    setStartMistakes((m) => (m && m.session === session.id ? m : { session: session.id, keys: new Set(mistakeKeys) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusMistakes, session?.id]);
+  /** The positions at our turn along a line, by key. */
+  const ourKeys = useCallback((l: Line): string[] => {
+    if (!data) return [];
+    const out: string[] = [];
+    let key = data.repertoire.rootKey;
+    for (const uci of l) {
+      const p = data.positions[key];
+      if (!p) break;
+      if (p.t === 'o') out.push(key);
+      const x = p.m.find((m) => m.uci === uci);
+      if (!x) break;
+      key = x.child;
+    }
+    return out;
+  }, [data]);
+  const lines = useMemo<Line[]>(() => {
+    if (!data) return [];
+    const all = linesInScope(data, scope);
+    if (!focusMistakes) return all;
+    const keys = startMistakes?.keys ?? new Set(mistakeKeys);
+    return all.filter((l) => ourKeys(l).some((k) => keys.has(k)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, scope, focusMistakes, startMistakes, ourKeys]);
+  const cleanCheck = useMemo(() => makeTrainedCheck(cleanPaths), [cleanPaths]);
+  const wrongNow = useMemo(() => new Set(mistakeKeys ?? []), [mistakeKeys]);
+  const isTrained = useMemo(
+    () => (focusMistakes ? (l: Line) => !ourKeys(l).some((k) => wrongNow.has(k)) : cleanCheck),
+    [focusMistakes, ourKeys, wrongNow, cleanCheck],
+  );
   const ucis = useMemo(() => line.map((m) => m.uci), [line]);
 
   /** The position after the line played, and its ply from the start of the game. */
@@ -200,7 +251,10 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
 
   // A line played to its end is reported once; the answer says whether it is trained.
   useEffect(() => {
-    if (status.kind !== 'line-end' || !running || reported.current === lineId || !ucis.length) return;
+    // Only a line played past the position trained from (E7): right after Next line the status is still the last
+    // line's end for one render while the line is already back at that position, and reporting it then recorded the
+    // start as an unclean line and left the real one unreported (owner, 2026-11-19: Next line kept the same line).
+    if (status.kind !== 'line-end' || !running || reported.current === lineId || ucis.length <= base) return;
     reported.current = lineId;
     const id = lineId;
     setLineResult({ lineId: id, clean: null });
@@ -208,7 +262,7 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
     callbacks.current.onLineEnd(ucis, id, cleanHere).then((clean) => {
       setLineResult((r) => (r && r.lineId === id ? { lineId: id, clean } : r));
     });
-  }, [status.kind, running, lineId, ucis]);
+  }, [status.kind, running, lineId, ucis, base]);
 
   /*
     The move expected at our turn (hints, Reveal): the repertoire's choice, unless (#179) a marked alternative is the
@@ -304,12 +358,14 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
   }, [chosen]);
   const tryAgain = useCallback(() => setStatus({ kind: 'your-move' }), []);
   const nextLine = useCallback(() => {
-    setLine(replay(startLine));
+    // From the root, always (owner, 2026-11-19): the position trained from was only the first line's way in.
+    setLine([]);
+    setBase(0);
+    setStatus({ kind: 'loading' });
     setLineId(newLineId());
     setLineResult(null);
     reported.current = null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [replay, startKey]);
+  }, []);
 
   const last = line.length ? line[line.length - 1] : null;
   return {
@@ -318,10 +374,8 @@ export function useTrainingWalk(repertoireId: string, active: boolean, opts: Tra
     line,
     /** The line played, as UCI moves from the root (what Pause saves). */
     ucis,
-    /** E7: the moves played for the player before the position trained from. */
-    startPlies: startLine.length,
-    /** E7: SAN of the moves up to the position trained from (for its label). */
-    startSans: replay(startLine).map((m) => m.san),
+    /** E7: the position the current line was started from, while it is the line begun there (else []). */
+    fromLine: base > 0 && session && !session.currentLine.length && !session.resumedFrom ? startLine.slice(0, base) : [],
     last,
     status,
     chosen,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  trainingApi, OpeningsApiError, type TrainingScope, type TrainingSession, type TrainingState,
+  trainingApi, OpeningsApiError, type TrainingFocus, type TrainingMistake, type TrainingScope, type TrainingSession, type TrainingState,
 } from '../services/openingsApi';
 import type { TrainingReport } from './useTrainingWalk';
 import { logGA4Event } from '@/services/analytics';
@@ -23,7 +23,17 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
   const [state, setState] = useState<TrainingState | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [session, setSession] = useState<TrainingSession | null>(null);
-  const [scope, setScope] = useState<TrainingScope>('main');
+  const [scope, setScopeState] = useState<TrainingScope>('main');
+  /*
+    #338 (owner, 2026-11-19): "train my mistakes", a session of only the positions not yet right first time. The
+    server keeps it as an 'all lines' session with a focus, so the scope is 'both' while the focus is on.
+  */
+  const [focus, setFocus] = useState<TrainingFocus | null>(null);
+  const setScope = useCallback((s: TrainingScope) => { setScopeState(s); setFocus(null); }, []);
+  const chooseMistakes = useCallback(() => { setScopeState('both'); setFocus('mistakes'); }, []);
+  /** #338: the session just ended's mistakes still to fix, the recap ("these positions need work"). */
+  const [recap, setRecap] = useState<TrainingMistake[] | null>(null);
+  const sessionMisses = useRef(new Map<string, TrainingMistake>());
   const [busy, setBusy] = useState(false);
   /** A save that failed: said once on the card, never blocking the board. */
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -39,13 +49,14 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
     return trainingApi.state(repertoireId, signal)
       .then((s) => {
         setState(s);
-        setScope(s.open?.scope ?? s.lastScope ?? 'main');
+        setScopeState(s.open?.scope ?? s.lastScope ?? 'main');
+        setFocus(s.open?.focus ?? null);
       })
       .catch(() => {
         if (signal?.aborted) return;
         setLoadError(true);
         // Owner, 2026-11-17: a failed read never stops training; it starts from no progress, said on the card.
-        setState((st) => st ?? { bookVersion: '', open: null, lastScope: null, cleanPaths: [], linesPlayed: 0 });
+        setState((st) => st ?? { bookVersion: '', open: null, lastScope: null, cleanPaths: [], linesPlayed: 0, mistakes: [] });
       });
   }, [repertoireId]);
 
@@ -55,6 +66,8 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
     setState(null);
     setJustEnded(null);
     setSaveError(null);
+    setRecap(null);
+    sessionMisses.current = new Map();
     if (!active) return;
     const ctrl = new AbortController();
     load(ctrl.signal);
@@ -69,16 +82,21 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
     );
   };
 
-  const begin = useCallback(async (resume: boolean) => {
+  /** `mistakes`: start a session of only the mistakes now, whatever is chosen (#338: "Train them now"). */
+  const begin = useCallback(async (resume: boolean, mistakes = false) => {
+    const f: TrainingFocus | null = resume ? null : mistakes ? 'mistakes' : focus;
+    const sc: TrainingScope = mistakes ? 'both' : scope;
     setBusy(true);
     setSaveError(null);
     setJustEnded(null);
+    setRecap(null);
+    sessionMisses.current = new Map();
     try {
-      const s = await trainingApi.start(repertoireId, scope, resume, from);
-      logGA4Event({ name: 'opening_session_started', params: { repertoire: repertoireId, scope: s.scope, resumed: resume, from_position: from.length > 0 } });
+      const s = await trainingApi.start(repertoireId, sc, resume, from, f);
+      logGA4Event({ name: 'opening_session_started', params: { repertoire: repertoireId, scope: s.scope, resumed: resume, from_position: from.length > 0, ...(s.focus ? { focus: s.focus } : {}) } });
       setSession(s);
       setState((st) => (st ? { ...st, open: s, lastScope: s.scope } : st));
-      if (resume) setScope(s.scope);
+      if (resume || mistakes) { setScopeState(s.scope); setFocus(s.focus ?? f); }
     } catch (e) {
       // The free plan's one session a day (a Resume of today's session is free).
       const limit = e instanceof OpeningsApiError ? readDailyLimit(e.status, e.body) : null;
@@ -98,26 +116,29 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
           id: `local-${Date.now()}`,
           repertoireId,
           bookVersion: stateRef.current?.bookVersion ?? '',
-          scope: was?.scope ?? scope,
+          scope: was?.scope ?? sc,
+          focus: was?.focus ?? f,
           startLine: was?.startLine ?? from,
           status: 'active',
           currentLine: was?.currentLine ?? [],
           currentLineId: was?.currentLineId ?? null,
-          resumedFrom: null,
+          resumedFrom: was ? was.id : null,
           local: true,
         };
-        logGA4Event({ name: 'opening_session_started', params: { repertoire: repertoireId, scope: local.scope, resumed: resume, from_position: local.startLine.length > 0, saved: false } });
+        logGA4Event({ name: 'opening_session_started', params: { repertoire: repertoireId, scope: local.scope, resumed: resume, from_position: local.startLine.length > 0, saved: false, ...(local.focus ? { focus: local.focus } : {}) } });
         setSession(local);
         setSaveError(UNSAVED);
       }
     } finally {
       setBusy(false);
     }
-  }, [repertoireId, scope, from]);
+  }, [repertoireId, scope, focus, from]);
 
   const end = useCallback(async (how: 'paused' | 'stopped', line: string[]) => {
     const s = sessionRef.current;
     if (!s) return;
+    // #338: the recap, the positions this session got wrong and has not yet put right
+    setRecap([...sessionMisses.current.values()]);
     if (s.local) { // nothing on the server to end
       setSession(null);
       setJustEnded(null);
@@ -145,7 +166,7 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
         // The part's lines stop counting; the count of lines played is re-read from the server.
         await load();
       } else {
-        setState((st) => (st ? { ...st, cleanPaths: [], linesPlayed: 0 } : st));
+        setState((st) => (st ? { ...st, cleanPaths: [], linesPlayed: 0, mistakes: [] } : st));
       }
     } catch (e) {
       failed(e);
@@ -157,7 +178,16 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
   /** E6: one of our moves, saved as it is played. */
   const recordMove = useCallback((r: TrainingReport) => {
     const s = sessionRef.current;
-    if (!s || s.local) return;
+    if (!s) return;
+    // #338: the mistakes, kept as the server keeps them (the latest result per position), and this session's
+    const m: TrainingMistake = { key: r.positionKey, move: r.line[r.line.length - 1], outcome: r.outcome, line: r.line };
+    if (r.outcome === 'first_time') sessionMisses.current.delete(m.key); else sessionMisses.current.set(m.key, m);
+    setState((st) => {
+      if (!st) return st;
+      const rest = (st.mistakes ?? []).filter((x) => x.key !== m.key);
+      return { ...st, mistakes: r.outcome === 'first_time' ? rest : [...rest, m] };
+    });
+    if (s.local) return;
     trainingApi.move(s.id, r).then(() => setSaveError(null)).catch(failed);
   }, []);
 
@@ -200,10 +230,18 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
     resumable: !session && state?.open ? state.open : null,
     scope,
     setScope,
+    /** #338: 'mistakes' while "My mistakes" is chosen (scope 'both'); null otherwise. */
+    focus,
+    chooseMistakes,
+    /** #338: the mistakes to train, and the recap of the session just ended (null before one ends). */
+    mistakes: state?.mistakes ?? [],
+    recap,
     busy,
     saveError,
     justEnded,
     start: () => begin(false),
+    /** #338: "Train them now", a session of only the mistakes. */
+    startMistakes: () => begin(false, true),
     resume: () => begin(true),
     pause: (line: string[]) => end('paused', line),
     stop: () => end('stopped', []),

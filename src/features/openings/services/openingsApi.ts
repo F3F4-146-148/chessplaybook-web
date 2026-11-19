@@ -161,6 +161,10 @@ export async function fetchRepertoires(signal?: AbortSignal): Promise<Repertoire
  * ------------------------------------------------------------------------------------------------------------- */
 
 export type TrainingScope = 'main' | 'secondary' | 'both';
+/** #338: a session that trains only the mistakes (an 'all lines' session on the server). */
+export type TrainingFocus = 'mistakes';
+/** One of the player's mistakes: the position (key) and our move there, its last result, and the line to it. */
+export interface TrainingMistake { key: string; move: string; outcome: MoveOutcome; line: string[] }
 export type MoveOutcome = 'first_time' | 'with_help' | 'after_retry' | 'revealed';
 
 export interface TrainingSession {
@@ -168,6 +172,8 @@ export interface TrainingSession {
   repertoireId: string;
   bookVersion: string;
   scope: TrainingScope;
+  /** #338: 'mistakes' for a session of only the mistakes; null otherwise (absent from an older server). */
+  focus?: TrainingFocus | null;
   /** E7: where the session trains from, UCI moves from the repertoire's root; [] for the whole repertoire. */
   startLine: string[];
   status: 'active' | 'paused' | 'stopped' | 'resumed' | 'abandoned';
@@ -185,6 +191,8 @@ export interface TrainingState {
   /** Every clean line since the last reset, UCI moves joined by spaces. */
   cleanPaths: string[];
   linesPlayed: number;
+  /** #338: the positions whose latest result is not right first time (absent from an older server). */
+  mistakes?: TrainingMistake[];
 }
 
 async function sendJson<T>(method: 'GET' | 'POST', path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
@@ -203,8 +211,8 @@ async function sendJson<T>(method: 'GET' | 'POST', path: string, body?: unknown,
 export const trainingApi = {
   state: (repertoire: string, signal?: AbortSignal) =>
     sendJson<TrainingState>('GET', `?${new URLSearchParams({ repertoire })}`, undefined, signal),
-  start: (repertoire: string, scope: TrainingScope, resume: boolean, startLine: string[] = []) =>
-    sendJson<TrainingSession>('POST', '/sessions', { repertoire, scope, resume, ...(startLine.length ? { startLine } : {}) }),
+  start: (repertoire: string, scope: TrainingScope, resume: boolean, startLine: string[] = [], focus: TrainingFocus | null = null) =>
+    sendJson<TrainingSession>('POST', '/sessions', { repertoire, scope, resume, ...(startLine.length ? { startLine } : {}), ...(focus ? { focus } : {}) }),
   move: (sessionId: string, m: { lineId: string; line: string[]; positionKey: string; outcome: MoveOutcome; hints: number; wrongTries: number }) =>
     sendJson<{ ok: true }>('POST', `/sessions/${sessionId}/moves`, m),
   line: (sessionId: string, lineId: string, path: string[]) =>

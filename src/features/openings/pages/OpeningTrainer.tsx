@@ -15,7 +15,7 @@ import { PuzzleAnalysisCard } from '@/features/puzzles/components/PuzzleAnalysis
 import { useLearningWalk } from '../hooks/useLearningWalk';
 import { useTrainingWalk } from '../hooks/useTrainingWalk';
 import { useTrainingSession } from '../hooks/useTrainingSession';
-import { linesInScope, linesFrom, progress, type ScopeProgress } from '../training/trainingLines';
+import { linesInScope, linesFrom, makeTrainedCheck, progress, type ScopeProgress } from '../training/trainingLines';
 import { useAuth } from '@/features/auth/AuthContext';
 import { useOutsideGrade } from '../hooks/useOutsideGrade';
 import { ReasonList } from '../components/ReasonList';
@@ -143,6 +143,13 @@ export default function OpeningTrainer() {
   );
   // E5: the session (Start, Pause, Stop, Resume, Reset) and its saved progress; the walk plays inside it.
   const sess = useTrainingSession(repertoireId, training, from);
+  /** #338: the mistakes, the positions whose latest result is not right first time, over the whole repertoire. */
+  const mistakesHere = sess.mistakes;
+  const mistakeKeys = useMemo(() => (sess.focus === 'mistakes' ? mistakesHere.map((m) => m.key) : null), [sess.focus, mistakesHere]);
+  // none left and nothing running: the choice goes back to the lines under it (the row is gone, Start would be dead)
+  useEffect(() => {
+    if (!sess.session && sess.focus === 'mistakes' && mistakesHere.length === 0) sess.setScope(sess.scope);
+  }, [sess.session, sess.focus, mistakesHere.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const train = useTrainingWalk(repertoireId, training, {
     session: sess.session,
     scope: sess.scope,
@@ -150,19 +157,32 @@ export default function OpeningTrainer() {
     cleanPaths: sess.state?.cleanPaths ?? NO_PATHS,
     onMove: sess.recordMove,
     onLineEnd: sess.recordLine,
+    mistakeKeys,
   });
   const { user } = useAuth();
-  /** The position trained from: the running session's, else the address's (E7). */
-  const startLine = sess.session?.startLine ?? from;
-  const startKey = startLine.join(',');
-  /** Lines trained, per scope, through the position trained from (all of them when none). */
+  /** Lines trained, per scope, over the whole repertoire (owner, 2026-11-19: never only from the position). */
   const scopeProgress = useMemo(() => {
     if (!train.data) return null;
     const out = {} as Record<TrainingScope, ScopeProgress>;
-    for (const { id } of SCOPES) out[id] = progress(linesFrom(linesInScope(train.data, id), startLine), train.isTrained);
+    // the clean lines' own check: in a mistakes session the walk's `isTrained` answers another question (#338)
+    const trained = makeTrainedCheck(sess.state?.cleanPaths ?? NO_PATHS);
+    for (const { id } of SCOPES) out[id] = progress(linesInScope(train.data, id), trained);
     return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [train.data, train.isTrained, startKey]);
+  }, [train.data, sess.state?.cleanPaths]);
+  /** E7: the lines of each scope through the position chosen to start from (none: the first line has nowhere to go). */
+  const fromLines = useMemo(() => {
+    if (!train.data || !from.length) return null;
+    const out = {} as Record<TrainingScope, number>;
+    for (const { id } of SCOPES) out[id] = linesFrom(linesInScope(train.data, id), from).length;
+    return out;
+  }, [train.data, from]);
+  /** #338: a mistake as the card says it ("6.Nd2, needed a hint"). */
+  const mistakeLabel = (m: { line: string[]; move: string; outcome: string }) => {
+    const sans = m.line.length ? sansOf(m.line) : [];
+    const san = sans.length === m.line.length && sans.length ? numbered(rootPliesT + sans.length - 1, sans[sans.length - 1]) : m.move;
+    const how = m.outcome === 'with_help' ? 'needed a hint' : m.outcome === 'after_retry' ? 'needed another try' : 'was shown';
+    return { san, how };
+  };
   /** SAN of moves from the repertoire's root, as the book has them (for labels). */
   const sansOf = (ucis: string[]) => {
     const d = train.data;
@@ -578,6 +598,35 @@ export default function OpeningTrainer() {
                   {tRep?.rootSan.length ? `${tRep.name}, after ${lineText(tRep.rootSan)}. ` : `${tRep?.name ?? ''}. `}
                   Choose what to train in the Session card, then press {sess.resumable ? 'Resume or Start' : 'Start'}.
                 </p>
+              )}
+              {/*
+                #338: THE RECAP. After a session, the positions it got wrong and has not put right, each as the card says
+                it, and one press to train them (a session, the free plan's one a day). In this card, idle after a session:
+                the Session card has no room for it beside the choices (measured: it overlapped them at 300px).
+              */}
+              {tStatus.kind === 'idle' && !sess.resumable && sess.recap && sess.recap.length > 0 && (
+                <div className="flex min-h-0 flex-col gap-[0.3em] rounded-md border-l-[3px] border-primary bg-muted/60 px-[0.6em] py-[0.4em]">
+                  <span className="text-[0.86em] font-semibold text-foreground">
+                    {sess.recap.length === 1 ? 'This position needs work' : `These ${sess.recap.length} positions need work`}
+                  </span>
+                  <WorkspaceList label="Positions that need work">
+                    <ul className="flex flex-col gap-[0.1em] text-[0.86em]">
+                      {sess.recap.map((m) => {
+                        const l = mistakeLabel(m);
+                        return (
+                          <li key={m.key} className="flex items-baseline justify-between gap-[0.5em]">
+                            <span className="font-medium text-foreground">{l.san}</span>
+                            <span className="text-muted-foreground">{l.how}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </WorkspaceList>
+                  <button type="button" onClick={sess.startMistakes} disabled={sess.busy} className="card-btn card-btn-primary w-full text-[0.92em] disabled:opacity-50">
+                    <Play aria-hidden />
+                    Train them now
+                  </button>
+                </div>
               )}
               {tStatus.kind === 'other-book' && (
                 <p className="text-foreground">{tStatus.played.san} is theory, but not this repertoire's line. The repertoire plays {tStatus.chosen.san}.</p>
@@ -1106,8 +1155,10 @@ export default function OpeningTrainer() {
                 </div>
               </>
               /* #337: in learning the Repertoire card has 2 shares to the line's 1 (owner, 2026-11-18: room for more
-                 openings; the Current line card used ~130 of its 400px at 1536x746). In training the Session card in
-                 the same slot needs more (it overflowed by 9-21px at 1 share, 76px on a phone), so the two are equal. */
+                 openings; the Current line card used ~130 of its 400px at 1536x746). In training it is 1 to the
+                 Session card's 2, as before #337: the Session card holds the choices, Start, Reset and, after a
+                 session, a guest's sign-in note, which at equal shares ran 39px past its edge on a phone (2026-11-19).
+                 The openings list scrolls inside its card. */
             ), training ? 1 : 2),
             slot('opening-line', 'text', (
               <>
@@ -1128,10 +1179,17 @@ export default function OpeningTrainer() {
                         : <Muted>Loading.</Muted>
                     ) : sess.session ? (
                       <>
-                        {fromLabel(sess.session.startLine) && (
-                          <p className="truncate text-[0.92em] text-foreground">From {fromLabel(sess.session.startLine)}</p>
+                        {fromLabel(train.fromLine) && (
+                          <p className="truncate text-[0.92em] text-foreground">From {fromLabel(train.fromLine)}</p>
                         )}
-                        {scopeProgress && (
+                        {sess.session.focus === 'mistakes' ? (
+                          /* #338: a session of only the mistakes, until none is left */
+                          <p className="text-[0.92em] text-muted-foreground">
+                            {mistakesHere.length
+                              ? `My mistakes: ${mistakesHere.length} ${mistakesHere.length === 1 ? 'position' : 'positions'} left`
+                              : 'All your mistakes are put right.'}
+                          </p>
+                        ) : scopeProgress && (
                           <p className="text-[0.92em] text-muted-foreground">
                             {scopeLabel(sess.session.scope)}: {scopeProgress[sess.session.scope].trained} of {scopeProgress[sess.session.scope].total} trained
                           </p>
@@ -1174,7 +1232,7 @@ export default function OpeningTrainer() {
                         <span className="text-[0.86em] text-muted-foreground">Lines trained</span>
                         <div className="flex flex-col gap-[0.15em]" role="radiogroup" aria-label="What to train">
                           {SCOPES.map(({ id, label }) => {
-                            const on = id === sess.scope;
+                            const on = sess.focus !== 'mistakes' && id === sess.scope;
                             const pr = scopeProgress?.[id];
                             return (
                               <button
@@ -1194,11 +1252,26 @@ export default function OpeningTrainer() {
                               </button>
                             );
                           })}
+                          {/* #338 (owner, 2026-11-19): train only the positions not yet right first time */}
+                          {mistakesHere.length > 0 && (
+                            <button
+                              type="button"
+                              role="radio"
+                              aria-checked={sess.focus === 'mistakes'}
+                              onClick={sess.chooseMistakes}
+                              className={`card-row w-full justify-between rounded px-[0.5em] py-[0.2em] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${sess.focus === 'mistakes' ? 'bg-primary' : 'hover:bg-muted'}`}
+                            >
+                              <span className={sess.focus === 'mistakes' ? 'font-medium text-primary-foreground' : 'text-foreground'}>My mistakes</span>
+                              <span className={`text-[0.86em] tabular-nums ${sess.focus === 'mistakes' ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
+                                {mistakesHere.length} {mistakesHere.length === 1 ? 'position' : 'positions'}
+                              </span>
+                            </button>
+                          )}
                         </div>
                         {sess.resumable && (
-                          <Muted>{`You paused in ${scopeLabel(sess.resumable.scope)}${sess.resumable.startLine.length ? ` from ${fromLabel(sess.resumable.startLine)}` : ''}, ${sess.resumable.currentLine.length} moves into a line.`}</Muted>
+                          <Muted>{`You paused in ${scopeLabel(sess.resumable.scope)}, ${sess.resumable.currentLine.length} moves into a line.`}</Muted>
                         )}
-                        {scopeProgress && scopeProgress[sess.scope].total === 0 && !sess.resumable && (
+                        {sess.focus !== 'mistakes' && fromLines && fromLines[sess.scope] === 0 && !sess.resumable && (
                           <Muted>{`No ${sess.scope === 'both' ? 'lines' : scopeLabel(sess.scope).toLowerCase()} go through this position.${sess.scope === 'both' ? '' : ' Choose another set of lines.'}`}</Muted>
                         )}
                         {/* Soft accounts: offered when progress has just been saved, never blocking. */}
@@ -1231,7 +1304,7 @@ export default function OpeningTrainer() {
                             <button
                               type="button"
                               onClick={sess.start}
-                              disabled={sess.busy || !!(scopeProgress && scopeProgress[sess.scope].total === 0)}
+                              disabled={sess.busy || (sess.focus === 'mistakes' ? mistakesHere.length === 0 : !!(fromLines ? fromLines[sess.scope] === 0 : scopeProgress && scopeProgress[sess.scope].total === 0))}
                               className="card-btn card-btn-primary w-full disabled:opacity-50"
                             >
                               <Play aria-hidden />
@@ -1317,8 +1390,8 @@ export default function OpeningTrainer() {
                   )}
                 </div>
               </>
-              /* #337: share 1, the Repertoire card's comment above says why */
-            )),
+              /* #337: 1 share in learning, 2 in training (the Repertoire card's comment above says why) */
+            ), training ? 2 : 1),
           ],
           foot: footSlot('theme-focus', (
             <PuzzleAppearanceCard
