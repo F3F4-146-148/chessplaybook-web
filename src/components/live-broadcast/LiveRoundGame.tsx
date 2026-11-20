@@ -37,6 +37,8 @@ export interface LiveRoundGameProps {
   player?: (name: string) => Partial<ViewerPlayer> | undefined;
   /** Shown during the first fetch; a line of text by default. */
   loadingView?: ReactNode;
+  /** Above the moves in the Moves card (the match pages' trailer); see GameViewerWorkspace. */
+  movesMedia?: { content: ReactNode; half: boolean };
 }
 
 function defaultInfo(game: LiveGame) {
@@ -49,7 +51,7 @@ function defaultInfo(game: LiveGame) {
   };
 }
 
-export function LiveRoundGame({ roundId, pick, goTo, waiting, back, info = defaultInfo, onGame, player, loadingView }: LiveRoundGameProps) {
+export function LiveRoundGame({ roundId, pick, goTo, waiting, back, info = defaultInfo, onGame, player, loadingView, movesMedia }: LiveRoundGameProps) {
   const [game, setGame] = useState<LiveGame | null>(null);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -154,6 +156,7 @@ export function LiveRoundGame({ roundId, pick, goTo, waiting, back, info = defau
         initialPly={live ? 'latest' : 'start'}
         analyticsSurface="live_game"
         boardLabel={`Chess board, ${game.white.name} against ${game.black.name}, ${live ? 'live' : 'finished'}`}
+        movesMedia={movesMedia}
       />
     </>
   );

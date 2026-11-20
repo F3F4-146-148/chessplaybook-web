@@ -16,6 +16,7 @@
  * is the page that is indexed.
  */
 
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ import {
 import { startOf, useMatchBroadcast } from '@/features/world-championship/useMatchBroadcast';
 import { googleCalendarUrl, matchCalendarEvents } from '@/features/world-championship/matchCalendar';
 import { logGA4Event } from '@/services/analytics';
+import { MatchVideoInCard, ShowMatchVideo } from '@/features/world-championship/MatchVideo';
 import type { LiveGame } from '@/types/LiveBroadcast';
 
 function isMatchGame(g: LiveGame): boolean {
@@ -64,6 +66,12 @@ export default function WorldChampionship2026Game() {
   const { slug } = useParams<{ slug: string }>();
   const n = parseGameSlug(slug);
   const broadcast = useMatchBroadcast();
+  /* FIDE's trailer in the upper half of the Moves card (owner, 2026-11-20); Hide gives the moves the whole card.
+     Kept here so it carries from the waiting view to the live one. */
+  const [videoShown, setVideoShown] = useState(true);
+  const movesMedia = videoShown
+    ? { content: <MatchVideoInCard onHide={() => setVideoShown(false)} />, half: true }
+    : { content: <ShowMatchVideo onShow={() => setVideoShown(true)} />, half: false };
 
   const title = n
     ? `Game ${n}: Gukesh vs Sindarov, World Championship 2026 | Chess Playbook`
@@ -150,6 +158,7 @@ export default function WorldChampionship2026Game() {
         initialPly="start"
         analyticsSurface="live_game"
         boardLabel={`Chess board, game ${n}, not started`}
+        movesMedia={movesMedia}
       />
     </>
   );
@@ -166,6 +175,7 @@ export default function WorldChampionship2026Game() {
         goTo={goTo}
         waiting={beforeGame}
         loadingView={beforeGame}
+        movesMedia={movesMedia}
         back={{ label: 'Back to the match', to: MATCH_PATH }}
         player={(name) => {
           const key = playerByPgnName(name);

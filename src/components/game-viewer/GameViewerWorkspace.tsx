@@ -97,10 +97,15 @@ export interface GameViewerWorkspaceProps {
   boardLabel: string;
   /** The position on the board, for the page's engagement event. */
   onPositionChange?: (fen: string) => void;
+  /**
+   * Something above the moves in the Moves card (the match pages' trailer, 2026-11-20). `half`: it takes the upper
+   * half of the card and the list the lower; otherwise it is one row.
+   */
+  movesMedia?: { content: ReactNode; half: boolean };
 }
 
 export function GameViewerWorkspace({
-  pgn, info, players, goTo, live = false, initialPly, review, analyticsSurface, boardLabel, onPositionChange,
+  pgn, info, players, goTo, live = false, initialPly, review, analyticsSurface, boardLabel, onPositionChange, movesMedia,
 }: GameViewerWorkspaceProps) {
   const parsed = useMemo(() => parseGame(pgn), [pgn]);
   const model = parsed.ok ? parsed.game : null;
@@ -235,6 +240,9 @@ export function GameViewerWorkspace({
                   Moves
                 </span>
                 <div className="card-body">
+                  {movesMedia && (movesMedia.half
+                    ? <div className="flex min-h-0 flex-1 flex-col">{movesMedia.content}</div>
+                    : movesMedia.content)}
                   <div className="flex min-h-0 flex-1 flex-col">
                     <WorkspaceList label="Moves">
                       <GameMoveList moves={plies.map(p => p.san)} startFen={model?.startFen} currentMoveIndex={ply} onMoveClick={stepTo} scrolls={false} className="text-[0.92em]" />

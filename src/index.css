@@ -1357,6 +1357,26 @@
     gap: calc(var(--card-air, calc(var(--card-type) * 0.175)) * 2);
   }
   .card-fill { flex: 1 1 0; min-height: 0; }
+  /*
+    THE MATCH TRAILER IN A GAME PAGE'S MOVES CARD (2026-11-20, owner): the upper half of the card, which is a fixed
+    share of its lane. The slot is a size container, so the video is the largest 16:9 box that fits it, and is dropped
+    where the half is too short to be worth a video (the Moves list keeps its half either way).
+  */
+  .match-video-slot {
+    flex: 1 1 0;
+    min-height: 0;
+    container-type: size;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .match-video-box {
+    width: min(100cqw, calc(100cqh * 16 / 9));
+    aspect-ratio: 16 / 9;
+  }
+  @container (max-height: 72px) {
+    .match-video-box { display: none; }
+  }
 
   .panel-scroll {
         scrollbar-width: thin;

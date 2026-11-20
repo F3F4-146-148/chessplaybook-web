@@ -5,7 +5,7 @@
  * result, each linking to its game page (the live board). Facts and schedule come
  * from `features/world-championship/match.ts`; the score and results from
  * Lichess's broadcast (`LICHESS_TOURNAMENT_ID`, set 2026-11-20); before a game has a
- * result the score is 0-0, which is true. FIDE's trailer sits below the games.
+ * result the score is 0-0, which is true. FIDE's trailer sits under the title.
  *
  * Indexed and in the sitemap (the queries: "Gukesh Sindarov live", "world chess
  * championship 2026 score"). The game pages are not: they are a board with no text.
@@ -153,6 +153,9 @@ export default function WorldChampionship2026Hub() {
             Geneva, 24 November to 11 December. Fourteen games, and the first to 7&frac12; points wins.
           </p>
 
+          {/* -- FIDE's trailer: at the top, small until enlarged (owner, 2026-11-20) -- */}
+          <MatchVideo />
+
           {/* -- The score ---------------------------------------------------- */}
           <section aria-label="Match score" className="surface-card rounded-lg p-5 sm:p-7 mb-8">
             <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-4 sm:items-center">
@@ -291,9 +294,6 @@ export default function WorldChampionship2026Hub() {
               </div>
             )}
           </section>
-
-          {/* -- FIDE's trailer ------------------------------------------------ */}
-          <MatchVideo surface="hub" />
 
           {/* -- Read more ---------------------------------------------------- */}
           <section className="surface-card rounded-lg p-5 sm:p-7">
