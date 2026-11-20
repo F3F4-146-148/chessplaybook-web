@@ -1,5 +1,6 @@
 import type { Player, PlayersMap } from '@/types/chess';
 import type { ChampionListEntry } from './components/ChampionChronologyRow';
+import { CHAMPION_ROSTER } from './championRoster';
 
 const countryNames: Record<string, string> = {
   Gukesh: 'India', Ding: 'China', Carlsen: 'Norway', Anand: 'India',
@@ -16,10 +17,6 @@ const countryCodes: Record<string, string> = {
   Capablanca: 'cu', Lasker: 'de', Steinitz: 'at',
 };
 
-export const CHAMPIONS_LIST_QUERY_KEY = ['champions-list'] as const;
-export const CHAMPIONS_LIST_STALE_TIME = 5 * 60 * 1000;
-export const CHAMPIONS_LIST_GC_TIME = 30 * 60 * 1000;
-
 export const parseChampionsList = (data: PlayersMap): ChampionListEntry[] =>
   Object.entries(data).map(([name, info]: [string, Player]) => ({
     name,
@@ -30,8 +27,8 @@ export const parseChampionsList = (data: PlayersMap): ChampionListEntry[] =>
     countryCode: countryCodes[name],
   }));
 
-export const fetchChampionsList = async (): Promise<ChampionListEntry[]> => {
-  const response = await fetch('/assets/players/players_list.json');
-  if (!response.ok) throw new Error('Failed to load champions data');
-  return parseChampionsList(await response.json() as PlayersMap);
-};
+/**
+ * The chronology, newest first, from the bundled roster (prerender plan D3): it was fetched through React Query from
+ * the same file, so the page first rendered "Loading champions list", in the build too.
+ */
+export const CHAMPIONS_LIST: ChampionListEntry[] = parseChampionsList(CHAMPION_ROSTER);

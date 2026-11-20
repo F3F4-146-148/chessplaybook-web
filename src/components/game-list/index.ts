@@ -6,3 +6,5 @@ export { SortingControls } from './SortingControls';
 export { GameFilterPanel } from './GameFilterPanel';
 export { CompactFilterControls } from './CompactFilterControls';
 export { GamePagination } from './GamePagination';
+export { GamesTableHead, GAME_CELL } from './GamesTableHead';
+export { GamesTablePlaceholder, GAMES_PER_PAGE } from './GamesTablePlaceholder';

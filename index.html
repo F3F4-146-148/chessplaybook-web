@@ -41,6 +41,35 @@
     <!-- Self-hosted fonts (perf: eliminates 2 DNS lookups + cross-origin requests to Google) -->
     <link rel="preload" href="/fonts/fonts.css" as="style">
     <link rel="stylesheet" href="/fonts/fonts.css">
+    <!-- The fonts' metric-matched fallbacks, inline (prerender plan D1, 2026-11-19): the build loads fonts.css after
+         the first paint (media=print, then all), so while they lived there, text first drew in system-ui and moved when
+         the faces arrived (a line more in a champion page's intro: CLS 0.023 on a slow phone). Local fonts only, no
+         request.
+         Why these numbers (moved from fonts.css, 2026-11-14, the /terms shift): each face is the system font scaled to
+         Inter's and Playfair's widths and line boxes, so the swap moves nothing. Measured in Chrome on the page's own
+         text (canvas measureText, web font against fallback): Inter over Arial 106.52% / 91.07% / 22.53%, Playfair
+         Display over Times New Roman 110.68% / 97.58% / 22.59%. Liberation Sans and Arimo have Arial's metrics (Linux,
+         where PageSpeed runs). No Roboto face: it was not installed where this was measured, so Android may still move
+         a little. Matched on average text: uppercase runs wider (see Stat in ChampionProfile.tsx).
+         The id lets the critical CSS step keep it whole (scripts/inline-critical-css.cjs): Beasties drops @font-face. -->
+    <style id="font-fallbacks">
+      @font-face {
+        font-family: 'Inter Fallback';
+        src: local('Arial'), local('Liberation Sans'), local('Arimo');
+        size-adjust: 106.52%;
+        ascent-override: 91.07%;
+        descent-override: 22.53%;
+        line-gap-override: 0%;
+      }
+      @font-face {
+        font-family: 'Playfair Display Fallback';
+        src: local('Times New Roman'), local('Liberation Serif'), local('Tinos');
+        size-adjust: 110.68%;
+        ascent-override: 97.58%;
+        descent-override: 22.59%;
+        line-gap-override: 0%;
+      }
+    </style>
     <!-- No homepage LCP image preload. There used to be one here for the
          LiveTournamentSpotlight article image, kept in sync by hand with a
          comment in that component. Both were removed on 2026-08-02: the

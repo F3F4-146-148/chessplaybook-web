@@ -139,10 +139,16 @@ const wdl = (s: Split) => `${fmt(s.w)} won, ${fmt(s.d)} drawn, ${fmt(s.l)} lost`
 /** "Gukesh, D" style names in our data read "Gukesh, D"; keep the comma spacing. */
 const playerName = (n: string) => n.replace(/,(?!\s)/g, ', ');
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+/**
+ * `twoLineLabel`: the label keeps the height of two lines, its text at the bottom. In the best games' grid "Opponents'
+ * accuracy" is 154px in Inter and 163px in its metric-matched fallback (uppercase runs wider than the average the
+ * fallback is matched on) in a 161px box from 1,100px windows up: one line in Inter, two before Inter arrives, so the
+ * row shrank by 16px and moved everything below it (CLS 0.034 on the built page, prerender plan D1).
+ */
+function Stat({ label, value, sub, twoLineLabel = false }: { label: string; value: string; sub?: string; twoLineLabel?: boolean }) {
   return (
     <div className="rounded-lg border border-border bg-card px-4 py-3">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={`text-xs uppercase tracking-wide text-muted-foreground${twoLineLabel ? ' min-h-8 flex flex-col justify-end' : ''}`}>{label}</div>
       <div className="text-xl font-semibold text-foreground">{value}</div>
       {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
     </div>
@@ -263,7 +269,13 @@ export function ChampionDetails({ slug, gameHref }: { slug?: string; gameHref: (
 
   return (
     <div>
-      <script type="application/ld+json">{JSON.stringify(personLd)}</script>
+      {/* As raw HTML, not a text child: React's build-time render escapes a script's text ("&quot;"), which a browser
+          never decodes inside <script>, so the built page carried broken JSON and failed to hydrate (prerender D1).
+          `<` is escaped so no text in the data can close the tag. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personLd).replace(/</g, '\\u003c') }}
+      />
 
       <Section id="about" title={`About ${c.name}`}>
         <div className="space-y-4 max-w-4xl text-foreground">
@@ -351,7 +363,9 @@ export function ChampionDetails({ slug, gameHref }: { slug?: string; gameHref: (
       <p className="text-sm text-muted-foreground mt-6 max-w-4xl">
         These figures count the {fmt(f.classicalGames)} classical games in our collection, not his whole career.
         {leftOut && ` The table above also lists ${leftOut} games, which are left out of the figures.`}
-        {` Updated ${new Date(FACTS.generatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}.`}
+        {/* In UTC: `generatedAt` is a date, parsed as UTC midnight, and read in the visitor's zone it was the day
+            before west of UTC (and would differ from the page built at deploy time, prerender plan D1). */}
+        {` Updated ${new Date(FACTS.generatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}.`}
       </p>
     </div>
   );
@@ -381,11 +395,11 @@ export function BestGamesIntro({ slug }: { slug?: string }) {
       </p>
       <JumpLinks items={bestSections} also={{ to: `/champions/${slug}/games`, label: `About ${name}` }} />
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 max-w-5xl">
-        <Stat label="Ranked games" value={fmt(b.games)} sub={b.years ? `${b.years.from} to ${b.years.to}` : undefined} />
-        <Stat label="Results" value={`${b.results.w} won`} sub={`${b.results.l} lost${b.results.d ? `, ${b.results.d} drawn` : ''}`} />
-        <Stat label="His accuracy" value={b.playerAccuracy === null ? '—' : `${b.playerAccuracy}%`} sub="average in these games" />
-        <Stat label="Opponents' accuracy" value={b.opponentAccuracy === null ? '—' : `${b.opponentAccuracy}%`} sub="average in these games" />
-        <Stat label="Quality score" value={b.qualityScore === null ? '—' : `${b.qualityScore}`} sub="average, out of 100" />
+        <Stat twoLineLabel label="Ranked games" value={fmt(b.games)} sub={b.years ? `${b.years.from} to ${b.years.to}` : undefined} />
+        <Stat twoLineLabel label="Results" value={`${b.results.w} won`} sub={`${b.results.l} lost${b.results.d ? `, ${b.results.d} drawn` : ''}`} />
+        <Stat twoLineLabel label="His accuracy" value={b.playerAccuracy === null ? '—' : `${b.playerAccuracy}%`} sub="average in these games" />
+        <Stat twoLineLabel label="Opponents' accuracy" value={b.opponentAccuracy === null ? '—' : `${b.opponentAccuracy}%`} sub="average in these games" />
+        <Stat twoLineLabel label="Quality score" value={b.qualityScore === null ? '—' : `${b.qualityScore}`} sub="average, out of 100" />
       </div>
     </div>
   );

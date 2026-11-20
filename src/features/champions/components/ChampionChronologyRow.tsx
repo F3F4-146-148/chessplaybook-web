@@ -48,15 +48,3 @@ export function ChampionChronologyRow({ champion, championNumber }: { champion: 
     </tr>
   );
 }
-
-export function ChampionChronologyRowSkeleton() {
-  return (
-    <div className="grid min-h-[5.5rem] grid-cols-[2rem_minmax(0,1fr)_5rem] grid-rows-3 items-center gap-x-2 border-b border-border/60 px-2 py-3 last:border-b-0 sm:grid-cols-[3rem_minmax(10rem,1.5fr)_minmax(8rem,1fr)_minmax(8rem,1fr)_8rem] sm:grid-rows-1 sm:gap-x-0 sm:px-0 sm:py-4">
-      <span className="h-4 w-5 animate-pulse rounded bg-muted motion-reduce:animate-none sm:mx-3" />
-      <span className="h-4 w-3/4 animate-pulse rounded bg-muted motion-reduce:animate-none sm:mx-3" />
-      <span className="col-start-2 row-start-2 h-3 w-1/2 animate-pulse rounded bg-muted motion-reduce:animate-none sm:col-start-3 sm:row-start-1 sm:mx-3" />
-      <span className="col-start-2 row-start-3 h-3 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none sm:col-start-4 sm:row-start-1 sm:mx-3" />
-      <span className="col-start-3 row-span-3 row-start-1 h-10 w-full animate-pulse rounded bg-muted motion-reduce:animate-none sm:col-start-5 sm:row-span-1 sm:mx-3 sm:w-auto" />
-    </div>
-  );
-}

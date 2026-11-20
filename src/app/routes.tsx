@@ -7,13 +7,14 @@ import { WorkspaceKindLayout } from "@/app/WorkspaceKindLayout";
 import { MATCH_PATH, calendarState, gamePath } from "@/features/world-championship/match";
 // `lazyRetry` (a chunk that fails on a flaky connection retries) and the prerendered pages, defined once with their
 // loaders (prerender plan A5): see prerenderRoutes.tsx.
-import { lazyRetry, Terms, Privacy, RefundPolicy, OpeningTrainer, PuzzleTrainer } from "@/app/prerenderRoutes";
+import {
+  lazyRetry, Terms, Privacy, RefundPolicy, OpeningTrainer, PuzzleTrainer,
+  ChampionsGallery, ChampionsList, ChampionGames, ChampionBestGames,
+} from "@/app/prerenderRoutes";
 
 // Critical pages � eagerly loaded (above-the-fold, high traffic)
 import Index from "@/pages/Index";
-import Champions from "@/pages/Champions";
-import ChampionsList from "@/pages/ChampionsList";
-import GameList from "@/pages/GameList";
+// The champion pages are built at deploy time since the prerender plan's Phase D: defined in prerenderRoutes.tsx.
 import NotFound from "@/pages/NotFound";
 
 // GameViewer lazy-loaded: it imports chess.js + AnalysisService (71KB vendor-chess chunk)
@@ -22,7 +23,6 @@ const GameViewer = lazy(() => lazyRetry(() => import("@/pages/GameViewer")));
 
 
 // Lazy-loaded pages (with automatic retry on chunk load failure)
-const BestGames = lazy(() => lazyRetry(() => import("@/pages/BestGames")));
 const LiveEventsHub = lazy(() => lazyRetry(() => import("@/pages/LiveEventsHub")));
 const WorldCup2025Hub = lazy(() => lazyRetry(() => import("@/pages/WorldCup2025Hub")));
 const WorldCup2025GameDay = lazy(() => lazyRetry(() => import("@/pages/WorldCup2025GameDay")));
@@ -293,10 +293,10 @@ export function AppRoutes() {
         <Route path="/" element={<Index />} />
 
         {/* Champions & Games */}
-        <Route path="/champions" element={<Champions />} />
+        <Route path="/champions" element={<ChampionsGallery />} />
         <Route path="/champions/list" element={<ChampionsList />} />
-        <Route path="/champions/:name/games" element={<ChampionSlugGuard><GameList /></ChampionSlugGuard>} />
-        <Route path="/champions/:name/best-games" element={<ChampionSlugGuard><BestGames /></ChampionSlugGuard>} />
+        <Route path="/champions/:name/games" element={<ChampionSlugGuard><ChampionGames /></ChampionSlugGuard>} />
+        <Route path="/champions/:name/best-games" element={<ChampionSlugGuard><ChampionBestGames /></ChampionSlugGuard>} />
 
         {/* Live Events � redirects to today's round during Candidates 2026 */}
         <Route path="/live-events" element={<LiveEventsRedirect />} />

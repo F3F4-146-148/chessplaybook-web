@@ -7,7 +7,6 @@
  */
 
 import { useEffect, useState, useMemo } from 'react';
-import ReportProblemLink from '@/components/support/ReportProblemLink';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { backendAPIClient } from '@/services/BackendAPIClient';
@@ -15,6 +14,7 @@ import type { BestGame } from '@/types/bestGames';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trophy } from 'lucide-react';
+import { GamesTableHead, GamesTablePlaceholder } from '@/components/game-list';
 import { BestGamesIntro, BestGamesDetails, ChampionNotFound, ChampionPortrait, getChampionContent } from '@/components/champion/ChampionProfile';
 import { championRouteMeta } from '@/config/championRouteMeta';
 
@@ -85,23 +85,10 @@ const BestGames = () => {
   const championContent = getChampionContent(name);
   if (!championContent) return <ChampionNotFound />;
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-destructive text-xl mb-4">Error: {error}</div>
-          <Link to="/champions">
-            <Button>Back to Champions</Button>
-          </Link>
-          <div className="mt-4">
-            <ReportProblemLink surface="load_error" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const pageTitle = championFullName || championContent?.name || name || 'Chess Champion';
+  // A failed load is said in the games table only (GamesLoadError): the written content and the head stay.
+  // The written name and reign first (prerender plan D5): built into the page, they must not change when the API's
+  // answer arrives (its "1960-1961" against "World Champion 1960-1961" rewrapped the header on a phone, CLS 0.025).
+  const pageTitle = championContent?.name || championFullName || name || 'Chess Champion';
   const gameCount = filteredGames.length;
   // Same text as the prerendered HTML (config/champion-route-meta.json); an ECO-filtered
   // view keeps its own title.
@@ -110,7 +97,7 @@ const BestGames = () => {
 
   return (
     <>
-      {!loading && (
+      {/* In every state (prerender plan D2): withheld while loading, the homepage's defaults took over the head. */}
       <Helmet>
         <title>{fullTitle}</title>
         <meta name="description" content={meta.description} />
@@ -156,7 +143,6 @@ const BestGames = () => {
           })}
         </script>
       </Helmet>
-      )}
 
       <div className="bg-background flex flex-col">
         <div className="py-12 px-4 sm:px-6 lg:px-8 flex-grow">
@@ -172,7 +158,7 @@ const BestGames = () => {
             {(championshipYears || championContent) && (
               <div>
                 <span className="inline-block bg-primary/20 text-link px-4 py-1.5 rounded-full border border-primary/30 text-lg font-semibold">
-                  ♔ {championshipYears || championContent?.reign}
+                  ♔ {championContent?.reign || championshipYears}
                 </span>
               </div>
             )}
@@ -197,9 +183,10 @@ const BestGames = () => {
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <CardTitle className="text-link text-2xl font-normal flex items-center gap-2">
                 <Trophy className="w-5 h-5" />
+                {/* No count before the games have loaded: the built page (prerender plan D1) said "Best 0 Games". */}
                 {ecoFilter
-                  ? `${gameCount} Best Games in ${ecoFilter}`
-                  : `Best ${gameCount} Games`}
+                  ? (loading || error ? `Best Games in ${ecoFilter}` : `${gameCount} Best Games in ${ecoFilter}`)
+                  : (loading || error ? 'Best Games' : `Best ${gameCount} Games`)}
               </CardTitle>
               {!ecoFilter && (
                 <Link to={`/champions/${name}/games`}>
@@ -225,7 +212,9 @@ const BestGames = () => {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-12 text-muted-foreground text-lg">Loading games...</div>
+              <GamesTablePlaceholder pagination="h-9" />
+            ) : error ? (
+              <GamesTablePlaceholder pagination="h-9" onRetry={() => name && loadBestGames(name)} />
             ) : games.length === 0 ? (
               <div className="text-center py-12">
                 <Trophy className="w-16 h-16 text-link mx-auto mb-4 opacity-50" />
@@ -241,19 +230,7 @@ const BestGames = () => {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full table-fixed min-w-[500px]">
-                  <thead>
-                    <tr className="border-b-2 border-primary/50">
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base w-10">#</th>
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base w-28 sm:w-48">White</th>
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base w-28 sm:w-48">Black</th>
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base w-12 sm:w-20">
-                        <span className="sm:hidden">Res.</span>
-                        <span className="hidden sm:inline">Result</span>
-                      </th>
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base w-14">Year</th>
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base">Event</th>
-                    </tr>
-                  </thead>
+                  <GamesTableHead />
                   <tbody>
                     {paginatedGames.map((game, displayIndex) => {
                     // Find the original index in the full games array for the link

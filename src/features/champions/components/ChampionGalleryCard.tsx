@@ -91,24 +91,3 @@ export function ChampionGalleryCard({ champion }: { champion: Champion }) {
     </article>
   );
 }
-
-export function ChampionGalleryCardSkeleton() {
-  return (
-    <div className="surface-card grid min-h-[13rem] grid-cols-[8rem_minmax(0,1fr)] overflow-hidden rounded-lg sm:flex sm:min-h-0 sm:flex-col" aria-hidden="true">
-      <div className="w-32 shrink-0 animate-pulse bg-muted motion-reduce:animate-none sm:aspect-[4/3] sm:w-full" />
-      <div className="flex flex-1 flex-col p-3">
-        <div className="h-5 w-3/4 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-        <div className="mt-2 h-4 w-1/2 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-        <div className="mt-3 space-y-2">
-          <div className="h-3 w-full animate-pulse rounded bg-muted motion-reduce:animate-none" />
-          <div className="h-3 w-5/6 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-          <div className="h-3 w-2/3 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-        </div>
-        <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
-          <div className="h-10 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-          <div className="h-10 animate-pulse rounded bg-muted motion-reduce:animate-none" />
-        </div>
-      </div>
-    </div>
-  );
-}

@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { longChampionFixture } from '@/features/champions/testFixtures';
-import { ChampionGalleryCard, ChampionGalleryCardSkeleton } from './ChampionGalleryCard';
+import { ChampionGalleryCard } from './ChampionGalleryCard';
 
 function renderCard() {
   return render(
@@ -61,12 +61,5 @@ describe('ChampionGalleryCard visual and interaction contract', () => {
 
     expect(heading).toContainElement(flag);
     expect(portraitLink).not.toContainElement(flag);
-  });
-
-  it('matches loaded-card outer geometry and disables animation for reduced motion', () => {
-    const { container } = render(<ChampionGalleryCardSkeleton />);
-    const skeleton = container.firstElementChild;
-    expect(skeleton).toHaveClass('surface-card', 'rounded-lg', 'overflow-hidden', 'min-h-[13rem]');
-    expect(container.querySelector('.motion-reduce\\:animate-none')).not.toBeNull();
   });
 });

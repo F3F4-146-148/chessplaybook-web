@@ -1,24 +1,17 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import { History, ListOrdered, Trophy, UsersRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { WorkspaceCard } from '@/components/chess/WorkspaceCard';
 import SeoHead from '@/components/SeoHead';
 import {
   ChampionChronologyRow,
-  ChampionChronologyRowSkeleton,
   type ChampionListEntry,
 } from '@/features/champions/components/ChampionChronologyRow';
-import {
-  CHAMPIONS_LIST_GC_TIME,
-  CHAMPIONS_LIST_QUERY_KEY,
-  CHAMPIONS_LIST_STALE_TIME,
-  fetchChampionsList,
-} from '@/features/champions/championsListData';
+import { CHAMPIONS_LIST } from '@/features/champions/championsListData';
 
-function ChampionsListSeo({ champions }: { champions?: ChampionListEntry[] }) {
-  const itemList = useMemo(() => champions ? {
+function ChampionsListSeo({ champions }: { champions: ChampionListEntry[] }) {
+  const itemList = useMemo(() => ({
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: 'World Chess Champions List',
@@ -36,7 +29,7 @@ function ChampionsListSeo({ champions }: { champions?: ChampionListEntry[] }) {
         nationality: champion.countryName,
       },
     })),
-  } : null, [champions]);
+  }), [champions]);
 
   return (
     <SeoHead routeKey="champions/list">
@@ -51,25 +44,18 @@ function ChampionsListSeo({ champions }: { champions?: ChampionListEntry[] }) {
           ],
         })}
       </script>
-      {itemList && <script type="application/ld+json">{JSON.stringify(itemList)}</script>}
+      <script type="application/ld+json">{JSON.stringify(itemList)}</script>
     </SeoHead>
   );
 }
 
 const ChampionsList = () => {
-  const query = useQuery({
-    queryKey: CHAMPIONS_LIST_QUERY_KEY,
-    queryFn: fetchChampionsList,
-    staleTime: CHAMPIONS_LIST_STALE_TIME,
-    gcTime: CHAMPIONS_LIST_GC_TIME,
-  });
-  const champions = query.data;
-  const totalFailure = query.isError && champions === undefined;
-  const resolved = champions !== undefined;
+  // The site's own list, bundled (prerender plan D3): the same in the build and the browser, nothing to wait for.
+  const champions = CHAMPIONS_LIST;
 
   return (
     <>
-      <ChampionsListSeo champions={resolved ? champions : undefined} />
+      <ChampionsListSeo champions={champions} />
       <div className="flex flex-col bg-background">
         <main className="flex-grow px-2 pb-8 pt-2 sm:px-4">
           <div className="mx-auto max-w-7xl">
@@ -94,50 +80,23 @@ const ChampionsList = () => {
                 <h2 id="champions-chronology-heading" className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   <ListOrdered className="h-3.5 w-3.5" aria-hidden="true" />Complete chronology
                 </h2>
-                {resolved && !totalFailure && <span className="text-xs text-muted-foreground">{champions.length} champions</span>}
+                <span className="text-xs text-muted-foreground">{champions.length} champions</span>
               </div>
 
-              {query.isPending && (
-                <div className="surface-card overflow-hidden rounded-lg" aria-busy="true" aria-labelledby="champions-chronology-heading">
-                  <div aria-hidden="true">{Array.from({ length: 6 }).map((_, index) => <ChampionChronologyRowSkeleton key={index} />)}</div>
-                  <span className="sr-only">Loading champions list</span>
-                </div>
-              )}
-
-              {totalFailure && (
-                <WorkspaceCard title="Champions list unavailable" className="text-sm text-muted-foreground">
-                  <p>We couldn’t load the champions list right now. You can try again or return to the gallery.</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button size="sm" className="min-h-10" onClick={() => void query.refetch()}>Try again</Button>
-                    <Button asChild variant="outline" size="sm" className="min-h-10 border-border bg-transparent"><Link to="/champions">View Champions Gallery</Link></Button>
-                  </div>
-                </WorkspaceCard>
-              )}
-
-              {resolved && champions.length === 0 && (
-                <WorkspaceCard title="No champions available" className="text-sm text-muted-foreground">
-                  <p>The complete chronology is currently empty.</p>
-                  <Button asChild variant="outline" size="sm" className="mt-3 min-h-10 border-border bg-transparent"><Link to="/champions">View Champions Gallery</Link></Button>
-                </WorkspaceCard>
-              )}
-
-              {resolved && champions.length > 0 && (
-                <div className="surface-card overflow-hidden rounded-lg">
-                  <table className="w-full table-fixed sm:table-auto" aria-labelledby="champions-chronology-heading">
-                    <thead className="sr-only sm:not-sr-only sm:table-header-group">
-                      <tr className="border-b border-border/70">
-                        <th scope="col" className="w-12 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">#</th>
-                        <th scope="col" className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Champion</th>
-                        <th scope="col" className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Country</th>
-                        <th scope="col" className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reign</th>
-                        <th scope="col" className="w-36 px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Games</th>
-                      </tr>
-                    </thead>
-                    <tbody>{champions.map((champion, index) => <ChampionChronologyRow key={champion.name} champion={champion} championNumber={champions.length - index} />)}</tbody>
-                  </table>
-                  {query.isError && <p className="sr-only" role="status">The cached champions list is shown; its background refresh failed.</p>}
-                </div>
-              )}
+              <div className="surface-card overflow-hidden rounded-lg">
+                <table className="w-full table-fixed sm:table-auto" aria-labelledby="champions-chronology-heading">
+                  <thead className="sr-only sm:not-sr-only sm:table-header-group">
+                    <tr className="border-b border-border/70">
+                      <th scope="col" className="w-12 px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">#</th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Champion</th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Country</th>
+                      <th scope="col" className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reign</th>
+                      <th scope="col" className="w-36 px-3 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Games</th>
+                    </tr>
+                  </thead>
+                  <tbody>{champions.map((champion, index) => <ChampionChronologyRow key={champion.name} champion={champion} championNumber={champions.length - index} />)}</tbody>
+                </table>
+              </div>
 
               <WorkspaceCard title="Championship records" icon={<Trophy className="h-3.5 w-3.5 text-link" aria-hidden="true" />} className="mt-3">
                 <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">

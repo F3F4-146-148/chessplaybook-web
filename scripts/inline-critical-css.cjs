@@ -25,8 +25,20 @@ const LIGHT_THEME_BLOCK = /^\[data-theme=["']?light["']?\]$/;
 */
 const RAW_PATH = path.resolve(__dirname, '../dist/.vite/index.raw.html');
 
+/*
+  THE FONTS' METRIC-MATCHED FALLBACKS (prerender plan D1, 2026-11-19): index.html's `<style id="font-fallbacks">`, which
+  must be there at the first paint, because fonts.css (Inter itself) loads after it. Beasties drops every @font-face of an
+  inline style (`inlineFonts: false`, which we want for Inter's own faces), so the block is taken out before Beasties and
+  put back after, unchanged. A page without it fails the build: the swap would move text again (a champion page's intro
+  went from one line to two, CLS 0.023 on a slow phone).
+*/
+const FONT_FALLBACKS = /<style id="font-fallbacks">[\s\S]*?<\/style>/;
+
 /** The page with its critical CSS inlined and the full stylesheet loaded after paint. */
-async function criticalize(html) {
+async function criticalize(source) {
+  const fallbacks = source.match(FONT_FALLBACKS);
+  if (!fallbacks) throw new Error('inline-critical-css: index.html has no <style id="font-fallbacks"> (the fonts\' metric-matched fallbacks)');
+  const html = source.replace(FONT_FALLBACKS, '');
   const beasties = new Beasties({
     path: path.resolve(__dirname, '../dist'),
     preload: 'media',
@@ -44,7 +56,9 @@ async function criticalize(html) {
     allowRules: [/^:root\[data-design=/, LIGHT_THEME_BLOCK],
     logLevel: 'warn',
   });
-  return beasties.process(html);
+  const out = await beasties.process(html);
+  if (!out.includes('</head>')) throw new Error('inline-critical-css: no </head> to put the font fallbacks back before');
+  return out.replace('</head>', `${fallbacks[0]}</head>`);
 }
 
 async function run() {

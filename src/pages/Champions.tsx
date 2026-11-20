@@ -1,15 +1,10 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Crown, History, UsersRound } from 'lucide-react';
 import SeoHead from '@/components/SeoHead';
-import ReportProblemLink from '@/components/support/ReportProblemLink';
 import { WorkspaceCard } from '@/components/chess/WorkspaceCard';
-import { backendAPIClient } from '@/services/BackendAPIClient';
 import type { Player, PlayersMap } from '@/types/chess';
-import {
-  ChampionGalleryCard,
-  ChampionGalleryCardSkeleton,
-} from '@/features/champions/components/ChampionGalleryCard';
+import { ChampionGalleryCard } from '@/features/champions/components/ChampionGalleryCard';
+import { CHAMPION_ROSTER } from '@/features/champions/championRoster';
 
 export interface Champion {
   name: string;
@@ -30,35 +25,16 @@ const parseChampions = (data: PlayersMap): Champion[] =>
 
 const galleryGridClass = 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4';
 
-const Champions = () => {
-  const [champions, setChampions] = useState<Champion[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+/*
+  THE SITE'S OWN ROSTER, BUNDLED (prerender plan D3, 2026-11-19). The gallery raced this file against the API and then
+  swapped to the API's answer, whose biographies are a different set, so every visit changed all 18 texts after the first
+  paint. Owner: the file's biographies are kept and the gallery no longer asks the API. The same in the build (the page's
+  HTML) and the browser, with nothing to load.
+*/
+const CHAMPIONS: Champion[] = parseChampions(CHAMPION_ROSTER);
 
-  useEffect(() => {
-    const loadChampions = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const staticPromise = fetch('/assets/players/players_list.json')
-          .then(response => response.json())
-          .then(data => ({ source: 'static' as const, champions: parseChampions(data) }));
-        const apiPromise = backendAPIClient.getPlayers()
-          .then(data => ({ source: 'api' as const, champions: parseChampions(data) }));
-        const result = await Promise.any([staticPromise, apiPromise]);
-        setChampions(result.champions);
-        if (result.source === 'static') {
-          apiPromise.then(apiResult => setChampions(apiResult.champions)).catch(() => undefined);
-        }
-      } catch (caught) {
-        console.error('Error loading champions:', caught);
-        setError(caught instanceof Error ? caught.message : 'Failed to load champions');
-      } finally {
-        setLoading(false);
-      }
-    };
-    void loadChampions();
-  }, []);
+const Champions = () => {
+  const champions = CHAMPIONS;
 
   return (
     <>
@@ -108,37 +84,17 @@ const Champions = () => {
                 <UsersRound className="h-3.5 w-3.5" aria-hidden="true" />
                 Champion gallery
               </h2>
-              {!loading && !error && (
-                <span className="text-xs text-muted-foreground">{champions.length} champions</span>
-              )}
+              <span className="text-xs text-muted-foreground">{champions.length} champions</span>
             </div>
 
-            {loading && (
-              <div className={galleryGridClass} aria-label="Loading champions">
-                {Array.from({ length: 18 }).map((_, index) => <ChampionGalleryCardSkeleton key={index} />)}
-              </div>
-            )}
-            {!loading && error && (
-              <WorkspaceCard title="Champions unavailable" className="text-sm text-muted-foreground">
-                We couldn’t load the champions right now. Please try again later.
-                <div className="mt-2"><ReportProblemLink surface="load_error" /></div>
-              </WorkspaceCard>
-            )}
-            {!loading && !error && champions.length === 0 && (
-              <WorkspaceCard title="No champions available" className="text-sm text-muted-foreground">
-                The champion gallery is currently empty.
-              </WorkspaceCard>
-            )}
-            {!loading && !error && champions.length > 0 && (
-              <div className={galleryGridClass}>
-                {champions.map(champion => (
-                  <ChampionGalleryCard
-                    key={champion.name}
-                    champion={champion}
-                  />
-                ))}
-              </div>
-            )}
+            <div className={galleryGridClass}>
+              {champions.map(champion => (
+                <ChampionGalleryCard
+                  key={champion.name}
+                  champion={champion}
+                />
+              ))}
+            </div>
           </div>
         </main>
       </div>

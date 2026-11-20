@@ -7,8 +7,7 @@
  */
 
 import { useEffect, useState, useMemo } from 'react';
-import ReportProblemLink from '@/components/support/ReportProblemLink';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { backendAPIClient } from '@/services/BackendAPIClient';
 import { GameFilterService, gameDateYear } from '@/services/GameFilterService';
@@ -17,15 +16,17 @@ import { FilterState, SortState, DEFAULT_FILTER_STATE, DEFAULT_SORT_STATE } from
 import { useFilterUrlState } from '@/hooks/useFilterUrlState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CompactFilterControls, ActiveFiltersBar, GamePagination } from '@/components/game-list';
+import { CompactFilterControls, ActiveFiltersBar, GamePagination, GamesTableHead, GamesTablePlaceholder } from '@/components/game-list';
 import { ChampionIntro, ChampionDetails, ChampionNotFound, ChampionPortrait, getChampionContent } from '@/components/champion/ChampionProfile';
 import { championRouteMeta } from '@/config/championRouteMeta';
 
 const GameList = () => {
   const { name } = useParams<{ name: string }>();
-  // Capture ECO family params on mount before useFilterUrlState rewrites the URL
+  // Capture ECO family params on mount before useFilterUrlState rewrites the URL. Read through the router, not
+  // `window`: the page is built at deploy time too (prerender plan D1), where the router holds the same query.
+  const [searchParams] = useSearchParams();
   const [ecoRange] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = searchParams;
     return {
       from: params.get('ecoFrom'),
       to: params.get('ecoTo'),
@@ -192,23 +193,10 @@ const GameList = () => {
   // A champion with written content renders at once; only the table waits for the games.
   if (!championContent) return <ChampionNotFound />;
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-destructive text-xl mb-4">Error: {error}</div>
-          <Link to="/champions">
-            <Button>Back to Champions</Button>
-          </Link>
-          <div className="mt-4">
-            <ReportProblemLink surface="load_error" />
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const pageTitle = championFullName || championContent?.name || name || 'Chess Champion';
+  // A failed load is said in the games table only (GamesLoadError): the written content and the head stay.
+  // The written name and reign first (prerender plan D5): built into the page, they must not change when the API's
+  // answer arrives (its "1960-1961" against "World Champion 1960-1961" rewrapped the header on a phone, CLS 0.025).
+  const pageTitle = championContent?.name || championFullName || name || 'Chess Champion';
   const gameCount = games.length;
   const filteredGameCount = filteredAndSortedGames.length;
   // Same text as the prerendered HTML (config/champion-route-meta.json).
@@ -216,7 +204,7 @@ const GameList = () => {
 
   return (
     <>
-      {!loading && (
+      {/* In every state (prerender plan D2): withheld while loading, the homepage's defaults took over the head. */}
       <Helmet>
         <title>{meta.title}</title>
         <meta name="description" content={meta.description} />
@@ -262,7 +250,6 @@ const GameList = () => {
           })}
         </script>
       </Helmet>
-      )}
 
       <div className="bg-background flex flex-col">
         <div className="py-12 px-4 sm:px-6 lg:px-8 flex-grow">
@@ -278,7 +265,7 @@ const GameList = () => {
             {(championshipYears || championContent) && (
               <div>
                 <span className="inline-block bg-primary/20 text-link px-4 py-1.5 rounded-full border border-primary/30 text-lg font-semibold">
-                  ♔ {championshipYears || championContent?.reign}
+                  ♔ {championContent?.reign || championshipYears}
                 </span>
               </div>
             )}
@@ -341,7 +328,9 @@ const GameList = () => {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-12 text-muted-foreground text-lg">Loading games...</div>
+              <GamesTablePlaceholder pagination="h-10" />
+            ) : error ? (
+              <GamesTablePlaceholder pagination="h-10" onRetry={() => name && loadGames(name)} />
             ) : filteredAndSortedGames.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-muted-foreground text-lg mb-4">
@@ -357,19 +346,7 @@ const GameList = () => {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full table-fixed min-w-[500px]">
-                  <thead>
-                    <tr className="border-b-2 border-primary/50">
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base w-10">#</th>
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base w-28 sm:w-48">White</th>
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base w-28 sm:w-48">Black</th>
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base w-12 sm:w-20">
-                        <span className="sm:hidden">Res.</span>
-                        <span className="hidden sm:inline">Result</span>
-                      </th>
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base w-14">Year</th>
-                      <th className="text-left py-2 px-1 sm:py-3 sm:px-3 text-muted-foreground font-semibold text-xs sm:text-base">Event</th>
-                    </tr>
-                  </thead>
+                  <GamesTableHead />
                   <tbody>
                     {paginatedGames.map((game, displayIndex) => {
                     // Find the original index in the full games array for the link

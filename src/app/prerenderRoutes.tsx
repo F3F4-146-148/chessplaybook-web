@@ -81,6 +81,12 @@ export const RefundPolicy = prerenderable(() => lazyRetry(() => import('@/pages/
 // hydrateCheck.js. Their trainers' data stays the API's.
 export const OpeningTrainer = prerenderable(() => lazyRetry(() => import('@/features/openings/pages/OpeningTrainer')));
 export const PuzzleTrainer = prerenderable(() => lazyRetry(() => import('@/features/puzzles/components/TrainerLayoutSkeleton')));
+// Phase D, the champion pages (2026-11-19): their written content, and the roster bundled. The games come from the API
+// after load, into a table-sized frame; a query string (?eco=, filters) is built from scratch by the head check.
+export const ChampionsGallery = prerenderable(() => lazyRetry(() => import('@/pages/Champions')));
+export const ChampionsList = prerenderable(() => lazyRetry(() => import('@/pages/ChampionsList')));
+export const ChampionGames = prerenderable(() => lazyRetry(() => import('@/pages/GameList')));
+export const ChampionBestGames = prerenderable(() => lazyRetry(() => import('@/pages/BestGames')));
 
 /** Every route that may be built at deploy time. The build's allowlist (scripts/prerender-allowlist.json) picks among them. */
 export const PRERENDER_ROUTES: readonly PrerenderRoute[] = [
@@ -89,6 +95,10 @@ export const PRERENDER_ROUTES: readonly PrerenderRoute[] = [
   { path: '/refund-policy', Component: RefundPolicy, source: 'src/pages/RefundPolicy.tsx' },
   { path: '/openings', Component: OpeningTrainer, source: 'src/features/openings/pages/OpeningTrainer.tsx' },
   { path: '/puzzles', Component: PuzzleTrainer, source: 'src/features/puzzles/components/TrainerLayoutSkeleton.tsx' },
+  { path: '/champions', Component: ChampionsGallery, source: 'src/pages/Champions.tsx' },
+  { path: '/champions/list', Component: ChampionsList, source: 'src/pages/ChampionsList.tsx' },
+  { path: '/champions/:name/games', Component: ChampionGames, source: 'src/pages/GameList.tsx' },
+  { path: '/champions/:name/best-games', Component: ChampionBestGames, source: 'src/pages/BestGames.tsx' },
 ];
 
 /** The registry entry for a pathname, if any. */

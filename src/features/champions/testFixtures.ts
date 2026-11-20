@@ -16,14 +16,6 @@ export const championGalleryPlayersFixture: PlayersMap = {
   },
 };
 
-export const championGalleryApiUpgradeFixture: PlayersMap = {
-  ...championGalleryPlayersFixture,
-  Gukesh: {
-    ...championGalleryPlayersFixture.Gukesh,
-    biography: 'API-upgraded champion biography.',
-  },
-};
-
 export const championGalleryFixture: Champion[] = Object.entries(
   championGalleryPlayersFixture,
 ).map(([name, player]) => ({ name, ...player }));

@@ -1,11 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { backendAPIClient } from '@/services/BackendAPIClient';
-import {
-  championGalleryApiUpgradeFixture,
-  championGalleryPlayersFixture,
-} from '@/features/champions/testFixtures';
+import { CHAMPION_ROSTER } from '@/features/champions/championRoster';
 
 vi.mock('@/components/Navigation', () => ({
   Navigation: () => <nav data-testid="navigation" />,
@@ -21,20 +18,6 @@ vi.mock('@/components/SeoHead', () => ({
 
 import Champions from './Champions';
 
-function response(data: unknown): Response {
-  return { json: vi.fn().mockResolvedValue(data) } as unknown as Response;
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
-  return { promise, resolve, reject };
-}
-
 function renderPage() {
   return render(
     <MemoryRouter>
@@ -43,9 +26,13 @@ function renderPage() {
   );
 }
 
+/*
+  The gallery is the site's own roster, bundled (prerender plan D3, 2026-11-19): the same in the build and the browser.
+  It used to swap to the API's biographies after the first paint; owner: the file's are kept, the API is not asked.
+*/
 describe('Champions data and route contract', () => {
   beforeEach(() => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => undefined)));
   });
 
   afterEach(() => {
@@ -53,51 +40,26 @@ describe('Champions data and route contract', () => {
     vi.unstubAllGlobals();
   });
 
-  it('renders the first successful static source and upgrades it from the API', async () => {
-    const api = deferred<typeof championGalleryApiUpgradeFixture>();
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(championGalleryPlayersFixture)));
-    vi.spyOn(backendAPIClient, 'getPlayers').mockReturnValue(api.promise);
-
+  it('renders all 18 champions with the file\'s biographies on the first render, asking nothing', () => {
+    const getPlayers = vi.spyOn(backendAPIClient, 'getPlayers');
     renderPage();
-    expect(await screen.findByText('The youngest world chess champion in history.')).toBeVisible();
-
-    api.resolve(championGalleryApiUpgradeFixture);
-    expect(await screen.findByText('API-upgraded champion biography.')).toBeVisible();
+    expect(screen.getAllByRole('article')).toHaveLength(18);
+    expect(screen.getByText('18 champions')).toBeVisible();
+    expect(screen.getByText(CHAMPION_ROSTER.Fischer.biography)).toBeVisible();
+    expect(screen.queryByLabelText('Loading champions')).toBeNull();
+    expect(getPlayers).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('renders API data when the static source fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('static unavailable')));
-    vi.spyOn(backendAPIClient, 'getPlayers').mockResolvedValue(championGalleryPlayersFixture);
-
+  it('keeps the reign order of the roster, newest first', () => {
     renderPage();
-    expect(await screen.findByText('Dommaraju Gukesh')).toBeVisible();
-    expect(screen.queryByText(/Failed to load some data/)).toBeNull();
+    const cards = screen.getAllByRole('article');
+    expect(cards[0]).toHaveTextContent('Gukesh Dommaraju');
+    expect(cards.at(-1)).toHaveTextContent('Wilhelm Steinitz');
   });
 
-  it('renders a truthful contained state when both sources fail', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('static unavailable')));
-    vi.spyOn(backendAPIClient, 'getPlayers').mockRejectedValue(new Error('api unavailable'));
-
-    renderPage();
-    expect(await screen.findByText('We couldn’t load the champions right now. Please try again later.')).toBeVisible();
-    expect(screen.queryByText(/cached results/i)).toBeNull();
-  });
-
-  it('keeps a successful empty response distinct from source failure', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({})));
-    vi.spyOn(backendAPIClient, 'getPlayers').mockResolvedValue({});
-
-    renderPage();
-    expect(await screen.findByText('The champion gallery is currently empty.')).toBeVisible();
-    expect(screen.queryByText(/couldn’t load/i)).toBeNull();
-  });
-
-  it('preserves SEO structure and all existing card destinations', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(championGalleryPlayersFixture)));
-    vi.spyOn(backendAPIClient, 'getPlayers').mockResolvedValue(championGalleryPlayersFixture);
-
+  it('preserves SEO structure and all existing card destinations', () => {
     const { container } = renderPage();
-    await screen.findByText('Dommaraju Gukesh');
 
     expect(screen.getByRole('heading', { level: 1, name: 'World Chess Champions' })).toBeVisible();
     expect(container.querySelectorAll('script[type="application/ld+json"]')).toHaveLength(1);
@@ -108,7 +70,7 @@ describe('Champions data and route contract', () => {
       pages rendered their own. `pageKind.test.tsx` owns it now, including the
       node-identity check a presence assertion cannot make.
     */
-    expect(screen.getAllByRole('link', { name: 'View all games by Dommaraju Gukesh' })[0]).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'View all games by Gukesh Dommaraju' })[0]).toHaveAttribute(
       'href',
       '/champions/gukesh/games',
     );
@@ -116,7 +78,7 @@ describe('Champions data and route contract', () => {
       'href',
       '/champions/gukesh/best-games',
     );
-    expect(screen.getAllByRole('link', { name: 'View all games by Dommaraju Gukesh' })[1]).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'View all games by Gukesh Dommaraju' })[1]).toHaveAttribute(
       'href',
       '/champions/gukesh/games',
     );

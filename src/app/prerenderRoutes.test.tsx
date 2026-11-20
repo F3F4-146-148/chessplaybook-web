@@ -48,15 +48,22 @@ describe('prerenderable (prerender plan A5)', () => {
 });
 
 describe('the registry', () => {
-  it('knows the legal pages and the two flagships, and nothing else yet', () => {
+  it('knows the legal pages, the two flagships and the champion pages, and nothing else yet', () => {
     expect(prerenderRouteFor('/terms')?.path).toBe('/terms');
     expect(prerenderRouteFor('/privacy')?.path).toBe('/privacy');
     expect(prerenderRouteFor('/refund-policy')?.path).toBe('/refund-policy');
     expect(prerenderRouteFor('/openings')?.path).toBe('/openings');
     expect(prerenderRouteFor('/puzzles')?.path).toBe('/puzzles');
+    expect(prerenderRouteFor('/champions')?.path).toBe('/champions');
+    expect(prerenderRouteFor('/champions/list')?.path).toBe('/champions/list');
+    expect(prerenderRouteFor('/champions/tal/games')?.path).toBe('/champions/:name/games');
+    expect(prerenderRouteFor('/champions/tal/best-games')?.path).toBe('/champions/:name/best-games');
     expect(prerenderRouteFor('/terms/extra')).toBeUndefined();
     expect(prerenderRouteFor('/puzzles/plan')).toBeUndefined();
     expect(prerenderRouteFor('/explain')).toBeUndefined();
+    // a game itself is not built: its moves and analysis are the API's
+    expect(prerenderRouteFor('/champions/tal/games/12')).toBeUndefined();
+    expect(prerenderRouteFor('/champions/tal/best-games/3')).toBeUndefined();
   });
 
   it('an unknown path resolves false, so main.tsx builds it from scratch', async () => {
