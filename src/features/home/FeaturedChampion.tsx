@@ -4,6 +4,7 @@ import { ArrowRight, Crown } from 'lucide-react';
 import { portraitColorSrc, portraitSrc } from './homeAssets';
 import { logHomeSection } from './homeEvents';
 import { NO_IMAGE, usePauseHandlers, useTicker } from './homeMotion';
+import { useAfterHydration } from '@/hooks/useAfterHydration';
 
 export interface PlayerInfo { fullName: string; championshipYears: string }
 
@@ -12,6 +13,8 @@ export const FEATURED = ['Fischer', 'Kasparov', 'Carlsen'];
 
 export function FeaturedChampion({ players }: { players: Record<string, PlayerInfo> | null }) {
   const [index, setIndex] = useState(0);
+  // The photos come after hydration (useAfterHydration.ts): the 4:5 box keeps its size without them.
+  const pictures = useAfterHydration();
   const { paused, handlers } = usePauseHandlers();
   useTicker(() => setIndex((i) => (i + 1) % FEATURED.length), 7000, paused);
   const key = FEATURED[index];
@@ -28,7 +31,7 @@ export function FeaturedChampion({ players }: { players: Record<string, PlayerIn
         <div className="relative shrink-0 aspect-[4/5] max-w-[50%] overflow-hidden" aria-hidden>
           {/* All three stay mounted and cross-fade, so a change never flashes the card empty; only the first is
               fetched at once, the other two when the browser gets to them (S6). */}
-          {FEATURED.map((k, i) => (
+          {pictures && FEATURED.map((k, i) => (
             <img
               key={k}
               src={portraitSrc(k)}
@@ -38,7 +41,7 @@ export function FeaturedChampion({ players }: { players: Record<string, PlayerIn
             />
           ))}
           {/* The photo as taken, on hover (the co-founder's idea). Never downloaded on a touch screen, which cannot hover. */}
-          <picture key={`c-${key}`}>
+          {pictures && <picture key={`c-${key}`}>
             <source media="(hover: none)" srcSet={NO_IMAGE} />
             <img
               src={portraitColorSrc(key)}
@@ -46,7 +49,7 @@ export function FeaturedChampion({ players }: { players: Record<string, PlayerIn
               loading="lazy"
               className="v2-color-reveal v2-photo-fade-right absolute inset-0 h-full w-full object-cover object-[50%_20%] group-hover:scale-[1.03]"
             />
-          </picture>
+          </picture>}
         </div>
         {/* Over the photo's faded edge by 5% of the card, as before. */}
         <div key={key} className="v2-fade-in-late relative flex-1 min-w-0 -ml-[5%] p-5 flex flex-col justify-center">

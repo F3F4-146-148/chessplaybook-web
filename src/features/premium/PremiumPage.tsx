@@ -229,7 +229,7 @@ export default function PremiumPage() {
             ) : (
               <div className="mt-6 max-w-lg md:mt-[calc(24*var(--pu))] md:max-w-[calc(512*var(--pu))]">
                 {cards === null ? (
-                  <p data-premium="loading" role="status" className="flex min-h-[204px] items-center text-[15px] text-foreground/75 md:min-h-[calc(204*var(--pu))]">{message ?? 'Loading prices…'}</p>
+                  <p data-premium="loading" role="status" aria-label={message ? undefined : 'Loading prices'} className="flex min-h-[204px] items-center text-[15px] text-foreground/75 md:min-h-[calc(204*var(--pu))]">{/* The page is built at deploy time (prerender plan F1): no loading words in it, the box keeps the plans' room. */}{message}</p>
                 ) : (
                   <div data-premium="plans" role="radiogroup" aria-label="Plans" className="flex flex-col gap-2.5 md:gap-[calc(10*var(--pu))]">
                     {cards.map((plan, i) => {

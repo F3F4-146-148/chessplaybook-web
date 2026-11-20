@@ -315,6 +315,9 @@ export async function generateForGame(
   const n = rp.plies.length;
   const whiteWin: number[] = new Array(n + 1);
   const whiteCp: number[] = new Array(n + 1);
+  // A position whose search timed out has no evaluation: no candidate is read
+  // across it (owner, PR #304: a timed-out position never becomes a puzzle).
+  const timedOut: boolean[] = new Array(n + 1).fill(false);
   // A given first pass is used only when it covers every position.
   const inputEvals = game.evals && game.evals.length === n + 1 ? game.evals : undefined;
   for (let i = 0; i <= n; i++) {
@@ -336,8 +339,9 @@ export async function generateForGame(
       report.positionsFromEvals++;
     } else {
       const lines = await search(fen, 1, t.passDepth);
-      stm = lines.length ? lineWin(lines[0]) : 50;
-      stmCp = lines.length ? lineCp(lines[0]) : 0;
+      if (lines === null) { timedOut[i] = true; drop('timeout'); }
+      stm = lines?.length ? lineWin(lines[0]) : 50;
+      stmCp = lines?.length ? lineCp(lines[0]) : 0;
     }
     whiteWin[i] = turn === 'white' ? stm : 100 - stm;
     whiteCp[i] = turn === 'white' ? stmCp : -stmCp;
@@ -350,6 +354,7 @@ export async function generateForGame(
   // missed is kept once, as punish (the more precise lesson, section 4.1).
   const byPosition = new Map<number, Candidate>();
   for (let i = 0; i < n; i++) {
+    if (timedOut[i] || timedOut[i + 1]) continue;
     const mover = rp.plies[i].turn;
     const loss = winFor(i, mover) - winFor(i + 1, mover);
     const cpLoss = cpFor(i, mover) - cpFor(i + 1, mover);
@@ -365,7 +370,7 @@ export async function generateForGame(
       byPosition.set(after, {
         p: after, solver, kind: 'punish',
         preErrorWin: winFor(i, solver),
-        playedWin: after < n ? winFor(after + 1, solver) : null,
+        playedWin: after < n && !timedOut[after + 1] ? winFor(after + 1, solver) : null,
       });
     }
   }
@@ -421,6 +426,7 @@ export async function generateForGame(
     if (pos.isCheck() && legal < t.checkMinLegalMoves) return 'check-few-moves';
 
     const lines = await search(fen, t.confirmMultiPv, t.confirmDepth);
+    if (lines === null) return 'timeout';
     if (!lines.length) return 'no-moves';
     const wins = lines.map(lineWin);
     const best = lines[0];
@@ -490,7 +496,8 @@ export async function generateForGame(
       const reply = line.pv[1];
       if (!reply || !applyUci(co, walk, line.uci) || !applyUci(co, walk, reply) || walk.isEnd()) break;
       const next = await search(co.makeFen(walk.toSetup()), t.confirmMultiPv, t.confirmDepth);
-      if (!next.length) break;
+      // A timed-out continuation is not used: the line stops at the last searched move.
+      if (!next || !next.length) break;
       const nextWins = next.map(lineWin);
       let nextAccepted: string[];
       if (goal === 'mate') {

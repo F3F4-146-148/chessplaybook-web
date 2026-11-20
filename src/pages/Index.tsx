@@ -23,7 +23,8 @@
  * the <title> and the ad copy cannot disagree. The switch rolls back on its
  * own, separately from the design tokens' switch.
  */
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
+import { lazyRetry, prerenderable } from '@/app/prerenderable';
 import { Features } from "@/components/Features";
 import { RouteHeading } from "@/components/RouteHeading";
 import SeoHead from '@/components/SeoHead';
@@ -33,7 +34,9 @@ import { GoldGradientDefs } from '@/features/home/GoldGradientDefs';
 import { HomeStage } from '@/features/home/HomeStage';
 
 // Below the first screen, so out of the homepage's first chunk (plan S5).
-const HomeSections = lazy(() => import('@/features/home/HomeSections'));
+// Built at deploy time with the page (prerender plan F1): loaded before the built homepage is taken over, so it
+// renders directly instead of suspending (a suspended part was rebuilt by React: error 422).
+export const HomeSections = prerenderable(() => lazyRetry(() => import('@/features/home/HomeSections')));
 
 const Index = () => {
   return (

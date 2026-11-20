@@ -98,7 +98,7 @@ function resolveImport(spec) {
 function buildComponentMap(src) {
   const map = new Map();
 
-  const staticImport = /^import\s+([A-Z]\w*)\s+from\s+["']([^"']+)["']/gm;
+  const staticImport = /^import\s+([A-Z]\w*)\s*(?:,\s*\{[^}]*\})?\s+from\s+["']([^"']+)["']/gm;
   const lazyImport = /(?:const|let)\s+([A-Z]\w*)\s*=[\s\S]{0,120}?import\(\s*["']([^"']+)["']\s*\)/g;
 
   for (const re of [staticImport, lazyImport]) {
@@ -108,6 +108,11 @@ function buildComponentMap(src) {
       if (file) map.set(m[1], file);
     }
   }
+  // A registry entry handing over a page already in the bundle (prerender plan F: the homepage):
+  // `const Home = prerenderable(() => ....then(() => ({ default: IndexPage })))`, resolved through IndexPage's import.
+  const handedOver = /(?:const|let)\s+([A-Z]\w*)\s*=\s*prerenderable\([^;]*?\{\s*default:\s*([A-Z]\w*)\s*\}/g;
+  let h;
+  while ((h = handedOver.exec(src)) !== null) if (map.has(h[2])) map.set(h[1], map.get(h[2]));
   return map;
 }
 

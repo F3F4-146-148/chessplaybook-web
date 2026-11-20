@@ -54,6 +54,10 @@ export function HomeStage() {
       </div>
 
       <ChooserGrid className={`${HOME_WRAP} pb-4 md:pb-6`} />
+      {/* The end of the stage. The built homepage asks the browser not to paint before it has arrived
+          (`<link rel="expect" blocking="render">`, generate-route-html.cjs, prerender plan F1): the photo's box is a
+          share of this section's height, and a first paint with half the section grew it by 145px. */}
+      <span id="home-stage-end" hidden />
     </section>
   );
 }

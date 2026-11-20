@@ -68,7 +68,8 @@ describe('the registry', () => {
     expect(prerenderRouteFor('/champions/tal/best-games')?.path).toBe('/champions/:name/best-games');
     expect(prerenderRouteFor('/terms/extra')).toBeUndefined();
     expect(prerenderRouteFor('/puzzles/plan')).toBeUndefined();
-    expect(prerenderRouteFor('/explain')).toBeUndefined();
+    // Phase F: the homepage, Premium and Explain
+    for (const p of ['/', '/premium', '/explain']) expect(prerenderRouteFor(p)?.path).toBe(p);
     // a game itself is not built: its moves and analysis are the API's
     expect(prerenderRouteFor('/champions/tal/games/12')).toBeUndefined();
     expect(prerenderRouteFor('/champions/tal/best-games/3')).toBeUndefined();
@@ -113,8 +114,13 @@ describe("each route's source (B4: the build links that module's stylesheets int
       expect(existsSync(r.source)).toBe(true);
       const name = Object.entries(registry).find(([, v]) => v === r.Component)?.[0];
       expect(name, 'the component is exported from the registry').toBeTruthy();
+      // A page loaded on demand names its module in its loader; a page already in the bundle (the homepage) is handed
+      // over by name, and that name's import names the module.
       const decl = file.match(new RegExp(`export const ${name} = prerenderable\\([^;]*?import\\('@/([^']+)'\\)`));
-      expect(decl ? `src/${decl[1]}.tsx` : null).toBe(r.source);
+      const handed = file.match(new RegExp(`export const ${name} = prerenderable\\([^;]*?\\{ default: (\\w+) \\}`));
+      const handedFrom = handed && file.match(new RegExp(`^import ${handed[1]}\\b[^;]* from '@/([^']+)';`, 'm'));
+      const module = decl?.[1] ?? handedFrom?.[1];
+      expect(module ? `src/${module}.tsx` : null).toBe(r.source);
     });
   }
 });

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { newsArticles } from '@/config/newsArticles';
 import { logHomeSection } from './homeEvents';
+import { useAfterHydration } from '@/hooks/useAfterHydration';
 
 /**
  * The three newest articles, with warm-toned thumbnails; every link measured (section `news`).
@@ -14,6 +15,8 @@ import { logHomeSection } from './homeEvents';
  */
 export function LatestNews() {
   const listRef = useRef<HTMLUListElement>(null);
+  // The thumbnails come after hydration (useAfterHydration.ts); a 56x36 box holds their place.
+  const pictures = useAfterHydration();
   // An article wrapped into the hidden column is taken out of the tab order and the accessibility tree.
   useLayoutEffect(() => {
     const ul = listRef.current;
@@ -43,7 +46,9 @@ export function LatestNews() {
         {newsArticles.slice(0, 3).map((a, i) => (
           <li key={a.href} className="w-full">
             <Link to={a.href} onClick={() => logHomeSection('news', a.href, i)} className="group flex items-center gap-3 py-1.5">
-              <img src={a.image} alt="" loading="lazy" className="v2-warm-thumb w-[56px] h-[36px] rounded-md object-cover shrink-0 ring-1 ring-border" />
+              {pictures
+                ? <img src={a.image} alt="" loading="lazy" className="v2-warm-thumb w-[56px] h-[36px] rounded-md object-cover shrink-0 ring-1 ring-border" />
+                : <span className="v2-warm-thumb w-[56px] h-[36px] rounded-md shrink-0 ring-1 ring-border" aria-hidden />}
               <div className="min-w-0">
                 <p className="text-sm font-medium leading-snug line-clamp-1 group-hover:text-link">{a.title}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{a.date}</p>

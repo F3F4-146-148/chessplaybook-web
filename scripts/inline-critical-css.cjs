@@ -45,7 +45,7 @@ async function criticalize(source) {
     inlineFonts: false,
     compress: true,
     pruneSource: false,
-    reduceInlineStyles: true,
+    reduceInlineStyles: false,
     /*
       DESIGN V2'S TOKENS BEFORE FIRST PAINT (visual redesign plan B1). Beasties keeps a rule only
       when its selector matches inside its container, so an attribute-qualified `:root` never

@@ -14,10 +14,12 @@ import {
   News, CandidatesArticle2026, CandidatesArticleWomen2026, CandidatesRound1Recap2026, CandidatesRound3Recap2026,
   CandidatesConclusion2026, SindarovGukeshHeadToHead, VaishaliJuWenjunTitleMatch, WorldChampionship2026Announced,
   Candidates2026Hub, WorldCup2025Hub, WorldChampionship2026Hub, WorldChampionshipCycle, Contact, Credits,
+  // Phase F: the homepage, Premium and Explain.
+  Home, Premium, Explain,
 } from "@/app/prerenderRoutes";
 
 // Critical pages � eagerly loaded (above-the-fold, high traffic)
-import Index from "@/pages/Index";
+// The homepage is still in the main bundle, through the registry (prerender plan Phase F): `Home` above.
 // The champion pages are built at deploy time since the prerender plan's Phase D: defined in prerenderRoutes.tsx.
 import NotFound from "@/pages/NotFound";
 
@@ -30,14 +32,12 @@ const GameViewer = lazy(() => lazyRetry(() => import("@/pages/GameViewer")));
 const LiveEventsHub = lazy(() => lazyRetry(() => import("@/pages/LiveEventsHub")));
 const WorldCup2025GameDay = lazy(() => lazyRetry(() => import("@/pages/WorldCup2025GameDay")));
 const LiveGameViewer = lazy(() => lazyRetry(() => import("@/pages/live-game/LiveGameViewer")));
-const Premium = lazy(() => lazyRetry(() => import("@/pages/Premium")));
 const Reminders = lazy(() => lazyRetry(() => import("@/pages/Reminders")));
 const Play = lazy(() => lazyRetry(() => import("@/features/play/pages/PlayComputer")));
 const PlayOnline = lazy(() => lazyRetry(() => import("@/features/online/pages/PlayOnline")));
 const PuzzleProgress = lazy(() => lazyRetry(() => import("@/features/puzzles/pages/PuzzleProgress")));
 const PuzzlePlan = lazy(() => lazyRetry(() => import("@/features/puzzles/pages/PuzzlePlan")));
 const Analysis = lazy(() => lazyRetry(() => import("@/pages/Analysis")));
-const Explain = lazy(() => lazyRetry(() => import("@/pages/Explain")));
 const ChampionChallenge = lazy(() => lazyRetry(() => import("@/features/champion-challenge/pages/ChampionChallenge")));
 const ChallengeSessionPage = lazy(() => lazyRetry(() => import("@/features/champion-challenge/pages/ChallengeSessionPage")));
 
@@ -61,6 +61,10 @@ const ThemePreview = import.meta.env.DEV
   ? lazy(() => import("@/design/preview/ThemePreview"))
   : null;
 // Visual redesign experiment: the homepage in design v2, same dev-only treatment.
+// Own-game puzzles plan A1: the generator's speed on this device, same dev-only treatment.
+const GamePuzzlesBench = import.meta.env.DEV
+  ? lazy(() => import("@/features/game-puzzles/dev/GamePuzzlesBench"))
+  : null;
 const HomeV2Preview = import.meta.env.DEV
   ? lazy(() => import("@/design/preview/v2/HomeV2Preview"))
   : null;
@@ -281,12 +285,15 @@ export function AppRoutes() {
         {import.meta.env.DEV && ThemePreview && (
           <Route path="/dev/theme-preview" element={<ThemePreview />} />
         )}
+        {import.meta.env.DEV && GamePuzzlesBench && (
+          <Route path="/dev/game-puzzles" element={<GamePuzzlesBench />} />
+        )}
         {import.meta.env.DEV && HomeV2Preview && (
           <Route path="/dev/home-v2" element={<HomeV2Preview />} />
         )}
 
         {/* Home */}
-        <Route path="/" element={<Index />} />
+        <Route path="/" element={<Home />} />
 
         {/* Champions & Games */}
         <Route path="/champions" element={<ChampionsGallery />} />

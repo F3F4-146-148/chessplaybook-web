@@ -159,6 +159,26 @@ export class AnalysisService {
   // we've issued `stop` on an in-flight panel search. Needed so the
   // game-report batch doesn't race against a leftover panel search.
   private stopDrainResolve: (() => void) | null = null;
+  // E1 (game-puzzles plan, A3): one user of the engine at a time. A session,
+  // the Game report and the commentary search hold the engine through
+  // `acquireEngine`; while one does, a panel or compact request waits in
+  // `pendingAnalysis` and starts when the engine is released. Reproduced in
+  // the browser before this: a panel request during a puzzle session ended a
+  // search with the panel's lines and left the next one empty.
+  private engineTail: Promise<void> = Promise.resolve();
+  private engineHeld = false;
+  private engineWaiters = 0;
+  // E3 (game-puzzles plan, A4): searches given up on before their `bestmove`
+  // came. UCI output carries no search id, but Stockfish finishes one search
+  // before it starts the next, so the next `bestmove` and every `info` before
+  // it belong to the oldest abandoned search. They are dropped, so a late
+  // `bestmove` can no longer end the search that follows.
+  private abandonedSearches = 0;
+  // E2 (A5): the panel or compact search a holder stopped when it took the
+  // engine. Restarted on release when nothing newer was asked for, so the
+  // panel does not keep the shallow result it had when it was interrupted
+  // (every `info` line is cached, so it is searched again, not looked up).
+  private interruptedSearch: { fen: string; profile: AnalysisProfile } | null = null;
 
   private constructor() {
     this.loadPreferences();
@@ -424,6 +444,10 @@ export class AnalysisService {
     this.compactMultiPvApplied = false;
     this.currentPvLines.clear();
     this.currentWdl = undefined;
+    // A new worker owes no output from the old one's abandoned searches, and
+    // restarts nothing the old one was doing.
+    this.abandonedSearches = 0;
+    this.interruptedSearch = null;
     releaseEngineLease();
   }
 
@@ -502,6 +526,13 @@ export class AnalysisService {
       if (import.meta.env.DEV) {
         console.error('[AnalysisService] Engine error:', line);
       }
+      return;
+    }
+
+    // Output of a search given up on (E3): drop it, up to and including its
+    // `bestmove`.
+    if (this.abandonedSearches > 0 && (line.startsWith('info') || line.startsWith('bestmove'))) {
+      if (line.startsWith('bestmove')) this.abandonedSearches -= 1;
       return;
     }
 
@@ -619,8 +650,9 @@ export class AnalysisService {
         }
       }
 
-      // Start pending analysis if one is queued
-      if (this.pendingAnalysis) {
+      // Start pending analysis if one is queued, unless a session holds the
+      // engine: then it starts when the engine is released.
+      if (this.pendingAnalysis && !this.engineHeld) {
         const queued = this.pendingAnalysis;
         this.pendingAnalysis = null;
         this.startAnalysisNow(queued.fen, queued.profile);
@@ -960,6 +992,12 @@ export class AnalysisService {
         return;
       }
 
+      // A session holds the engine: wait for it to be released.
+      if (this.engineHeld) {
+        this.pendingAnalysis = { fen, profile: 'panel' };
+        return;
+      }
+
       // If engine is currently analyzing, queue this position for later
       if (this.isAnalyzing) {
         // Replaces any previously pending analysis, compact or panel.
@@ -1142,6 +1180,12 @@ export class AnalysisService {
     this.compactDebounceTimer = setTimeout(() => {
       this.compactDebounceTimer = null;
 
+      // A session holds the engine: wait for it to be released.
+      if (this.engineHeld) {
+        this.pendingAnalysis = { fen, profile: 'compact' };
+        return;
+      }
+
       if (this.isAnalyzing) {
         // Queue and pre-empt, exactly as the panel path does. The queued
         // entry carries its profile so it cannot resume as a panel search.
@@ -1171,6 +1215,9 @@ export class AnalysisService {
 
     if (this.pendingAnalysis?.profile === 'compact') {
       this.pendingAnalysis = null;
+    }
+    if (this.interruptedSearch?.profile === 'compact') {
+      this.interruptedSearch = null;
     }
 
     if (this.isAnalyzing && this.activeProfile === 'compact') {
@@ -1212,8 +1259,9 @@ export class AnalysisService {
       this.analysisTimeoutTimer = null;
     }
 
-    // Clear any pending analysis
+    // Clear any pending analysis, and a panel search waiting to be restarted
     this.pendingAnalysis = null;
+    if (this.interruptedSearch?.profile === 'panel') this.interruptedSearch = null;
 
     if (this.isAnalyzing) {
       this.sendCommand('stop');
@@ -1276,8 +1324,9 @@ export class AnalysisService {
     this.currentFen = '';
 
     // If engine is initialized, update the setting
-    // According to UCI protocol, setoption must be sent when engine is NOT calculating
-    if (this.isInitialized && this.worker) {
+    // According to UCI protocol, setoption must be sent when engine is NOT calculating.
+    // Not while a session holds the engine: it restores `multiPvCount` when it ends.
+    if (this.isInitialized && this.worker && !this.engineHeld) {
       // Stop any ongoing analysis first
       if (this.isAnalyzing) {
         this.sendCommand('stop');
@@ -1453,30 +1502,10 @@ export class AnalysisService {
       await this.initialize();
     }
 
-    // Drain the panel so its in-flight search doesn't steal our output.
-    // This is browser-specific — the Worker is shared with the panel,
-    // unlike the Node test's dedicated subprocess.
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
-    if (this.analysisTimeoutTimer) {
-      clearTimeout(this.analysisTimeoutTimer);
-      this.analysisTimeoutTimer = null;
-    }
-    this.pendingAnalysis = null;
-    if (this.isAnalyzing) {
-      await new Promise<void>((drainResolve) => {
-        this.stopDrainResolve = drainResolve;
-        this.sendCommand('stop');
-        setTimeout(() => {
-          if (this.stopDrainResolve === drainResolve) {
-            this.stopDrainResolve = null;
-            drainResolve();
-          }
-        }, 1500);
-      });
-    }
+    // Hold the engine (this drains the panel, so its in-flight search doesn't
+    // steal our output). Browser-specific: the Worker is shared with the
+    // panel, unlike the Node test's dedicated subprocess.
+    const release = await this.acquireEngine();
 
     const transport = new WorkerTransport(this);
     this.commentaryActive = true;
@@ -1513,6 +1542,7 @@ export class AnalysisService {
       // the next panel search matches the user's preference.
       this.sendCommand(`setoption name Hash value ${this.engineHashMb}`);
       this.sendCommand(`setoption name MultiPV value ${this.multiPvCount}`);
+      release();
     }
   }
 
@@ -1548,36 +1578,22 @@ export class AnalysisService {
       await this.initialize();
     }
 
-    // Drain the panel: clear debounce, cancel any pending analysis, and
-    // if a panel search is in flight wait for its bestmove before we
-    // start issuing our own `position`/`go` commands. Without this the
-    // leftover bestmove would arrive AFTER batchSearchMode is set and
-    // get mis-routed as our first batch result.
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
+    // Hold the engine. Acquiring drains the panel: if a panel search is in
+    // flight it waits for its bestmove before we issue our own
+    // `position`/`go` commands; without this the leftover bestmove would
+    // arrive AFTER batchSearchMode is set and be read as our first result.
+    const release = await this.acquireEngine();
+    try {
+      return await this.runFullGameSearches(moves, onProgress);
+    } finally {
+      release();
     }
-    if (this.analysisTimeoutTimer) {
-      clearTimeout(this.analysisTimeoutTimer);
-      this.analysisTimeoutTimer = null;
-    }
-    this.pendingAnalysis = null;
+  }
 
-    if (this.isAnalyzing) {
-      await new Promise<void>((resolve) => {
-        this.stopDrainResolve = resolve;
-        this.sendCommand('stop');
-        // Safety timeout — if the engine somehow doesn't emit bestmove,
-        // proceed anyway after 1.5s.
-        setTimeout(() => {
-          if (this.stopDrainResolve === resolve) {
-            this.stopDrainResolve = null;
-            resolve();
-          }
-        }, 1500);
-      });
-    }
-
+  private async runFullGameSearches(
+    moves: string[],
+    onProgress?: (progress: { current: number; total: number; latestEval: number }) => void,
+  ): Promise<{ evals: number[]; bestMoves: string[]; mateIn: (number | null)[] }> {
     // Force MultiPV 1 for batch (fastest, cleanest output).
     this.sendCommand('setoption name MultiPV value 1');
 
@@ -1638,6 +1654,7 @@ export class AnalysisService {
         if (this.batchSearchMode) {
           this.batchSearchMode = false;
           this.batchSearchResolve = null;
+          this.abandonedSearches += 1; // its late bestmove must not end the next search (E3)
           this.sendCommand('stop');
           resolve({ evalCp: 0, bestMove: '', mateIn: null });
         }
@@ -1706,21 +1723,25 @@ export class AnalysisService {
    * prints them); parsing is the caller's. Every search starts from
    * `ucinewgame`, so a result depends only on the position and the depth.
    * A search that has not finished after `timeoutMs` is stopped and resolves
-   * with the lines it has (shallower, never invented).
+   * with null: the caller skips that position (owner, PR #304).
    */
   async runEngineSession<T>(
-    work: (search: (fen: string, multiPv: number, depth: number) => Promise<string[]>) => Promise<T>,
+    work: (search: (fen: string, multiPv: number, depth: number) => Promise<string[] | null>) => Promise<T>,
     timeoutMs = 60000,
   ): Promise<T> {
     if (!this.isInitialized) {
       await this.initialize();
     }
-    await this.drainPanelSearch();
-    const search = (fen: string, multiPv: number, depth: number) => new Promise<string[]>((resolve) => {
+    const release = await this.acquireEngine();
+    const search = (fen: string, multiPv: number, depth: number) => new Promise<string[] | null>((resolve) => {
       this.batchSearchOutput = [];
       this.batchSearchMode = true;
+      // A search that reaches the timeout is never used, even if its stopped
+      // bestmove still comes (owner, PR #304: the position is skipped).
+      let timedOut = false;
       const safetyTimer = setTimeout(() => {
         if (!this.batchSearchMode) return;
+        timedOut = true;
         // Ask the engine to stop; its bestmove ends batch mode through the
         // normal path. If even that never comes, give up on this search.
         this.sendCommand('stop');
@@ -1728,13 +1749,14 @@ export class AnalysisService {
           if (this.batchSearchMode && this.batchSearchResolve === done) {
             this.batchSearchMode = false;
             this.batchSearchResolve = null;
-            resolve([...this.batchSearchOutput]);
+            this.abandonedSearches += 1; // its late bestmove must not end the next search (E3)
+            resolve(null);
           }
         }, 1500);
       }, timeoutMs);
       const done = () => {
         clearTimeout(safetyTimer);
-        resolve([...this.batchSearchOutput]);
+        resolve(timedOut ? null : [...this.batchSearchOutput]);
       };
       this.batchSearchResolve = done;
       this.sendCommand('ucinewgame');
@@ -1746,38 +1768,83 @@ export class AnalysisService {
       return await work(search);
     } finally {
       this.sendCommand(`setoption name MultiPV value ${this.multiPvCount}`);
+      release();
     }
   }
 
   /**
+   * Hold the engine for a run of raw searches (E1). Holders run one after
+   * another in the order they asked; once a holder has the engine, the panel
+   * is drained (see drainPanelSearch). Panel and compact requests made while
+   * it is held wait in `pendingAnalysis`; the last one starts on release, if
+   * no other holder is waiting.
+   */
+  private async acquireEngine(): Promise<() => void> {
+    const previous = this.engineTail;
+    let open!: () => void;
+    this.engineTail = new Promise<void>((resolve) => { open = resolve; });
+    this.engineWaiters += 1;
+    await previous;
+    this.engineWaiters -= 1;
+    this.engineHeld = true;
+    await this.drainPanelSearch();
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.engineHeld = false;
+      open();
+      if (this.engineWaiters > 0) return;
+      const queued = this.pendingAnalysis;
+      const interrupted = this.interruptedSearch;
+      this.pendingAnalysis = null;
+      this.interruptedSearch = null;
+      if (this.isAnalyzing) return;
+      if (queued) {
+        this.startAnalysisNow(queued.fen, queued.profile);
+      } else if (interrupted && (interrupted.profile === 'compact' || this.isEnabled)) {
+        this.startAnalysisNow(interrupted.fen, interrupted.profile);
+      }
+    };
+  }
+
+  /**
    * Stop whatever the panel is doing before a batch of raw searches: clear its
-   * debounce and timeout, drop a pending position, and if a search is in flight
-   * wait for its bestmove (at most 1.5 s), so that leftover output is not read as
-   * the batch's first result. The same steps as at the top of
-   * analyzeFullGameClientSide and getCommentarySearchData.
+   * timeout, and if a search is in flight wait for its bestmove (at
+   * most 1.5 s), so that leftover output is not read as the batch's first result.
+   * A pending position is kept: it starts when the engine is released. Called by
+   * acquireEngine for every holder (sessions, the Game report, commentary).
    */
   private async drainPanelSearch(): Promise<void> {
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
+    // The panel's debounce is left running: when it fires while the engine is
+    // held, its position waits in `pendingAnalysis`. Clearing it here lost a
+    // request made in the 400 ms before a session started.
     if (this.analysisTimeoutTimer) {
       clearTimeout(this.analysisTimeoutTimer);
       this.analysisTimeoutTimer = null;
     }
+    // A request queued before or during the drain waits for the release
+    // (E1); the bestmove path below clears `pendingAnalysis`, so keep it.
+    const queued = this.pendingAnalysis;
     this.pendingAnalysis = null;
     if (this.isAnalyzing) {
+      // Restarted on release (E2); an earlier holder's note is kept otherwise.
+      this.interruptedSearch = { fen: this.currentFen, profile: this.activeProfile };
       await new Promise<void>((resolve) => {
         this.stopDrainResolve = resolve;
         this.sendCommand('stop');
         setTimeout(() => {
           if (this.stopDrainResolve === resolve) {
             this.stopDrainResolve = null;
+            // Given up on: its late output is not the batch's (E3).
+            this.abandonedSearches += 1;
+            this.isAnalyzing = false;
             resolve();
           }
         }, 1500);
       });
     }
+    this.pendingAnalysis = this.pendingAnalysis ?? queued;
   }
 
   /**

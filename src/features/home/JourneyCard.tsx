@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useSyncExternalStore } from 'react';
+import { buildTime } from '@/app/buildClock';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ArrowUp } from 'lucide-react';
 import { FaFire, FaTrophy } from 'react-icons/fa';
@@ -14,13 +15,22 @@ const DISPLAY_FIGURES = { rating: 1520, change: 24, daysThisWeek: 5, steps: [0, 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 /* The last seven days, today on the right, so the line always reaches the right edge (owner). */
-function lastSevenDays(): string[] {
-  const now = new Date();
-  return Array.from({ length: 7 }, (_, i) => WEEKDAY[new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6 + i).getDay()]);
+function lastSevenDays(now: Date, utc = false): string[] {
+  const today = utc ? now.getUTCDay() : now.getDay();
+  return Array.from({ length: 7 }, (_, i) => WEEKDAY[(today - 6 + i + 14) % 7]);
 }
 
+/*
+  The homepage is built at deploy time (prerender plan F1): while React takes it over, the labels are the build's days in
+  UTC, as the build drew them (the server snapshot, read whenever React hydrates this card, which sits in a nested
+  boundary that hydrates after the page's); then the visitor's own days. A string, so equal days are an equal snapshot.
+*/
+const noSubscription = () => () => {};
+const visitorDays = () => lastSevenDays(new Date()).join(' ');
+const buildDays = () => lastSevenDays(buildTime(), true).join(' ');
+
 export function JourneyCard() {
-  const labels = useMemo(lastSevenDays, []);
+  const labels = useSyncExternalStore(noSubscription, visitorDays, buildDays).split(' ');
   const base = DISPLAY_FIGURES.rating - DISPLAY_FIGURES.steps[DISPLAY_FIGURES.steps.length - 1];
   const week = DISPLAY_FIGURES.steps.map((d) => base + d);
 
@@ -48,7 +58,7 @@ export function JourneyCard() {
             <span className="h-12 w-px shrink-0 bg-border" aria-hidden />
             <JourneyStat
               icon={<FaTrophy className="shrink-0 w-6 h-6 md:w-7 md:h-7 v2-gold-icon text-link" aria-hidden />}
-              value={DISPLAY_FIGURES.rating.toLocaleString()}
+              value={DISPLAY_FIGURES.rating.toLocaleString('en-US')}
               label="Puzzle rating"
               extra={(
                 <span className="inline-flex items-center text-xs font-medium text-win">

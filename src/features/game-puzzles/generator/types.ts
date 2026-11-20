@@ -29,9 +29,11 @@ export interface PuzzleEngine {
   /**
    * Search `fen` at MultiPV `multiPv` to a fixed `depth`. Fixed depth, never a
    * time budget, so the result does not depend on how busy the machine is.
-   * Returns the lines best first. An empty array means no legal move.
+   * Returns the lines best first. An empty array means no legal move. Null means
+   * the search did not finish (it timed out): the position is skipped and never
+   * becomes a puzzle (owner, PR #304).
    */
-  analyse(fen: string, multiPv: number, depth: number): Promise<EngineLine[]>;
+  analyse(fen: string, multiPv: number, depth: number): Promise<EngineLine[] | null>;
 }
 
 /**

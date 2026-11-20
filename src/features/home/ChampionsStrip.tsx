@@ -4,6 +4,7 @@ import { portraitColorSrc, portraitSrc } from './homeAssets';
 import { logHomeSection } from './homeEvents';
 import { NO_IMAGE, usePauseHandlers, useTicker } from './homeMotion';
 import { SectionHeader } from './SectionHeader';
+import { useAfterHydration } from '@/hooks/useAfterHydration';
 
 const START = ['Capablanca', 'Alekhine', 'Botvinnik', 'Fischer', 'Kasparov', 'Carlsen', 'Gukesh'];
 const ALL_CHAMPIONS = ['Steinitz', 'Lasker', 'Capablanca', 'Alekhine', 'Euwe', 'Botvinnik', 'Smyslov', 'Tal', 'Petrosian', 'Spassky', 'Fischer', 'Karpov', 'Kasparov', 'Kramnik', 'Anand', 'Carlsen', 'Ding', 'Gukesh'];
@@ -19,6 +20,8 @@ export function ChampionsStrip() {
   const cardRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const { paused, handlers } = usePauseHandlers();
   const slotsRef = useRef(slots);
+  // The portraits come after hydration (useAfterHydration.ts): the 4:5 cards keep their size without them.
+  const pictures = useAfterHydration();
   slotsRef.current = slots;
 
   useTicker(() => {
@@ -48,15 +51,17 @@ export function ChampionsStrip() {
               className={`v2-portrait group relative block overflow-hidden rounded-[10px] aspect-[4/5] ring-1 ring-border bg-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${i >= 4 ? 'hidden md:block' : i >= 3 ? 'hidden sm:block' : ''}`}
             >
               {/* The outgoing portrait stays underneath while the new one fades in over it. */}
-              {previous[i] && previous[i] !== k && (
+              {pictures && previous[i] && previous[i] !== k && (
                 <img src={portraitSrc(previous[i]!)} alt="" className="absolute inset-0 w-full h-full object-cover" />
               )}
-              <img key={k} src={portraitSrc(k)} alt="" loading="lazy" className="v2-fade-in relative w-full h-full object-cover" />
+              {pictures && <img key={k} src={portraitSrc(k)} alt="" loading="lazy" className="v2-fade-in relative w-full h-full object-cover" />}
               {/* The photo as taken, on hover; never downloaded on a touch screen (homeMotion.ts NO_IMAGE). */}
-              <picture key={`c-${k}`}>
-                <source media="(hover: none)" srcSet={NO_IMAGE} />
-                <img src={portraitColorSrc(k)} alt="" loading="lazy" className="v2-color-reveal absolute inset-0 w-full h-full object-cover" />
-              </picture>
+              {pictures && (
+                <picture key={`c-${k}`}>
+                  <source media="(hover: none)" srcSet={NO_IMAGE} />
+                  <img src={portraitColorSrc(k)} alt="" loading="lazy" className="v2-color-reveal absolute inset-0 w-full h-full object-cover" />
+                </picture>
+              )}
               <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-background/95 to-transparent" aria-hidden />
               <span key={`n-${k}`} className="v2-fade-in absolute bottom-2 left-2.5 right-2 font-playfair font-semibold text-[15px] md:text-[16px] leading-tight">{k}</span>
             </Link>

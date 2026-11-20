@@ -55,6 +55,6 @@ describe('the build render (prerender plan A7)', () => {
   });
 
   it('refuses a page that is not a prerendered route', async () => {
-    await expect(render('/explain')).rejects.toThrow(/not a prerendered route/);
+    await expect(render('/play')).rejects.toThrow(/not a prerendered route/);
   });
 });

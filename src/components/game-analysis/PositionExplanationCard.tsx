@@ -54,6 +54,11 @@ const SECTION_META: Record<
   plan:                { title: 'Plan',              icon: <Compass className="h-4 w-4" /> },
 };
 
+/** Each section's title, as the card shows it (also /explain's demo summaries, prerender plan F1). */
+export const SECTION_TITLES = Object.fromEntries(
+  Object.entries(SECTION_META).map(([key, meta]) => [key, meta.title]),
+) as Record<keyof StructuredExplanation['sections'], string>;
+
 function sectionLeadIn(
   key: keyof StructuredExplanation['sections'],
   content?: SectionContent,

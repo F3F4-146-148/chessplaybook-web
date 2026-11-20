@@ -28,6 +28,7 @@ import type { StructuredExplanation } from '@/types/positionExplanation';
 import demoPositions from '@/features/explain/demo-positions.json';
 import demoExplanations from '@/features/explain/demo-explanations.json';
 import SeoHead from '@/components/SeoHead';
+import { DemoSummaries } from '@/features/explain/DemoSummaries';
 
 interface DemoPosition {
   id: string;
@@ -381,6 +382,12 @@ export default function Explain() {
               })}
             </div>
           </section>
+
+          {/* The six demos in short, as text (prerender plan F1, owner's choice). */}
+          <DemoSummaries
+            demos={DEMOS.map((d) => ({ ...d, structured: BAKED_EXPLANATIONS[d.fen].structured as StructuredExplanation }))}
+            onLoad={(id) => { const demo = DEMOS.find((d) => d.id === id); if (demo) selectDemo(demo); }}
+          />
 
           {/* Paste-your-own position. */}
           <section className="px-4 sm:px-6 lg:px-8 pb-12 lg:pb-16 max-w-6xl mx-auto w-full">

@@ -563,17 +563,16 @@ async function generate() {
 
   if (overCap.length) console.warn(`  ! not prerendered, over ${PRERENDER_MAX_GZIP / 1024} KB compressed: ${overCap.join(', ')}`);
   // An allowlisted key that is not a route file would be built nowhere, silently.
-  const unknown = [...allow].filter((k) => !rendered.includes(k) && !overCap.some((o) => o.startsWith(`${k} `)));
+  const unknown = [...allow].filter((k) => k !== '' && !rendered.includes(k) && !overCap.some((o) => o.startsWith(`${k} `)));
   if (unknown.length) throw new Error(`prerender: allowlisted but not a route file: ${unknown.join(', ')}`);
-  // What was actually built, for the guards (A12) and the tests.
-  fs.writeFileSync(path.join(DIST_DIR, 'prerendered.json'), JSON.stringify({ builtAt, routes: rendered }, null, 2) + '\n', 'utf-8');
-  console.log(`  Prerendered: ${rendered.length ? rendered.join(', ') : 'none'}${process.env.PRERENDER === 'off' ? ' (PRERENDER=off)' : ''}`);
 
   fs.writeFileSync(path.join(ROUTES_DIR, 'manifest.tsv'), manifest.join('\n') + '\n', 'utf-8');
 
   // Homepage: patch dist/index.html in place from the same source.
   if (homeMeta) {
-    let home = template;
+    // The homepage's head, applied to either starting page (the shell, or the raw page for a built homepage, F1).
+    const withHomeMeta = (start) => {
+    let home = start;
     home = setTitle(home, homeMeta.title);
     home = setMeta(home, 'name', 'description', homeMeta.description);
     home = setMeta(home, 'name', 'keywords', homeMeta.keywords);
@@ -588,6 +587,9 @@ async function generate() {
     // months (it still said "replay legendary games" long after the page had
     // moved on), because nothing tied it to route-meta.json.
     home = setJsonLdDescription(home, homeMeta.description);
+    return home;
+    };
+    const home = withHomeMeta(template);
     /*
       THE SHELL CLAIMS NO URL (SEO audit, 2026-11-15). Since '/' is served from home.html (P2, 2026-11-14),
       dist/index.html is only the shell for paths without their own file: game, player and live pages, and
@@ -608,11 +610,33 @@ async function generate() {
     // has. It cannot go into index.html, which is also the shell for every route without its own file (game,
     // player and live pages): they would all carry the homepage's heading. The CloudFront canonical function
     // serves '/' from /home.html; a request for /home.html itself is a 404 there (a .html URL is not a route).
-    const homePage = injectNoscript(home, `<h1>${text(homeMeta.heading)}</h1><p>${text(homeMeta.body)}</p>`);
+    let homePage = null;
+    // Prerender plan F1: the homepage built like any other page when its key ('') is allowlisted.
+    if (allow.has('')) {
+      homePage = injectPrerendered(withHomeMeta(rawTemplate), await renderPage('/', builtAt), '', builtAt);
+      // No page stylesheets to link: the homepage is in the main bundle, whose stylesheet every page has.
+      homePage = await criticalize(homePage);
+      if (preload) homePage = homePage.replace('</head>', `    ${preload}\n  </head>`);
+      homePage = homePage.replace('</head>', `    ${hydrateHeadScript('')}\n  </head>`);
+      // No first paint before the stage has arrived (HomeStage.tsx's marker): its photo is sized from the whole section.
+      // Only here: in the shared shell the marker never comes, and every page would wait for its whole document.
+      homePage = homePage.replace('</head>', `    <link rel="expect" href="#home-stage-end" blocking="render">\n  </head>`);
+      const size = require('zlib').gzipSync(homePage).length;
+      if (size > PRERENDER_MAX_GZIP) {
+        console.warn(`  ! not prerendered, over ${PRERENDER_MAX_GZIP / 1024} KB compressed: the homepage (${(size / 1024).toFixed(1)} KB)`);
+        homePage = null;
+      } else {
+        rendered.push('');
+      }
+    }
+    if (!homePage) homePage = injectNoscript(home, `<h1>${text(homeMeta.heading)}</h1><p>${text(homeMeta.body)}</p>`);
     fs.writeFileSync(path.join(DIST_DIR, 'home.html'), homePage, 'utf-8');
     console.log('  Homepage prerendered to dist/home.html');
   }
 
+  // What was actually built, for the guards (A12) and the tests ('' is the homepage, home.html).
+  fs.writeFileSync(path.join(DIST_DIR, 'prerendered.json'), JSON.stringify({ builtAt, routes: rendered }, null, 2) + '\n', 'utf-8');
+  console.log(`  Prerendered: ${rendered.length ? rendered.map((k) => k || '(homepage)').join(', ') : 'none'}${process.env.PRERENDER === 'off' ? ' (PRERENDER=off)' : ''}`);
   console.log(`Route HTML generated: ${routes.length} pages`);
   console.log(`  Output: ${ROUTES_DIR} (flat files + manifest.tsv)`);
 }

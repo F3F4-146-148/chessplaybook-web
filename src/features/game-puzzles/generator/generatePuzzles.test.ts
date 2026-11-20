@@ -84,6 +84,35 @@ test('finds the punish (mate in 1) and the missed defence', async () => {
   assert.equal(puzzles.length, 2);
 });
 
+/** The scripted engine, except that one search (a position at one MultiPV) times out. */
+function timingOut(fen: string, multiPv: number): PuzzleEngine {
+  const base = scriptedEngine();
+  return {
+    async analyse(f, k, depth) {
+      return f === fen && k === multiPv ? null : base.analyse(f, k, depth);
+    },
+  };
+}
+
+test('a confirming search that times out drops that puzzle only (owner, PR #304)', async () => {
+  const r = await generatePuzzles([{ pgn: GAME }], {}, timingOut(FENS[6], 5));
+  assert.deepEqual(r.puzzles.map((p) => p.kind), ['missed']);
+  assert.equal(r.report[0].dropped.timeout, 1);
+});
+
+test('a first-pass search that times out: no candidate is read across that position', async () => {
+  // White +9 everywhere (given, as the Game report gives it), except the position before
+  // 3...Nf6, which must be searched and times out. Read as level, it would make 3.Qh5 look
+  // like a nine-pawn blunder.
+  const evals: Array<PositionEval | null> = Array.from({ length: SANS.length + 1 }, () => ({ cp: 900, mate: null }));
+  evals[5] = null;
+  const r = await generatePuzzles([{ pgn: GAME, evals }], {}, timingOut(FENS[5], 1));
+  assert.equal(r.report[0].positionsSearched, 1);
+  assert.equal(r.report[0].candidates, 0);
+  assert.equal(r.puzzles.length, 0);
+  assert.equal(r.report[0].dropped.timeout, 1);
+});
+
 test('color and players filters keep only the solver asked for', async () => {
   const white = await generatePuzzles([{ pgn: GAME }], { color: 'white' }, scriptedEngine());
   assert.deepEqual(white.puzzles.map((p) => p.solver), ['white']);

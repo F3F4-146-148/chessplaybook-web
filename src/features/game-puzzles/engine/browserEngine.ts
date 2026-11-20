@@ -17,7 +17,8 @@ import { parseMultiPv } from './parseMultiPv';
 export function withBrowserPuzzleEngine<T>(work: (engine: PuzzleEngine) => Promise<T>): Promise<T> {
   return analysisService.runEngineSession((search) => work({
     async analyse(fen, multiPv, depth) {
-      return parseMultiPv(await search(fen, multiPv, depth));
+      const lines = await search(fen, multiPv, depth);
+      return lines === null ? null : parseMultiPv(lines);
     },
   }));
 }

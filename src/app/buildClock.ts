@@ -11,10 +11,22 @@
  * hydrated (PageRegion.tsx). Any other render, a navigation included, reads the real time.
  */
 let fixed: string | null = null;
+/** The build's time once known; unlike `fixed`, never released (the hydration snapshot below). */
+let builtAt: string | null = null;
 
 /** Fix the clock to an ISO time (the build's), or release it with null. */
 export function fixRenderClock(iso: string | null): void {
   fixed = iso && !Number.isNaN(Date.parse(iso)) ? iso : null;
+  if (fixed) builtAt = fixed;
+}
+
+/**
+ * The build's time, for `useSyncExternalStore`'s server snapshot (F1, 2026-11-20). React hydrates each Suspense boundary
+ * in its own later pass, so a part inside a nested boundary (the homepage's lower sections) renders after the page's
+ * boundary released `renderNow()`; a server snapshot is read whenever React hydrates the part, so it reads this.
+ */
+export function buildTime(): Date {
+  return builtAt ? new Date(builtAt) : new Date();
 }
 
 /** The time for a state initialiser: the build's while a built page is rendered or taken over, else now. */

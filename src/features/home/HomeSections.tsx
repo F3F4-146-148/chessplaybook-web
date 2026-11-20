@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { CHAMPION_ROSTER } from '@/features/champions/championRoster';
 import { ChampionsStrip } from './ChampionsStrip';
 import { FeaturedChampion, type PlayerInfo } from './FeaturedChampion';
 import { HOME_WRAP } from './HomeStage';
@@ -11,12 +11,9 @@ import { LatestNews } from './LatestNews';
  * cards above: the Journey card and the strip span two columns, the featured champion and the news one.
  */
 export default function HomeSections() {
-  const [players, setPlayers] = useState<Record<string, PlayerInfo> | null>(null);
-  useEffect(() => {
-    let live = true;
-    fetch('/assets/players/players_list.json').then((r) => r.json()).then((d) => { if (live) setPlayers(d); }).catch(() => {});
-    return () => { live = false; };
-  }, []);
+  // The site's own roster, bundled (prerender plan F1, as the champion pages since D3): the featured champion's name and
+  // reign are in the built page, with no request. It was fetched after load, so the card first said "Fischer".
+  const players = CHAMPION_ROSTER as unknown as Record<string, PlayerInfo>;
 
   return (
     <div className={`${HOME_WRAP} pt-3 md:pt-4 pb-16 space-y-10 md:space-y-14`}>
