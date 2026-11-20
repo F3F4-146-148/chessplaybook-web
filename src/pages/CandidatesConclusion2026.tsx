@@ -165,7 +165,6 @@ export default function CandidatesConclusion2026() {
 
       {/* -- Hero ---------------------------------------------------------- */}
       <div className="relative overflow-hidden border-b border-border">
-        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-background to-transparent" />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 text-center">
           <img src="/chess-queen-icon.png" alt="Chess Playbook" className="w-14 h-14 mb-6 mx-auto" />
 
@@ -203,7 +202,7 @@ export default function CandidatesConclusion2026() {
       </div>
 
       {/* -- Article Body -------------------------------------------------- */}
-      <article className="py-8 px-4 sm:px-6 lg:px-8 flex-grow">
+      <article className="article-flow py-8 px-4 sm:px-6 lg:px-8 flex-grow">
         <div className="max-w-4xl mx-auto">
           {/* Above the fold — this is the page's LCP element. */}
           <Photo

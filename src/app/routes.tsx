@@ -10,6 +10,10 @@ import { MATCH_PATH, calendarState, gamePath } from "@/features/world-championsh
 import {
   lazyRetry, Terms, Privacy, RefundPolicy, OpeningTrainer, PuzzleTrainer,
   ChampionsGallery, ChampionsList, ChampionGames, ChampionBestGames,
+  // Phase E: the articles, hubs and fixed-text pages.
+  News, CandidatesArticle2026, CandidatesArticleWomen2026, CandidatesRound1Recap2026, CandidatesRound3Recap2026,
+  CandidatesConclusion2026, SindarovGukeshHeadToHead, VaishaliJuWenjunTitleMatch, WorldChampionship2026Announced,
+  Candidates2026Hub, WorldCup2025Hub, WorldChampionship2026Hub, WorldChampionshipCycle, Contact, Credits,
 } from "@/app/prerenderRoutes";
 
 // Critical pages � eagerly loaded (above-the-fold, high traffic)
@@ -24,14 +28,10 @@ const GameViewer = lazy(() => lazyRetry(() => import("@/pages/GameViewer")));
 
 // Lazy-loaded pages (with automatic retry on chunk load failure)
 const LiveEventsHub = lazy(() => lazyRetry(() => import("@/pages/LiveEventsHub")));
-const WorldCup2025Hub = lazy(() => lazyRetry(() => import("@/pages/WorldCup2025Hub")));
 const WorldCup2025GameDay = lazy(() => lazyRetry(() => import("@/pages/WorldCup2025GameDay")));
 const LiveGameViewer = lazy(() => lazyRetry(() => import("@/pages/live-game/LiveGameViewer")));
 const Premium = lazy(() => lazyRetry(() => import("@/pages/Premium")));
-const Contact = lazy(() => lazyRetry(() => import("@/pages/Contact")));
 const Reminders = lazy(() => lazyRetry(() => import("@/pages/Reminders")));
-const Credits = lazy(() => lazyRetry(() => import("@/pages/Credits")));
-const WorldChampionshipCycle = lazy(() => lazyRetry(() => import("@/pages/WorldChampionshipCycle")));
 const Play = lazy(() => lazyRetry(() => import("@/features/play/pages/PlayComputer")));
 const PlayOnline = lazy(() => lazyRetry(() => import("@/features/online/pages/PlayOnline")));
 const PuzzleProgress = lazy(() => lazyRetry(() => import("@/features/puzzles/pages/PuzzleProgress")));
@@ -94,19 +94,8 @@ const HomeV2Preview = import.meta.env.DEV
 const TrainerLayoutSkeleton = import.meta.env.DEV
   ? lazy(() => import("@/features/puzzles/components/TrainerLayoutSkeleton"))
   : null;
-const News = lazy(() => lazyRetry(() => import("@/pages/News")));
-const Candidates2026Hub = lazy(() => lazyRetry(() => import("@/pages/Candidates2026Hub")));
-const WorldChampionship2026Hub = lazy(() => lazyRetry(() => import("@/pages/WorldChampionship2026Hub")));
 const WorldChampionship2026Game = lazy(() => lazyRetry(() => import("@/pages/WorldChampionship2026Game")));
 const Candidates2026GameDay = lazy(() => lazyRetry(() => import("@/pages/Candidates2026GameDay")));
-const CandidatesArticle2026 = lazy(() => lazyRetry(() => import("@/pages/CandidatesArticle2026")));
-const CandidatesArticleWomen2026 = lazy(() => lazyRetry(() => import("@/pages/CandidatesArticleWomen2026")));
-const CandidatesRound1Recap2026 = lazy(() => lazyRetry(() => import("@/pages/CandidatesRound1Recap2026")));
-const CandidatesRound3Recap2026 = lazy(() => lazyRetry(() => import("@/pages/CandidatesRound3Recap2026")));
-const CandidatesConclusion2026 = lazy(() => lazyRetry(() => import("@/pages/CandidatesConclusion2026")));
-const SindarovGukeshHeadToHead = lazy(() => lazyRetry(() => import("@/pages/SindarovGukeshHeadToHead")));
-const VaishaliJuWenjunTitleMatch = lazy(() => lazyRetry(() => import("@/pages/VaishaliJuWenjunTitleMatch")));
-const WorldChampionship2026Announced = lazy(() => lazyRetry(() => import("@/pages/WorldChampionship2026Announced")));
 const LoginPage = lazy(() => lazyRetry(() => import("@/features/auth/pages/LoginPage")));
 const SignupPage = lazy(() => lazyRetry(() => import("@/features/auth/pages/SignupPage")));
 const VerifyEmailPage = lazy(() => lazyRetry(() => import("@/features/auth/pages/VerifyEmailPage")));

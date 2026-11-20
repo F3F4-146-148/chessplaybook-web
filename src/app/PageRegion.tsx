@@ -1,5 +1,6 @@
-import { Suspense, type ReactNode } from 'react';
+import { Suspense, useEffect, type ReactNode } from 'react';
 import { Outlet } from 'react-router-dom';
+import { fixRenderClock } from './buildClock';
 
 /**
  * The page kinds of LAYOUT_SPEC §1. (A fourth value, `legacy`, marked the board
@@ -49,6 +50,17 @@ export function RouteFallback({ fillScreen = false }: { fillScreen?: boolean }) 
 }
 
 /**
+ * A built page's first render is over once its own boundary has hydrated: every later render reads the real time
+ * (prerender plan E1, buildClock.ts). Not at the app's first effect: the shell commits first and this boundary hydrates
+ * after it, so the clock was released before the page's first render (the World Championship hub, a year after its
+ * build: React errors 425, 418, 422, measured 2026-11-20).
+ */
+function ReleaseRenderClock() {
+  useEffect(() => fixRenderClock(null), []);
+  return null;
+}
+
+/**
  * The route's page, inside its own Suspense boundary (C1a). The boundary is
  * INSIDE the page region and around the page only: a page whose chunk is
  * still loading keeps the nav AND the region carrying `data-kind`, so it can
@@ -58,6 +70,7 @@ export function PageOutlet({ fillScreen = false }: { fillScreen?: boolean }) {
   return (
     <Suspense fallback={<RouteFallback fillScreen={fillScreen} />}>
       <Outlet />
+      <ReleaseRenderClock />
     </Suspense>
   );
 }

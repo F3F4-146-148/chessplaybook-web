@@ -2,6 +2,7 @@ import { createRoot, hydrateRoot } from "react-dom/client";
 import App from "./App.tsx";
 import { PRERENDER_HYDRATE, shouldHydrate } from "@/app/hydrateCheck.js";
 import { resolvePrerendered } from "@/app/prerenderRoutes";
+import { fixRenderClock } from "@/app/buildClock";
 import "./index.css";
 
 // Visual redesign experiment (DEV only): `/dev/home-v2` can keep design v2 on for
@@ -51,6 +52,8 @@ if (builtRoute !== undefined && PRERENDER_HYDRATE && shouldHydrate(location.sear
   void resolvePrerendered(location.pathname).then((ready) => {
     if (!ready) { renderFromScratch(); return; }
     notePrerender('hydrate');
+    // E1: the first render reads the build's time, as the build did; the page's boundary releases it (PageRegion.tsx).
+    fixRenderClock(container.dataset.builtAt ?? null);
     performance.mark('hydrate-start');
     hydrateRoot(container, <App />, {
       // A mismatch React recovered from by rendering part of the page again: counted for the telemetry (A14).

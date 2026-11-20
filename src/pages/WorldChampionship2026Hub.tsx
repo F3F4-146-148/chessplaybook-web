@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { CalendarPlus, ChevronRight, Radio } from 'lucide-react';
 import SeoHead from '@/components/SeoHead';
+import { renderNow } from '@/app/buildClock';
 import { PlayerPortrait } from '@/components/chess/PlayerPortrait';
 import { CountryFlag } from '@/components/flags/CountryFlag';
 import { logGA4Event } from '@/services/analytics';
@@ -58,10 +59,15 @@ const JSON_LD = {
   image: 'https://www.chessplaybook.com/assets/news/title-matches-2026/geneva-jet-deau.webp',
 };
 
-/** Re-render each minute so "live now" and "next game" follow the clock. */
+/**
+ * Re-render each minute so "live now" and "next game" follow the clock. The first render reads `renderNow()`: the
+ * build's time on the built page while it is taken over (E1), so its first render matches the built HTML; the effect
+ * then moves it to the real time at once.
+ */
 function useNow(): Date {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(renderNow);
   useEffect(() => {
+    setNow(new Date());
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);

@@ -87,6 +87,23 @@ export const ChampionsGallery = prerenderable(() => lazyRetry(() => import('@/pa
 export const ChampionsList = prerenderable(() => lazyRetry(() => import('@/pages/ChampionsList')));
 export const ChampionGames = prerenderable(() => lazyRetry(() => import('@/pages/GameList')));
 export const ChampionBestGames = prerenderable(() => lazyRetry(() => import('@/pages/BestGames')));
+// Phase E, the articles, hubs and fixed-text pages (2026-11-20): their written content. `/live-events` stays off (it
+// redirects from today's date).
+export const News = prerenderable(() => lazyRetry(() => import('@/pages/News')));
+export const CandidatesArticle2026 = prerenderable(() => lazyRetry(() => import('@/pages/CandidatesArticle2026')));
+export const CandidatesArticleWomen2026 = prerenderable(() => lazyRetry(() => import('@/pages/CandidatesArticleWomen2026')));
+export const CandidatesRound1Recap2026 = prerenderable(() => lazyRetry(() => import('@/pages/CandidatesRound1Recap2026')));
+export const CandidatesRound3Recap2026 = prerenderable(() => lazyRetry(() => import('@/pages/CandidatesRound3Recap2026')));
+export const CandidatesConclusion2026 = prerenderable(() => lazyRetry(() => import('@/pages/CandidatesConclusion2026')));
+export const SindarovGukeshHeadToHead = prerenderable(() => lazyRetry(() => import('@/pages/SindarovGukeshHeadToHead')));
+export const VaishaliJuWenjunTitleMatch = prerenderable(() => lazyRetry(() => import('@/pages/VaishaliJuWenjunTitleMatch')));
+export const WorldChampionship2026Announced = prerenderable(() => lazyRetry(() => import('@/pages/WorldChampionship2026Announced')));
+export const Candidates2026Hub = prerenderable(() => lazyRetry(() => import('@/pages/Candidates2026Hub')));
+export const WorldCup2025Hub = prerenderable(() => lazyRetry(() => import('@/pages/WorldCup2025Hub')));
+export const WorldChampionship2026Hub = prerenderable(() => lazyRetry(() => import('@/pages/WorldChampionship2026Hub')));
+export const WorldChampionshipCycle = prerenderable(() => lazyRetry(() => import('@/pages/WorldChampionshipCycle')));
+export const Contact = prerenderable(() => lazyRetry(() => import('@/pages/Contact')));
+export const Credits = prerenderable(() => lazyRetry(() => import('@/pages/Credits')));
 
 /** Every route that may be built at deploy time. The build's allowlist (scripts/prerender-allowlist.json) picks among them. */
 export const PRERENDER_ROUTES: readonly PrerenderRoute[] = [
@@ -99,6 +116,21 @@ export const PRERENDER_ROUTES: readonly PrerenderRoute[] = [
   { path: '/champions/list', Component: ChampionsList, source: 'src/pages/ChampionsList.tsx' },
   { path: '/champions/:name/games', Component: ChampionGames, source: 'src/pages/GameList.tsx' },
   { path: '/champions/:name/best-games', Component: ChampionBestGames, source: 'src/pages/BestGames.tsx' },
+  { path: '/news', Component: News, source: 'src/pages/News.tsx' },
+  { path: '/news/candidates-2026', Component: CandidatesArticle2026, source: 'src/pages/CandidatesArticle2026.tsx' },
+  { path: '/news/candidates-2026-women', Component: CandidatesArticleWomen2026, source: 'src/pages/CandidatesArticleWomen2026.tsx' },
+  { path: '/news/candidates-2026-round-1', Component: CandidatesRound1Recap2026, source: 'src/pages/CandidatesRound1Recap2026.tsx' },
+  { path: '/news/candidates-2026-round-3', Component: CandidatesRound3Recap2026, source: 'src/pages/CandidatesRound3Recap2026.tsx' },
+  { path: '/news/candidates-2026-conclusion', Component: CandidatesConclusion2026, source: 'src/pages/CandidatesConclusion2026.tsx' },
+  { path: '/news/sindarov-gukesh-head-to-head', Component: SindarovGukeshHeadToHead, source: 'src/pages/SindarovGukeshHeadToHead.tsx' },
+  { path: '/news/vaishali-ju-wenjun-title-match', Component: VaishaliJuWenjunTitleMatch, source: 'src/pages/VaishaliJuWenjunTitleMatch.tsx' },
+  { path: '/news/world-championship-2026-geneva', Component: WorldChampionship2026Announced, source: 'src/pages/WorldChampionship2026Announced.tsx' },
+  { path: '/candidates-2026', Component: Candidates2026Hub, source: 'src/pages/Candidates2026Hub.tsx' },
+  { path: '/world-cup-2025', Component: WorldCup2025Hub, source: 'src/pages/WorldCup2025Hub.tsx' },
+  { path: '/world-championship-2026', Component: WorldChampionship2026Hub, source: 'src/pages/WorldChampionship2026Hub.tsx' },
+  { path: '/world-championship-cycle', Component: WorldChampionshipCycle, source: 'src/pages/WorldChampionshipCycle.tsx' },
+  { path: '/contact', Component: Contact, source: 'src/pages/Contact.tsx' },
+  { path: '/credits', Component: Credits, source: 'src/pages/Credits.tsx' },
 ];
 
 /** The registry entry for a pathname, if any. */

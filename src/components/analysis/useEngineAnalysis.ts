@@ -7,6 +7,7 @@
  * (the lease's return, the cache check, "enabling always starts at one line"),
  * and a second copy is one that drifts.
  */
+import { PV_COUNT_KEY } from '@/services/analysisStorageKeys';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { analysisService } from '@/services/AnalysisService';
 import type { AnalysisResult } from '@/types/analysis';
@@ -32,10 +33,13 @@ export function useEngineAnalysis(fen: string, { singleLineOnNarrowWindows = tru
   // Initialize PV count from localStorage or default to 1 for new users
   // On mobile: always 1 PV line (screen space + performance)
   const getInitialPvCount = (): number => {
+    // The build's render (no window) is a first visit: one line. A visitor whose saved count differs is built from
+    // scratch (hydrateCheck.js), so a built page's first render is one line too (prerender plan E0, 2026-11-20).
+    if (typeof window === 'undefined') return 1;
     const mobile = singleLineOnNarrowWindows && window.innerWidth < 1024;
     if (mobile) return 1;
 
-    const saved = localStorage.getItem('chessPvCount');
+    const saved = localStorage.getItem(PV_COUNT_KEY);
     if (saved) {
       const count = parseInt(saved, 10);
       // Only restore saved value if it's 1, 2, or 3 (not 0)
@@ -59,7 +63,7 @@ export function useEngineAnalysis(fen: string, { singleLineOnNarrowWindows = tru
 
     // Save to localStorage (will be 1 when enabling, or the actual count when adjusting)
     if (finalCount > 0) {
-      localStorage.setItem('chessPvCount', finalCount.toString());
+      localStorage.setItem(PV_COUNT_KEY, finalCount.toString());
       userPreferencesService.save({ pvCount: finalCount });
     }
 
@@ -113,7 +117,7 @@ export function useEngineAnalysis(fen: string, { singleLineOnNarrowWindows = tru
       // When enabling via toggle, ALWAYS set PV count to 1
       // Don't use saved value - always start fresh with 1
       setPvCount(1);
-      localStorage.setItem('chessPvCount', '1');
+      localStorage.setItem(PV_COUNT_KEY, '1');
 
       // Initialize engine when enabling
       try {

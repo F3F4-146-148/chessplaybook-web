@@ -5,6 +5,7 @@ import { MASTER_VOICE_KEY, OPENINGS_VOICE_KEY, VOLUME_KEY } from '@/features/mas
 import { FILTERS_KEY } from '@/features/puzzles/hooks/usePuzzleSettings';
 import { PROGRESS_STORAGE_KEY } from '@/features/puzzles/hooks/usePuzzleRecord';
 import { BOARD_THEME_STORAGE_KEY, LEGACY_BOARD_THEME_STORAGE_KEY } from '@/config/boardThemes';
+import { ANALYSIS_CONFIG_KEY, PV_COUNT_KEY } from '@/services/analysisStorageKeys';
 
 /**
  * The page part of the hydrate check (prerender plan B1b/B2b). hydrateCheck.js cannot import (its source is inlined into
@@ -18,6 +19,9 @@ function storageWith(entries: Record<string, string>) {
 const REMEMBERED: Record<string, string[]> = {
   openings: [LAST_REPERTOIRE_KEY, MASTER_VOICE_KEY, OPENINGS_VOICE_KEY, VOLUME_KEY, BOARD_THEME_STORAGE_KEY, LEGACY_BOARD_THEME_STORAGE_KEY],
   puzzles: [FILTERS_KEY, PROGRESS_STORAGE_KEY, BOARD_THEME_STORAGE_KEY, LEGACY_BOARD_THEME_STORAGE_KEY],
+  // E0: the round recaps' game viewer (board theme, the analysis card's on/off and line count).
+  'news/candidates-2026-round-1': [BOARD_THEME_STORAGE_KEY, LEGACY_BOARD_THEME_STORAGE_KEY, ANALYSIS_CONFIG_KEY, PV_COUNT_KEY],
+  'news/candidates-2026-round-3': [BOARD_THEME_STORAGE_KEY, LEGACY_BOARD_THEME_STORAGE_KEY, ANALYSIS_CONFIG_KEY, PV_COUNT_KEY],
 };
 
 describe('shouldHydrate', () => {

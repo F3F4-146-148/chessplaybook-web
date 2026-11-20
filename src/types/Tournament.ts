@@ -1,3 +1,5 @@
+import { renderNow } from '@/app/buildClock';
+
 /**
  * Tournament Template System Types
  *
@@ -96,10 +98,11 @@ export interface TournamentConfig {
 }
 
 /**
- * Compute game day status based on current time
+ * Compute game day status based on current time. `renderNow()`: the build's time while a built hub page is rendered or
+ * taken over (prerender plan E1), so the badges match the built HTML; the real time otherwise.
  */
 export function computeGameDayStatus(gameDay: GameDay): GameDayStatus {
-  const now = new Date();
+  const now = renderNow();
 
   if (now > gameDay.estimatedEndTime) {
     return 'finished';

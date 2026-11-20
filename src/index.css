@@ -2011,3 +2011,17 @@
 @container (max-height: 99.98px) {
   [data-testid="go-to-about"] { display: none; }
 }
+
+/*
+  A LONG ARTICLE'S SECTIONS ARE LAID OUT WHEN THEY COME NEAR THE SCREEN (prerender plan E3, 2026-11-20). A built article
+  arrives as one long document, and laying all of it out at first paint was one long task (about 230 ms on a slow
+  phone, the plan's blocking-time limit broken on three articles). `content-visibility: auto` skips the sections off
+  screen; `auto 600px` keeps a section's real size once it has been drawn. Paint containment comes with it, so a
+  section must hold nothing that draws outside its box (the game viewer's articles do not use it).
+*/
+@layer utilities {
+  .article-flow section {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 600px;
+  }
+}

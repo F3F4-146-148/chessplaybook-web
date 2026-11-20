@@ -304,7 +304,6 @@ function hydrateHeadScript(routeKey) {
  * key must be a route the generator writes and a page of the registry (src/app/prerenderRoutes.tsx); the render
  * refuses the second, and the check after the loop the first.
  */
-const ALLOWLIST_PATH = path.join(__dirname, 'prerender-allowlist.json');
 /** A built document over this, compressed and with its critical CSS, is not prerendered (plan §2); the build warns. */
 const PRERENDER_MAX_GZIP = 30 * 1024;
 const SSR_ENTRY = path.join(__dirname, '../dist-ssr/entry-prerender.js');
@@ -336,7 +335,8 @@ function withPageStylesheets(html, source) {
 }
 function prerenderAllowlist() {
   if (process.env.PRERENDER === 'off') return new Set();
-  return new Set(JSON.parse(fs.readFileSync(ALLOWLIST_PATH, 'utf-8')).routes);
+  // E2b: the named pages and every family (all articles), read the one way the browser check reads them.
+  return new Set(require('./lib/prerenderAllowlist.cjs').allowlistRoutes());
 }
 
 /**
@@ -530,7 +530,7 @@ async function generate() {
     let html = withMeta(template);
     let built = null;
     if (building) {
-      built = injectPrerendered(withMeta(rawTemplate), await renderPage(`/${route.key}`), route.key, builtAt);
+      built = injectPrerendered(withMeta(rawTemplate), await renderPage(`/${route.key}`, builtAt), route.key, builtAt);
       built = withPageStylesheets(built, pageSource(`/${route.key}`));
       built = await criticalize(built);
       if (preload) built = built.replace('</head>', `    ${preload}\n  </head>`);

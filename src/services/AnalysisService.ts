@@ -5,6 +5,7 @@
  * Provides API for chess position analysis with debouncing and caching.
  */
 
+import { ANALYSIS_CONFIG_KEY } from './analysisStorageKeys';
 import { Chess } from 'chess.js';
 import type { AnalysisResult, AnalysisConfig } from '@/types/analysis';
 import {
@@ -1393,7 +1394,7 @@ export class AnalysisService {
    */
   private loadPreferences(): void {
     try {
-      const saved = localStorage.getItem('analysis_config');
+      const saved = localStorage.getItem(ANALYSIS_CONFIG_KEY);
       if (saved) {
         const config: AnalysisConfig = JSON.parse(saved);
         this.isEnabled = config.enabled ?? true; // Default: ON for desktop users
@@ -1419,7 +1420,7 @@ export class AnalysisService {
         depth: 15,
         hashSizeMb: 128,
       };
-      localStorage.setItem('analysis_config', JSON.stringify(config));
+      localStorage.setItem(ANALYSIS_CONFIG_KEY, JSON.stringify(config));
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error('Failed to save analysis preferences:', error);

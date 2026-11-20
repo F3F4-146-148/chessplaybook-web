@@ -28,7 +28,10 @@ export function shouldHydrate(search, routeKey, storage) {
   var remembered = {
     openings: ['cp_openings_repertoire', 'cp_master_voice', 'cp_master_voice_openings', 'cp_master_volume',
       'chessplaybook_board_theme', 'boardTheme'],
-    puzzles: ['chessplaybook_puzzle_filters', 'chessplaybook_puzzle_progress', 'chessplaybook_board_theme', 'boardTheme']
+    puzzles: ['chessplaybook_puzzle_filters', 'chessplaybook_puzzle_progress', 'chessplaybook_board_theme', 'boardTheme'],
+    // The two round recaps hold a game viewer: its board theme, and the analysis card's on/off and line count (E0).
+    'news/candidates-2026-round-1': ['chessplaybook_board_theme', 'boardTheme', 'analysis_config', 'chessPvCount'],
+    'news/candidates-2026-round-3': ['chessplaybook_board_theme', 'boardTheme', 'analysis_config', 'chessPvCount']
   };
   var keys = remembered[routeKey] || [];
   for (var k = 0; k < keys.length; k++) {

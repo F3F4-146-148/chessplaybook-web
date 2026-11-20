@@ -48,7 +48,15 @@ describe('prerenderable (prerender plan A5)', () => {
 });
 
 describe('the registry', () => {
-  it('knows the legal pages, the two flagships and the champion pages, and nothing else yet', () => {
+  it('knows the legal pages, the two flagships, the champion pages, the articles, hubs and fixed-text pages, nothing else yet', () => {
+    for (const p of ['/news', '/candidates-2026', '/world-cup-2025', '/world-championship-2026', '/world-championship-cycle',
+      '/contact', '/credits', '/news/candidates-2026-round-1']) {
+      expect(prerenderRouteFor(p)?.path).toBe(p);
+    }
+    // /live-events redirects from today's date; the game days and match games are the API's
+    expect(prerenderRouteFor('/live-events')).toBeUndefined();
+    expect(prerenderRouteFor('/candidates-2026/round-1')).toBeUndefined();
+    expect(prerenderRouteFor('/world-championship-2026/game-1')).toBeUndefined();
     expect(prerenderRouteFor('/terms')?.path).toBe('/terms');
     expect(prerenderRouteFor('/privacy')?.path).toBe('/privacy');
     expect(prerenderRouteFor('/refund-policy')?.path).toBe('/refund-policy');
@@ -69,6 +77,33 @@ describe('the registry', () => {
   it('an unknown path resolves false, so main.tsx builds it from scratch', async () => {
     expect(await resolvePrerendered('/not-a-prerendered-page')).toBe(false);
   });
+});
+
+/*
+  EVERY ARTICLE IS BUILT, NOW AND LATER (E2b, owner 2026-11-19). The allowlist builds every news/ page of route-meta.json
+  without naming it, so an article only has to be in the registry, and its route must render the registry's component:
+  a plain `lazy` would suspend while the built page is taken over.
+*/
+describe('every article (E2b)', () => {
+  const meta = JSON.parse(readFileSync('src/config/route-meta.json', 'utf8')) as Record<string, unknown>;
+  const routesFile = readFileSync('src/app/routes.tsx', 'utf8');
+  const articles = Object.keys(meta).filter((k) => k.startsWith('news/'));
+
+  it('route-meta.json has the articles', () => {
+    expect(articles.length).toBeGreaterThanOrEqual(8);
+  });
+
+  for (const key of articles) {
+    it(`/${key} is in the registry (add it to src/app/prerenderRoutes.tsx) and its route renders the registry's page`, () => {
+      const route = prerenderRouteFor(`/${key}`);
+      expect(route?.path, `/${key} needs an entry in PRERENDER_ROUTES`).toBe(`/${key}`);
+      const name = Object.entries(registry).find(([, v]) => v === route?.Component)?.[0];
+      const element = routesFile.match(new RegExp(`<Route path="/${key}" element={<(\\w+) />}`))?.[1];
+      expect(element, `routes.tsx renders /${key}`).toBe(name);
+      expect(routesFile, `${name} comes from prerenderRoutes in routes.tsx, not a lazy of its own`)
+        .not.toMatch(new RegExp(`const ${name} = lazy\\(`));
+    });
+  }
 });
 
 describe("each route's source (B4: the build links that module's stylesheets into the built page)", () => {

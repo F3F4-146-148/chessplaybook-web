@@ -18,6 +18,7 @@ import { Writable } from 'node:stream';
 import { QueryClient } from '@tanstack/react-query';
 import { AppTree } from '@/app/AppTree';
 import { prerenderRouteFor } from '@/app/prerenderRoutes';
+import { fixRenderClock } from '@/app/buildClock';
 
 /*
   React warns once per component that uses `useLayoutEffect` (the nav, the shell, the Workspace): such effects never run
@@ -66,11 +67,22 @@ export async function renderElement(element: ReactElement, label: string): Promi
   return html;
 }
 
-export async function render(url: string): Promise<string> {
+export async function render(url: string, builtAt: string = new Date().toISOString()): Promise<string> {
   const pathname = new URL(url, 'https://build.invalid').pathname;
   const route = prerenderRouteFor(pathname);
   if (!route) throw new Error(`prerender: ${pathname} is not a prerendered route (src/app/prerenderRoutes.tsx)`);
   await route.Component.preload();
+  // E1: what the page works out from today's date is worked out from the build's time, the `data-built-at` the browser
+  // reads while it takes the page over.
+  fixRenderClock(builtAt);
+  try {
+    return await renderBuilt(url, pathname);
+  } finally {
+    fixRenderClock(null);
+  }
+}
+
+function renderBuilt(url: string, pathname: string): Promise<string> {
   return renderElement(
     <AppTree
       router={(content) => <StaticRouter location={url}>{content}</StaticRouter>}
