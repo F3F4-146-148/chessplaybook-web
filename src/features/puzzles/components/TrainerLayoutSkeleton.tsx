@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useChrome } from '@/app/SiteShell';
 import { ChessBoard } from '@/components/chess/ChessBoard';
 import { BoardControls } from '@/components/chess/BoardControls';
@@ -21,7 +22,8 @@ import { usePlan } from '../hooks/usePlan';
 import { usePlanOffer } from '../hooks/usePlanOffer';
 import { PuzzlePlanCard } from './PuzzlePlanCard';
 import { PuzzleExplanationPanel } from './PuzzleExplanationPanel';
-import { fetchPuzzleExplanation, type PuzzleExplanation } from '../services/PuzzleService';
+import { fetchPuzzleExplanation, isGeneratedPuzzleId, type PuzzleExplanation } from '../services/PuzzleService';
+import { gameCardLines } from '../lib/gamePuzzleSource';
 import type { PlanItem } from '../services/PlanApi';
 import { logGA4Event } from '@/services/analytics';
 import { StatGrid } from './TrainerUI';
@@ -129,7 +131,25 @@ export default function TrainerLayoutSkeleton() {
     const asked = new URLSearchParams(addressSearch()).get('daily');
     return asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) ? asked : null;
   });
+  /*
+    `?id=<puzzle id>` (#245 B3): one puzzle by link, read once at mount. The id leaves the address
+    once the puzzle is open, through the router so its location stays true, and a reload then
+    resumes that puzzle (or draws the next) instead of opening the link again.
+  */
+  const navigate = useNavigate();
+  const [linkedPuzzleId] = useState(() => {
+    const asked = new URLSearchParams(addressSearch()).get('id');
+    return asked && /^[A-Za-z0-9_]{1,32}$/.test(asked) ? asked : null;
+  });
+  const dropLinkedPuzzleId = useCallback(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('id')) return;
+    url.searchParams.delete('id');
+    navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
+  }, [navigate]);
   const puzzle = usePuzzleBoard({
+    linkedPuzzleId,
+    onLinkedPuzzleOpened: dropLinkedPuzzleId,
     attemptRecordedFor,
     /* Only a filter that arrived in the URL skips the daily puzzle. */
     arrivedWithFilter: linked.fromLink,
@@ -461,6 +481,8 @@ export default function TrainerLayoutSkeleton() {
     explained, and the answer is cached at the edge for a day anyway.
   */
   const currentPuzzleId = puzzle.puzzleState.puzzle?.id ?? null;
+  /* The game a puzzle made from a game came from (#245 B4); null for a corpus puzzle. */
+  const gameLines = useMemo(() => gameCardLines(puzzle.puzzleState.puzzle), [puzzle.puzzleState.puzzle]);
   const [explain, setExplain] = useState<{ id: string; openedAt: number } | null>(null);
   const [fetchedExplanation, setFetchedExplanation] = useState<{ id: string; data: PuzzleExplanation } | null>(null);
   const explainOpen = explain != null && explain.id === currentPuzzleId && puzzle.isResolved;
@@ -658,6 +680,7 @@ export default function TrainerLayoutSkeleton() {
                 exploring={Boolean(puzzle.exploreAt)}
                 isMidSolve={puzzle.isMidSolve}
                 puzzleId={puzzle.puzzleState.puzzle?.id ?? null}
+                gameLines={gameLines}
                 announcement={announcement}
                 /* "Next Puzzle" inside a run, "New Puzzle" outside one. */
                 sessionId={run.running ? run.session?.id ?? null : null}
@@ -706,7 +729,9 @@ export default function TrainerLayoutSkeleton() {
                 onNextPuzzle={puzzle.nextPuzzle}
                 onShowSolution={puzzle.puzzleActions.showSolution}
                 /* Offline practice puzzles have no explanation to fetch. */
-                onExplain={puzzle.serverUnreachable ? undefined : openExplanation}
+                /* A puzzle made from a game has no explanation (#245 B2): no button, so the
+                   reserved row stays empty after the solve, as it does offline. */
+                onExplain={puzzle.serverUnreachable || isGeneratedPuzzleId(currentPuzzleId) ? undefined : openExplanation}
               />
             ), 2, true),
             slot('run-setup', 'puzzleRunSetup', (

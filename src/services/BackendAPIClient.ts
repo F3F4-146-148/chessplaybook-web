@@ -107,6 +107,8 @@ interface BackendGame {
   black_elo?: number;
   white_player_id?: number;
   black_player_id?: number;
+  /** #374: classical by the champion counts' classification; null when unknown. */
+  classical?: boolean | null;
   eco_code?: string;
   move_count?: number;
   is_featured: boolean;
@@ -325,7 +327,7 @@ class BackendAPIClient {
   /**
    * Transform backend game to frontend PgnGame type
    */
-  private transformGame(backendGame: BackendGame, playerName: string): PgnGame {
+  private transformGame(backendGame: BackendGame, playerName: string, playerId?: number): PgnGame {
     const metadata: ChessGame = {
       playerName,
       white: backendGame.white_player,
@@ -338,6 +340,10 @@ class BackendAPIClient {
       round: backendGame.round,
       whiteElo: backendGame.white_elo?.toString(),
       blackElo: backendGame.black_elo?.toString(),
+      championColor: playerId === undefined ? undefined
+        : backendGame.white_player_id === playerId ? 'white'
+        : backendGame.black_player_id === playerId ? 'black' : undefined,
+      classical: backendGame.classical,
     };
 
     return {
@@ -471,7 +477,7 @@ class BackendAPIClient {
       const playerName = data.player?.name || slug;
 
       // Transform games to frontend format
-      const games = data.data.map((game) => this.transformGame(game, playerName));
+      const games = data.data.map((game) => this.transformGame(game, playerName, data.player?.id));
 
       return {
         games,

@@ -30,7 +30,7 @@ const img = (name: string) => `/assets/premium-v2/${name}.jpg`;
   What each feature gives, under its sentence (owner, 2026-11-15: the Game reports row looked orphaned
   beside its tall picture). Every point is what the page does today: the trainer's hint appears by
   itself after a minute and untrained lines come first; the report's summary links "the critical
-  moment" and, when a champion played the opening, their best games (GameStatsCard); the explanation's
+  moment" and, when champions played the opening, their games in it with each colour (the report's summary block, ReportSummary; the redesigned report is report-v2, #374); the explanation's
   sections; the Challenge's 18 champions and its verdict.
 */
 const BENEFITS = [
@@ -41,8 +41,8 @@ const BENEFITS = [
     free: `Free: ${A.opening_variation} new variation and ${A.opening_session} training session a day.`,
   },
   {
-    icon: BarChart3, title: 'Game reports', img: 'report-seesaw', line: 'See your accuracy and the moves that changed the game.',
-    points: ['Accuracy for both players, and every move rated from Brilliant to Blunder.', 'A link to the critical moment of the game.', 'When a World Champion played your opening, a link to their best games in it.'],
+    icon: BarChart3, title: 'Game reports', img: 'report-v2', line: 'See your accuracy and the moves that changed the game.',
+    points: ['Accuracy for both players, and every move rated from Brilliant to Blunder.', 'A link to the critical moment of the game.', "When World Champions played your opening, links to their games in it, with White and with Black."],
     free: `Free: ${perDay(A.game_report)}.`,
   },
   {
@@ -303,7 +303,7 @@ export default function PremiumPage() {
           <div data-premium="collage" className="relative hidden h-[460px] md:block md:h-[calc(460*var(--pu))] wideshort:hidden" aria-hidden>
             <div className="absolute inset-x-6 bottom-2 top-10 rounded-full blur-3xl" style={{ background: 'hsl(var(--gold-bottom) / 0.18)' }} />
             <img src={img('trainer')} alt="" width={1737} height={1191} className="v2-ring-warm absolute left-0 top-0 w-[88%] -rotate-[2deg] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.55)]" />
-            <img src={img('report-seesaw')} alt="" width={768} height={1085} className="v2-ring-warm absolute bottom-0 right-0 h-auto w-[40%] rotate-[3deg] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)]" />
+            <img src={img('report-v2')} alt="" width={768} height={995} className="v2-ring-warm absolute bottom-0 right-0 h-auto w-[40%] rotate-[3deg] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)]" />
           </div>
         </div>
         {/* MORE BELOW (owner): the homepage's arrow, in its own row at the foot of the first screen, to

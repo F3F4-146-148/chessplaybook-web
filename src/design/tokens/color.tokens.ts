@@ -59,6 +59,7 @@ export const COLOR_ROLES = [
   'board-ink-dark', 'board-ink-dark-muted', 'board-ink-light', 'board-ink-light-muted',
   'board-mark', 'board-mark-edge', 'board-mark-them', 'board-mark-them-edge', 'board-mark-idea', 'board-mark-idea-edge',
   'eval-white', 'eval-black',
+  'graph-white', 'graph-black', 'graph-axis',
   'medal-gold', 'medal-silver', 'medal-bronze',
   'clock-low', 'clock-low-foreground', 'clock-critical', 'clock-critical-foreground',
   'feature-explain', 'feature-puzzles', 'feature-play', 'feature-challenge', 'feature-openings',
@@ -328,6 +329,11 @@ export const darkTheme: ColorTheme = {
     */
     'eval-white': '42 78% 95%',
     'eval-black': '223 41% 3.3%',
+    // #374: the Game report's evaluation graph. White's area, Black's area (a step
+    // lighter than the dialog), and its zero line and phase lines.
+    'graph-white': '36 40% 90%',
+    'graph-black': '214 26% 19%',
+    'graph-axis': '30 10% 55%',
 
     /* B5d. Leaderboard trophies, exact: yellow-500, gray-400, amber-700. */
     'medal-gold': '45 93% 47%',
@@ -522,6 +528,9 @@ export const lightTheme: ColorTheme = {
 
     'eval-white': '0 0% 100%',
     'eval-black': '223 41% 3.3%',
+    'graph-white': '0 0% 100%',
+    'graph-black': '218 12% 56%',
+    'graph-axis': '218 14% 32%',
 
     'medal-gold': '41 96% 33%',
     'medal-silver': '220 9% 46%',
@@ -630,6 +639,7 @@ export function tailwindColors() {
       mistake: ref('move-mistake'), blunder: ref('move-blunder'), 'severe-blunder': ref('move-severe-blunder'),
     },
     eval: { white: ref('eval-white'), black: ref('eval-black') },
+    graph: { white: ref('graph-white'), black: ref('graph-black'), axis: ref('graph-axis') },
     'board-ink': {
       dark: ref('board-ink-dark'), 'dark-muted': ref('board-ink-dark-muted'),
       light: ref('board-ink-light'), 'light-muted': ref('board-ink-light-muted'),

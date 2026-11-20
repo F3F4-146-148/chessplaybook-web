@@ -3,7 +3,7 @@ import { positionFromFen, applyMove, toUci, isPromotion, type ChessPosition } fr
 import type { Key } from '@lichess-org/chessground/types';
 import { useBoardStepInput } from '@/components/chess/useBoardStepInput';
 import { usePuzzle, type Puzzle } from './usePuzzle';
-import { fetchPuzzles, fetchDailyPuzzle, isApiReachable } from '../services/PuzzleService';
+import { fetchPuzzles, fetchDailyPuzzle, fetchPuzzleById, isApiReachable } from '../services/PuzzleService';
 import { loadResumeState, saveResumeState, clearResumeState } from '../services/puzzleResume';
 
 /**
@@ -68,6 +68,14 @@ export function usePuzzleBoard(
       today or up to a week back and answers today for anything else.
     */
     dailyDate?: string | null;
+    /*
+      `?id=<puzzle id>` (#245 B3): a link to one puzzle, such as a puzzle made from a World
+      Championship game on the match page. Opened first, then free solving goes on as usual.
+    */
+    linkedPuzzleId?: string | null;
+    /* Called once the linked puzzle has been opened (or could not be), so the page can drop the
+       id from the address and a later reload does not open it again. */
+    onLinkedPuzzleOpened?: () => void;
   } = {},
 ) {
   const [puzzleState, puzzleActions] = usePuzzle();
@@ -320,6 +328,11 @@ export function usePuzzleBoard(
   /* A dated daily asked for by a link (the reminder email's "Solve today's puzzle"). */
   const dailyDateRef = useRef<string | null>(null);
   dailyDateRef.current = options.dailyDate ?? null;
+  /* Read by the same mount-only effect: a linked puzzle (#245 B3). */
+  const linkedPuzzleIdRef = useRef<string | null>(null);
+  linkedPuzzleIdRef.current = options.linkedPuzzleId ?? null;
+  const onLinkedOpenedRef = useRef<(() => void) | undefined>(undefined);
+  onLinkedOpenedRef.current = options.onLinkedPuzzleOpened;
   /*
     Which run the puzzle ON SCREEN was served under. Captured at the draw, not
     read when the attempt lands: a run started while a puzzle is already up does
@@ -468,6 +481,35 @@ export function usePuzzleBoard(
   */
   useEffect(() => {
     const resumed = loadResumeState();
+    /*
+      A LINK TO ONE PUZZLE BEATS THE SAVED ONE (#245 B3): the visitor asked for that puzzle, and
+      resume runs before everything else, so it would otherwise win. Unless the saved puzzle IS the
+      linked one: then the resume below restores it where it was left, and its attempt is not
+      scored twice. Not the daily, not a run's: it skips both, like a filter in the URL.
+
+      A link that finds nothing (an unknown id, a personal puzzle) falls back to an ordinary draw.
+    */
+    const linkedId = linkedPuzzleIdRef.current;
+    if (linkedId && resumed?.puzzle.id !== linkedId) {
+      const linkToken = ++drawTokenRef.current;
+      fetchPuzzleById(linkedId)
+        .then((linkedPuzzle) => {
+          if (linkToken !== drawTokenRef.current) return;
+          if (!linkedPuzzle) { void nextPuzzle(); return; }
+          setServerUnreachable(isApiReachable() === false);
+          setServedRunId(null);
+          setIsDaily(false);
+          setRestoredReportedFor(null);
+          setRestoredPuzzleId(null);
+          puzzleActions.loadPuzzle(linkedPuzzle as Puzzle, {
+            source: 'link', index: ++seqRef.current, isDaily: false,
+          });
+        })
+        .catch(() => { if (linkToken === drawTokenRef.current) void nextPuzzle(); })
+        .finally(() => onLinkedOpenedRef.current?.());
+      return;
+    }
+    if (linkedId) onLinkedOpenedRef.current?.();
     if (resumed && puzzleActions.resumePuzzle(resumed.puzzle, resumed.moveIndex, {
       hasFailed: resumed.hasFailed,
       expectedFen: resumed.fen,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { CheckCircle2, ChevronRight, Compass, Eye, Lightbulb, RotateCcw, Signal, Target, WifiOff, XCircle } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Compass, Eye, Lightbulb, RotateCcw, Signal, Swords, Target, WifiOff, XCircle } from 'lucide-react';
+import type { GameCardLines } from '../lib/gamePuzzleSource';
 import { Action, LiveStatus } from './TrainerUI';
 import { MasterPortrait } from '@/components/master/MasterPortrait';
 import { MASTER_LIVE } from '@/design/designFlags';
@@ -123,6 +124,12 @@ export interface PuzzleLiveCardProps {
   onExplain?: () => void;
   /** The puzzle on the board: the Master's line is picked by it, and a wrong move is remembered per puzzle. */
   puzzleId?: string | null;
+  /**
+   * A puzzle made from a game (#245 B4, D7): once it is solved or shown, the game in the chip row,
+   * the move played in it on the line under the headline, and "See the game" in the reserved row
+   * (such a puzzle has no explanation, so the row is free). Nothing while it is being solved.
+   */
+  gameLines?: GameCardLines | null;
 }
 
 export function PuzzleLiveCard({
@@ -130,7 +137,7 @@ export function PuzzleLiveCard({
   exploring, isMidSolve, announcement, loading, sessionId,
   filterFoundNothing = false, onClearFilter, runOutcome = null,
   serverUnreachable = false, offer = null,
-  onNextPuzzle, onShowSolution, onExplain, puzzleId = null,
+  onNextPuzzle, onShowSolution, onExplain, puzzleId = null, gameLines = null,
 }: PuzzleLiveCardProps) {
   /*
     A WRONG MOVE IS REMEMBERED FOR THE PUZZLE, because `failed` lasts 700 ms: auto-revert returns the status
@@ -145,7 +152,9 @@ export function PuzzleLiveCard({
   /* `correct` or `solution`: resolved, and neither ever reverts. Disjoint from
      `revealable`, so the one slot never offers both. */
   const explainable = Boolean(onExplain) && (status === 'correct' || status === 'solution');
-  const rowShown = revealable || explainable;
+  const resolvedGame = (status === 'correct' || status === 'solution') && !exploring ? gameLines : null;
+  const gameLink = !explainable ? resolvedGame?.href ?? null : null;
+  const rowShown = revealable || explainable || gameLink != null;
   const statusIcon = status === 'correct'
     ? <CheckCircle2 className="w-[1em] h-[1em] text-success" />
     : status === 'failed'
@@ -181,7 +190,7 @@ export function PuzzleLiveCard({
       : runOutcome
         ? `Run performance: ${runOutcome.rating}, scored ${
           runOutcome.realized.toFixed(1)} of ${runOutcome.total}`
-        : (status === 'correct' ? offer : null) ?? masterLine;
+        : resolvedGame?.played ?? (status === 'correct' ? offer : null) ?? masterLine;
   const headlineText = serverUnreachable
     ? 'Cannot reach the server'
     : filterFoundNothing
@@ -259,7 +268,10 @@ export function PuzzleLiveCard({
   const statusRegion = (
       <LiveStatus
         chip={(
-          <span className="inline-flex items-center gap-[calc(var(--card-w,208px)*0.04)]">
+          /* `w-0 min-w-full`: as wide as the row and adding nothing to its minimum, so a long chip
+             (a game's name, #245 B4) truncates inside the card. As `inline-flex` its nowrap text set
+             the grid column's minimum and pushed the region 1.3px past the card at 800x600 (measured). */
+          <span className="flex w-0 min-w-full items-center gap-[calc(var(--card-w,208px)*0.04)]">
             {isDailyPuzzle && status === 'playing' && (
               <span className="inline-flex items-center gap-[0.35em] font-medium text-link">
                 <Target className="w-[1em] h-[1em]" />
@@ -270,6 +282,13 @@ export function PuzzleLiveCard({
               <span className="inline-flex items-center gap-[0.35em] font-medium text-link">
                 <RotateCcw className="w-[1em] h-[1em]" />
                 {missedLabel}
+              </span>
+            )}
+            {resolvedGame && (
+              /* One line whatever the card's width: the chip row reserves one. The full text is the title. */
+              <span className="inline-flex min-w-0 items-center gap-[0.35em] font-medium text-link" title={resolvedGame.game}>
+                <Swords className="w-[1em] h-[1em] shrink-0" />
+                <span className="truncate">{resolvedGame.game}</span>
               </span>
             )}
             {rating != null && (
@@ -357,6 +376,17 @@ export function PuzzleLiveCard({
               <Lightbulb className="w-[1em] h-[1em]" />
               Explain solution
             </button>
+          ) : gameLink ? (
+            /* A new tab, so the puzzle, its solved line and the run stay where they were. */
+            <a
+              href={gameLink}
+              target="_blank"
+              rel="noopener"
+              className="trainer-reveal flex-1 min-h-11 rounded-[0.4em] border border-border text-[length:var(--card-type,14px)] font-medium text-foreground transition-colors hover:bg-muted inline-flex items-center justify-center gap-[0.4em]"
+            >
+              <Swords className="w-[1em] h-[1em]" />
+              See the game
+            </a>
           ) : (
             /*
               44px, and it is the second place that number is a constant rather

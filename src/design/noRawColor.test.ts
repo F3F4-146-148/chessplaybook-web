@@ -33,6 +33,9 @@ const RULES: [string, RegExp][] = [
   */
   ['inline colour literal (use a role)', /\b(?:color|backgroundColor|background|borderColor|fill|stroke|outlineColor)\s*:\s*['"`](?:#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(\d)/g],
   ['text-primary as text (gold text is text-link)', /(?<![\w-])(?:[\w[\]&:\-/.]*:)?text-primary(?![\w-])/g],
+  // #374 (plan A6): an SVG colour attribute in JSX, `fill="#ffffff"`. The old report graph drew
+  // the dark theme's graph in light this way, and the inline-literal rule above cannot see it.
+  ['SVG colour attribute literal (use a role)', /\b(?:fill|stroke|stopColor|stop-color)=["'{`]+(?:#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(\d)/g],
 ];
 /* An opacity on a text role, unless the line draws an icon (a capitalised
    component, or `aria-hidden`): icons need 3:1, and keep it at 70-80%. */
@@ -45,6 +48,13 @@ const TEXT_DIM_EXEMPT_LINE = /<[A-Z]\w*[\s>]|aria-hidden/;
 const EXEMPT_FILES: Record<string, string> = {
   // Owner, 2026-10-03: keep the live-event banner as it is for now (D17).
   'src/components/LiveEventBanner.tsx': 'D17, owner decision',
+  // #374 A6: SVG colour attributes, a rule added 2026-11-19. These four draw colours that are
+  // the same in every theme on purpose: national flags, Google's logo, and the chart library's
+  // own selectors for its default colours.
+  'src/components/flags/CountryFlag.tsx': 'national flag colours, fixed by definition',
+  'src/features/auth/pages/LoginPage.tsx': "Google's logo colours (its brand rules)",
+  'src/features/auth/pages/SignupPage.tsx': "Google's logo colours (its brand rules)",
+  'src/components/ui/chart.tsx': "shadcn selectors matching the chart library's default colours",
 };
 const EXEMPT_DIRS: Record<string, string> = {
 };
@@ -114,6 +124,13 @@ describe('the F4 rules catch what they name', () => {
   it('text-primary as text, not its foreground', () => {
     expect(hit('text-primary as text', 'className="hover:text-primary"')).toBe(true);
     expect(hit('text-primary as text', 'className="text-primary-foreground"')).toBe(false);
+  });
+  it('an SVG colour attribute literal', () => {
+    expect(hit('SVG colour attribute', '<polygon fill="#ffffff" />')).toBe(true);
+    expect(hit('SVG colour attribute', "<line stroke='#999' />")).toBe(true);
+    expect(hit('SVG colour attribute', '<rect fill={"#333"} />')).toBe(true);
+    expect(hit('SVG colour attribute', '<rect fill="hsl(var(--graph-black))" />')).toBe(false);
+    expect(hit('SVG colour attribute', '<g clipPath="url(#clip)" fill="currentColor" />')).toBe(false);
   });
   it('a dimmed text role, except on an icon', () => {
     expect(new RegExp(TEXT_DIM.source).test('<p className="text-muted-foreground/60 text-sm">')).toBe(true);

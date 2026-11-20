@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart3, Lightbulb } from 'lucide-react';
 import { useGameReview } from '@/components/game-analysis/useGameReview';
 import { GameReportDialog } from '@/components/game-analysis/GameReportDialog';
@@ -52,6 +52,9 @@ export function GameReviewActions({
     moveIndex: ply + 1,
   });
   const [reportOpen, setReportOpen] = useState(false);
+  /* Focus returns here when the report closes (#374): the dialog is controlled, not a Radix trigger. */
+  const reportRef = useRef<HTMLButtonElement>(null);
+  const sans = useMemo(() => plies.map(p => p.san), [plies]);
   /* Asked for and not yet ready: open the report the moment it is. */
   const [reportWanted, setReportWanted] = useState(false);
   useEffect(() => {
@@ -94,6 +97,7 @@ export function GameReviewActions({
     <>
       <div className={`grid ${canReport ? 'grid-cols-2' : 'grid-cols-1'}`} style={{ gap: 'calc(var(--card-air) * 2)' }}>
         {canReport && <button
+          ref={reportRef}
           type="button"
           onClick={onReport}
           disabled={plies.length === 0}
@@ -145,6 +149,10 @@ export function GameReviewActions({
         summary={review.gameSummary}
         moveIndex={ply + 1}
         onMoveClick={(index) => onGoTo(index - 1)}
+        metadata={metadata}
+        sans={sans}
+        gameResult={gameResult}
+        returnFocusTo={reportRef}
       />
     </>
   );

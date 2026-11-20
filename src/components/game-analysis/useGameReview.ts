@@ -35,7 +35,10 @@ export type GameReportButtonState = 'initial' | 'analyzing' | 'ready';
 export interface GameSummaryResult {
   summary: string;
   cta: string;
-  championLink: { championName: string; championKey: string; url: string } | null;
+  /** `side`: the colour the champion's counted games were played with (#374); absent in old cached reports. */
+  championLink: { championName: string; championKey: string; url: string; side?: 'white' | 'black' } | null;
+  /** #374: the champion who met the opening best from the other colour; absent or null when none. */
+  counterLink?: { championName: string; championKey: string; url: string; side: 'white' | 'black' } | null;
   criticalMoveIndex: number | null;
 }
 
@@ -103,7 +106,19 @@ export function useGameReview({
   const [reportError, setReportError] = useState<string | null>(null);
   const explanationCache = useRef<Map<string, PositionExplanation>>(new Map());
   const policyDataRef = useRef<Array<{ topMoves: Array<{ move: string; policy: number }>; wdl: { win: number; draw: number; loss: number } }> | null>(null);
-  const [gameSummary, setGameSummary] = useState<GameSummaryResult | null>(null);
+  /*
+    THE SUMMARY IS KEPT WITH THE ANALYSIS (#374, found by the owner on staging): the
+    analysis came back from the session store when the page was opened again (after
+    following the summary's own champion link and coming back, or a reload), the summary
+    did not, so the report came back with no text and no link.
+  */
+  const [gameSummary, setGameSummary] = useState<GameSummaryResult | null>(() => {
+    try {
+      if (!gameKey || sessionStorage.getItem('analysis_gameKey') !== gameKey) return null;
+      const stored = sessionStorage.getItem('analysis_gameSummary');
+      return stored ? JSON.parse(stored) as GameSummaryResult : null;
+    } catch { return null; }
+  });
   const [showSummary, setShowSummary] = useState(false);
   // Progress shown inside the "Analyzing..." button during client-side
   // Stockfish batch analysis. `null` when not running.
@@ -122,6 +137,14 @@ export function useGameReview({
     } catch { /* storage full — ignore */ }
   }, [gameAnalysis, gameKey]);
 
+  // The summary goes with the analysis, under the same game key.
+  useEffect(() => {
+    try {
+      if (gameSummary && gameAnalysis) sessionStorage.setItem('analysis_gameSummary', JSON.stringify(gameSummary));
+      else if (!gameAnalysis) sessionStorage.removeItem('analysis_gameSummary');
+    } catch { /* storage full — ignore */ }
+  }, [gameSummary, gameAnalysis]);
+
   // Clear stale analysis when game changes
   useEffect(() => {
     const storedKey = sessionStorage.getItem('analysis_gameKey');
@@ -131,6 +154,7 @@ export function useGameReview({
       setReportButtonState('initial');
       sessionStorage.removeItem('analysis_gameReport');
       sessionStorage.removeItem('analysis_gameKey');
+      sessionStorage.removeItem('analysis_gameSummary');
     }
   }, [gameKey]);
 
@@ -185,6 +209,7 @@ export function useGameReview({
         summary: string;
         cta: string;
         championLink: GameSummaryResult['championLink'];
+        counterLink: GameSummaryResult['counterLink'];
         criticalMoveIndex: number | null;
         policyData: Array<{
           topMoves: Array<{ move: string; policy: number }>;
@@ -202,7 +227,7 @@ export function useGameReview({
         const cacheResp = await backendAPIClient.get<{
           cached: boolean;
           result?: {
-            summary: { text: string; cta: string; championLink: GameSummaryResult['championLink']; criticalMoveIndex: number | null };
+            summary: { text: string; cta: string; championLink: GameSummaryResult['championLink']; counterLink?: GameSummaryResult['counterLink']; criticalMoveIndex: number | null };
             policyData: typeof cached extends null ? never : NonNullable<typeof cached>['policyData'];
             evals: number[];
             bestMoves: string[];
@@ -215,6 +240,7 @@ export function useGameReview({
             summary: r.summary.text,
             cta: r.summary.cta,
             championLink: r.summary.championLink,
+            counterLink: r.summary.counterLink ?? null,
             criticalMoveIndex: r.summary.criticalMoveIndex,
             policyData: r.policyData,
             evals: r.evals,
@@ -252,6 +278,7 @@ export function useGameReview({
           summary: cached.summary,
           cta: cached.cta,
           championLink: cached.championLink,
+          counterLink: cached.counterLink ?? null,
           criticalMoveIndex: cached.criticalMoveIndex,
         });
         setShowSummary(true);
@@ -323,6 +350,7 @@ export function useGameReview({
             summary: summaryResp.summary as string,
             cta: (summaryResp.cta as string) || '',
             championLink: summaryResp.championLink as GameSummaryResult['championLink'],
+            counterLink: (summaryResp.counterLink as GameSummaryResult['counterLink']) ?? null,
             criticalMoveIndex: summaryResp.criticalMoveIndex as number | null,
           };
           policyData = (summaryResp.policyData as typeof policyData) ?? null;

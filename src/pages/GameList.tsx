@@ -22,7 +22,7 @@ import { championRouteMeta } from '@/config/championRouteMeta';
 
 const GameList = () => {
   const { name } = useParams<{ name: string }>();
-  // Capture ECO family params on mount before useFilterUrlState rewrites the URL. Read through the router, not
+  // Capture ECO family params on mount (the URL keeps them: updateUrl is passed them back). Read through the router, not
   // `window`: the page is built at deploy time too (prerender plan D1), where the router holds the same query.
   const [searchParams] = useSearchParams();
   const [ecoRange] = useState(() => {
@@ -31,11 +31,16 @@ const GameList = () => {
       from: params.get('ecoFrom'),
       to: params.get('ecoTo'),
       label: params.get('ecoLabel'),
+      /* #374: the game summary's link names the colour the champion played (owner, 2026-11-19). */
+      color: params.get('color') === 'white' || params.get('color') === 'black' ? params.get('color') as 'white' | 'black' : null,
     };
   });
   const ecoFrom = ecoRange.from;
   const ecoTo = ecoRange.to;
   const ecoLabel = ecoRange.label;
+  const ecoColor = ecoRange.color;
+  const championShort = name ? name.charAt(0).toUpperCase() + name.slice(1) : '';
+  const colorWord = ecoColor === 'white' ? 'White' : ecoColor === 'black' ? 'Black' : null;
   const [games, setGames] = useState<GameMetadata[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,8 +69,9 @@ const GameList = () => {
 
   // Update URL when filters or sort change (replace history to avoid polluting back button)
   useEffect(() => {
-    updateUrl(filters, sort, true); // replace: true to avoid adding history entries
-  }, [filters, sort, updateUrl]);
+    // replace: true to avoid adding history entries; the opening range stays in the address.
+    updateUrl(filters, sort, true, { ecoFrom, ecoTo, ecoLabel });
+  }, [filters, sort, updateUrl, ecoFrom, ecoTo, ecoLabel]);
 
   useEffect(() => {
     if (name) {
@@ -127,10 +133,17 @@ const GameList = () => {
       if (!g.eco) return false;
       const eco = g.eco.toUpperCase();
       if (eco < ecoFrom.toUpperCase() || eco > ecoTo.toUpperCase()) return false;
+      // #374: only the colour the link names, when it names one.
+      if (ecoColor && g.championColor !== ecoColor) return false;
+      // #374: classical by the same classification as the champion counts; the event-name
+      // list is only the fallback for a game the classification does not know (it let
+      // "FIDE World Bl Team", blitz, through).
+      if (g.classical === true) return true;
+      if (g.classical === false) return false;
       const event = (g.event || '').toLowerCase();
       return !NON_CLASSICAL.some(k => event.includes(k));
     });
-  }, [games, ecoFrom, ecoTo]);
+  }, [games, ecoFrom, ecoTo, ecoColor]);
 
   // Apply filters and sorting with memoization
   const filteredAndSortedGames = useMemo(() => {
@@ -292,6 +305,7 @@ const GameList = () => {
                 <div className="text-sm text-muted-foreground">
                   Filtered by opening family: <span className="font-medium text-link">{ecoLabel}</span>
                   <span className="text-muted-foreground ml-1">({ecoFrom}-{ecoTo})</span>
+                  {colorWord && <span className="text-muted-foreground">, classical games where {championShort} played {colorWord}</span>}
                 </div>
                 <Link to={`/champions/${name}/games`}>
                   <Button variant="outline" size="sm">
@@ -302,7 +316,7 @@ const GameList = () => {
             )}
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <CardTitle className="text-link text-2xl font-normal">
-                {ecoLabel ? `${ecoLabel} Games` : 'Games Collection'}
+                {ecoLabel ? (colorWord ? `${championShort}'s games with ${colorWord}: ${ecoLabel}` : `${ecoLabel} Games`) : 'Games Collection'}
               </CardTitle>
               <CompactFilterControls
                 filters={filters}

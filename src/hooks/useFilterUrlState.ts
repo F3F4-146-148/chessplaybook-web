@@ -55,8 +55,11 @@ export function useFilterUrlState() {
   /**
    * Serialize FilterState and SortState into URL query parameters
    */
-  const updateUrl = useCallback((filters: FilterState, sort: SortState, replace: boolean = false) => {
+  const updateUrl = useCallback((filters: FilterState, sort: SortState, replace: boolean = false, keep: Record<string, string | null> = {}) => {
     const params = new URLSearchParams();
+    // Values the page holds outside the filters (GameList's opening range from the game report's
+    // link), kept so a reload or a copied address keeps them (#374).
+    for (const [key, value] of Object.entries(keep)) if (value) params.set(key, value);
 
     // Only add non-default values to keep URL clean
     if (filters.searchText) {

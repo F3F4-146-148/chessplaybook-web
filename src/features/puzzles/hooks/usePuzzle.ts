@@ -8,6 +8,7 @@ import type { ChessPosition } from '@/components/chess/chessLogic';
 import type { Key, Color, Dests } from '@lichess-org/chessground/types';
 import { logGA4Event } from '@/services/analytics';
 import { recordPuzzleTry } from '@/features/puzzles/services/puzzleTry';
+import type { PuzzleGameSource } from '../lib/gamePuzzleSource';
 
 /**
  * Pause before the opponent's setup move is played, and before each opponent
@@ -40,7 +41,9 @@ export interface Puzzle {
   offline?: true;
   fen: string;
   moves: string[];      // UCI moves: [setupMove, userMove1, opponentResponse1, userMove2, ...]
-  rating: number;
+  /** Absent for a puzzle made from a game (#245 A5, D1): it has no rating, and no placeholder is
+   *  sent, so nothing can display one by accident. */
+  rating?: number;
   themes: string[];
   /** Lichess attempt count. Optional because the saved last-puzzle record and
    *  test fixtures do not carry it. Rendered after the answer (C2 / PZ-018). */
@@ -53,6 +56,12 @@ export interface Puzzle {
   opening?: string | null;
   /** When this player last missed it; only on a "Missed before" draw (#116). */
   missedAt?: string;
+  /** A puzzle made from a game (#245 B1, D4): every accepted move per solver move, UCI, the main
+   *  one included. `acceptedMoves[k]` is for `moves[1 + 2k]`. Absent on a corpus puzzle, which
+   *  keeps the one-move check (plus an alternative mate). */
+  acceptedMoves?: string[][];
+  /** A puzzle made from a game: the game and the move played in it (#245 B4). */
+  source?: PuzzleGameSource;
 }
 
 export type PuzzleStatus = 'loading' | 'ready' | 'playing' | 'correct' | 'failed' | 'solution';
@@ -95,7 +104,8 @@ export interface PuzzleState {
  * for it would inflate the denominator of the first-move rate.
  */
 export interface PuzzleLoadMeta {
-  source: 'network' | 'queued' | 'daily' | 'restored';
+  /** `link`: opened from `/puzzles?id=` (#245 B3). */
+  source: 'network' | 'queued' | 'daily' | 'restored' | 'link';
   /** `performance.now()` at the moment the API response resolved. */
   responseAt?: number;
   /** Per-session sequence number: 1 for the first puzzle presented. */
@@ -454,6 +464,15 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     const isExpectedMove = userMove === expectedMove ||
       userMove === expectedMove.substring(0, 4); // ignore promotion suffix mismatch
 
+    /*
+      ANOTHER ACCEPTED MOVE (#245 B1, D4). A puzzle made from a game lists every move the engine
+      accepts at each solver step. The stored replies follow the MAIN move only, so after an
+      alternative there is no reply to play: the puzzle ends there, solved, as an alternative
+      mate already does. Played as stored, so a promotion keeps the piece the engine chose.
+    */
+    const acceptedAlt = isExpectedMove ? undefined
+      : puz.acceptedMoves?.[(idx - 1) / 2]?.find((m) => userMove === m || userMove === m.substring(0, 4));
+
     // Alternative-mate acceptance (Lichess convention): when the user plays
     // a different move that ALSO delivers checkmate, accept it. The puzzle's
     // chess goal is "find a mate", not "find this exact mate". Common case:
@@ -466,12 +485,12 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     // below, since both lead to the same end-state when the alt move is
     // mate (game over, no further plies).
     let isAltMate = false;
-    if (!isExpectedMove && positionRef.current) {
+    if (!isExpectedMove && !acceptedAlt && positionRef.current) {
       const tentative = applyMove(positionRef.current, userMove);
       if (tentative?.isCheckmate) isAltMate = true;
     }
 
-    const isCorrect = isExpectedMove || isAltMate;
+    const isCorrect = isExpectedMove || isAltMate || Boolean(acceptedAlt);
 
     // First move of this presentation, right or wrong. Emitted before the
     // branch so a wrong first move counts as engagement — the whole point of
@@ -510,7 +529,7 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
       // have omitted). When alt-mate fires, the puzzle is by definition
       // over (mate ends the game), so we also force-end below regardless
       // of the puzzle's stored move count.
-      playMove(isAltMate ? userMove : expectedMove);
+      playMove(acceptedAlt ?? (isAltMate ? userMove : expectedMove));
       const newIdx = idx + 1;
       moveIndexRef.current = newIdx;
       setMoveIndex(newIdx);
@@ -518,7 +537,7 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
       // Check if puzzle is complete. Alt-mate ends the puzzle immediately
       // even if the stored solution had more plies — those plies were
       // continuations that no longer apply once the king is mated.
-      if (isAltMate || newIdx >= puz.moves.length) {
+      if (isAltMate || acceptedAlt || newIdx >= puz.moves.length) {
         setStatus('correct');
         setMessage('Correct! Puzzle solved.');
         logGA4Event({

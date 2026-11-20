@@ -17,6 +17,8 @@
 import type { ColorEffect, ColorRole, Hsl } from './color.tokens';
 
 export const darkV2Roles: Partial<Record<ColorRole, Hsl>> = {
+  // #374: the report graph's dark area, a step lighter than the v2 dialog (popover 212 32% 11%).
+  'graph-black': '212 24% 17%',
   background: '212 48% 6%',
   foreground: '36 55% 94%',
 

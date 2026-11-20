@@ -53,6 +53,10 @@ const WorkspaceFixture = import.meta.env.DEV
   ? lazy(() => import("@/components/workspace/WorkspaceFixture"))
   : null;
 // Layout redesign B2: both colour themes side by side, same dev-only treatment.
+// #374 (plan A1): the Game report from fixtures.
+const GameReportPreview = import.meta.env.DEV
+  ? lazy(() => import("@/components/game-analysis/design-prototype/GameReportPreview"))
+  : null;
 const ThemePreview = import.meta.env.DEV
   ? lazy(() => import("@/design/preview/ThemePreview"))
   : null;
@@ -281,6 +285,9 @@ export function AppRoutes() {
             Documents. */}
         {import.meta.env.DEV && ExplainerCardGallery && (
           <Route path="/dev/explainer-card" element={<ExplainerCardGallery />} />
+        )}
+        {import.meta.env.DEV && GameReportPreview && (
+          <Route path="/dev/game-report" element={<GameReportPreview />} />
         )}
         {import.meta.env.DEV && ThemePreview && (
           <Route path="/dev/theme-preview" element={<ThemePreview />} />

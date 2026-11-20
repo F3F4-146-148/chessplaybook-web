@@ -186,7 +186,7 @@ type GA4Event =
   // queued puzzle has no fresh response to measure from; for every other
   // source the clock starts at the load call. The field exists so that
   // exclusion is enforceable at read time rather than remembered.
-  | { name: 'puzzle_board_ready'; params: { puzzle_id: string; is_daily: boolean; puzzle_index: number; ms_to_ready: number; ready_source: 'network' | 'queued' | 'daily' | 'restored' } }
+  | { name: 'puzzle_board_ready'; params: { puzzle_id: string; is_daily: boolean; puzzle_index: number; ms_to_ready: number; ready_source: 'network' | 'queued' | 'daily' | 'restored' | 'link' } }
   | { name: 'puzzle_first_move'; params: { puzzle_id: string; puzzle_index: number; ms_from_ready: number; correct: boolean } }
   // Fires where the rating decision is actually taken — the same instant the
   // outcome becomes irreversible — so it cannot drift from what the UI claims.

@@ -22,9 +22,12 @@ export interface PuzzleData {
   offline?: true;
   fen: string;
   moves: string[];
-  rating: number;
+  /** Absent for a puzzle made from a game (#245 D1): it has no rating. */
+  rating?: number;
   themes: string[];
   openingTags?: string[];
+  /** A puzzle made from a game: every accepted move per solver move (#245 B1). */
+  acceptedMoves?: string[][];
   /** Pre-move line, built server-side from the shared expression layer. */
   prompt?: string;
   /** "White to play and win a rook": the side and the goal, from SF, baked
@@ -37,6 +40,14 @@ export interface PuzzleData {
 }
 
 import env from '@/config/env';
+
+/**
+ * A puzzle made from a game (#245), served as `g_<n>` beside the Lichess corpus. It has no hints
+ * and no explanation (B2): the server answers 404 for both, and nothing here asks.
+ */
+export function isGeneratedPuzzleId(id: string | null | undefined): boolean {
+  return typeof id === 'string' && /^g_[1-9]\d*$/.test(id);
+}
 import { getRequestHeaders } from '@/features/auth/utils/getAuthToken';
 
 const API_URL = env.apiBaseUrl;
@@ -310,6 +321,7 @@ export type PuzzleHints =
  * needed.
  */
 export async function fetchPuzzleHints(id: string): Promise<PuzzleHints> {
+  if (isGeneratedPuzzleId(id)) return { status: 'unavailable' };
   try {
     const res = await fetch(`${API_URL}/api/puzzles/${encodeURIComponent(id)}/hint`);
     if (!res.ok) return { status: 'unavailable' };
@@ -321,6 +333,7 @@ export async function fetchPuzzleHints(id: string): Promise<PuzzleHints> {
 }
 
 export async function fetchPuzzleExplanation(id: string): Promise<PuzzleExplanation> {
+  if (isGeneratedPuzzleId(id)) return { status: 'unavailable' };
   try {
     // Who asked: the funnel counts a puzzle explanation opened (#46).
     const headers = await getRequestHeaders().catch(() => ({}));

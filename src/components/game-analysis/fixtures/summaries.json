@@ -1,0 +1,26 @@
+{
+  "long": {
+    "summary": "The game featured the Queen's Indian Defense (E18), an opening Anand used with great success.\n\nA single blunder on move 30 turned a competitive game into a lost position for Jimenez Morales. Move 30 was the turning point: Jimenez Morales's Rd8 was a blunder that shifted the balance.\n\nA solid opening phase, a competitive middlegame, and decided before reaching an endgame.",
+    "cta": "Check move 30 for the critical moment. Use the position explainer on any move for detailed insights.",
+    "championLink": {
+      "championName": "Anand",
+      "championKey": "anand",
+      "url": "/champions/anand/games?ecoFrom=E12&ecoTo=E19&ecoLabel=Queen's%20Indian%20Defense&color=black",
+      "side": "black"
+    },
+    "criticalMoveIndex": 59,
+    "counterLink": {
+      "championName": "Carlsen",
+      "championKey": "carlsen",
+      "url": "/champions/carlsen/games?ecoFrom=E12&ecoTo=E19&ecoLabel=Queen's%20Indian%20Defense&color=white",
+      "side": "white"
+    }
+  },
+  "short": {
+    "summary": "The game opened with the Queen's Indian Defense (E18).\n\nTal controlled the game throughout, converting a steady advantage into a full point.\n\nA solid opening phase, a competitive middlegame, and decided before reaching an endgame.",
+    "cta": "Navigate through the moves and use the position explainer for detailed insights on any position.",
+    "championLink": null,
+    "criticalMoveIndex": null,
+    "counterLink": null
+  }
+}

@@ -37,6 +37,10 @@ export interface ChessGame {
   blackElo?: string;
   /** Marks a curated "best game" ('1' when set); populated by future best-games ingestion. */
   bestGame?: string;
+  /** The listed champion's colour in this game, from the player ids (#374). */
+  championColor?: 'white' | 'black';
+  /** Classical, by the same classification as the champion counts; null when unknown (#374). */
+  classical?: boolean | null;
 }
 
 /**

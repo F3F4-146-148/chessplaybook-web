@@ -125,3 +125,29 @@ describe('WCAG contrast for every role pair, in every theme (dark, light, dark v
     expect(excepted.map((e) => e.split(' = ')[0]).sort()).toEqual(Object.keys(EXCEPTIONS).sort());
   });
 });
+
+/*
+  THE GAME REPORT'S GRAPH (#374). White's area against Black's area; and every mark
+  drawn on it (the move dots, the current-move line) stands out from both areas, by
+  its own colour or by its `popover` ring, whichever is stronger (WCAG 1.4.11: the
+  mark must be distinguishable from what is next to it). Checked in dark, light and
+  dark v2.
+*/
+describe('the report graph: areas and marks, in every theme', () => {
+  const themes = [['dark', darkTheme], ['light', lightTheme], ['dark v2', darkV2Theme]] as const;
+  const MARKS: ColorRole[] = ['move-brilliant', 'move-inaccuracy', 'move-mistake', 'move-blunder', 'move-severe-blunder', 'link'];
+  for (const [name, t] of themes) {
+    it(`${name}: the two areas differ at 3:1`, () => {
+      expect(contrast(hslToRgb(t.roles['graph-white']), hslToRgb(t.roles['graph-black']))).toBeGreaterThanOrEqual(NON_TEXT);
+    });
+    it(`${name}: every mark stands out from both areas`, () => {
+      const fails: string[] = [];
+      for (const m of MARKS) for (const area of ['graph-white', 'graph-black'] as ColorRole[]) {
+        const a = hslToRgb(t.roles[area]);
+        const best = Math.max(contrast(hslToRgb(t.roles[m]), a), contrast(hslToRgb(t.roles.popover), a));
+        if (best < NON_TEXT) fails.push(`${m} on ${area} = ${best.toFixed(2)}`);
+      }
+      expect(fails).toEqual([]);
+    });
+  }
+});
