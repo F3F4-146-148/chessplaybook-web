@@ -20,8 +20,11 @@
 
 import { portraitPath } from '@/config/championPortraits';
 
-/** Lichess broadcast tournament id, e.g. "n3yHJI5Y" for 2024. Null until it exists. */
-export const LICHESS_TOURNAMENT_ID: string | null = null;
+/**
+ * Lichess broadcast tournament id ("n3yHJI5Y" was 2024's). 2026's, created by Lichess and read on 2026-11-20:
+ * https://lichess.org/broadcast/fide-world-chess-championship-2026/qfkdt8mn, rounds "Game 1" to "Game 14".
+ */
+export const LICHESS_TOURNAMENT_ID: string | null = 'qfkdt8mn';
 
 export const MATCH_PATH = '/world-championship-2026';
 
@@ -250,6 +253,18 @@ export function roundIdFromGameUrl(url: string | undefined): string | null {
 }
 
 /**
+ * A game's number. 2024's broadcast wrote the Round tag as "1"; the tag comes from the board feed, so 2026's could be
+ * "Game 1" or "1.1" instead, and a number read only from a bare "1" would leave the score at 0-0 with no error. So
+ * the Round tag's leading number or "Game N", and failing both, the round's slug in the GameURL (".../game-1/...").
+ */
+export function gameNumberOf(t: Pick<BroadcastGameTags, 'round' | 'gameUrl'>): number | null {
+  const fromRound = /^\s*(?:game\s*)?(\d{1,2})(?:\.\d+)?\s*$/i.exec(t.round);
+  if (fromRound) return Number(fromRound[1]);
+  const fromUrl = /\/game-(\d{1,2})\/[^/]+\/[^/]+\/?$/i.exec((t.gameUrl ?? '').split('?')[0]);
+  return fromUrl ? Number(fromUrl[1]) : null;
+}
+
+/**
  * The match score from the broadcast's games. A game counts once its result is
  * in; a game in progress counts nothing. Games whose players are not the two
  * match players, or whose Round tag is not a classical game number, are ignored
@@ -266,8 +281,8 @@ export function scoreMatch(
   const games = new Map<number, ScoredGame>();
 
   for (const t of tags) {
-    const game = Number.parseInt(t.round, 10);
-    if (!Number.isInteger(game) || game < 1 || game > CLASSICAL_GAMES) continue;
+    const game = gameNumberOf(t);
+    if (game === null || game < 1 || game > CLASSICAL_GAMES) continue;
     const white = playerFor(t.white, players);
     const black = playerFor(t.black, players);
     if (!white || !black || white === black) continue;

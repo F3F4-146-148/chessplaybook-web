@@ -6,6 +6,7 @@ import {
   SCHEDULED_GAMES,
   calendarState,
   formatPoints,
+  gameNumberOf,
   parseGameSlug,
   readBroadcastTags,
   roundIdFromGameUrl,
@@ -98,6 +99,21 @@ describe('helpers', () => {
     expect(parseGameSlug('game-0')).toBeNull();
     expect(parseGameSlug('round-1')).toBeNull();
     expect(parseGameSlug(undefined)).toBeNull();
+  });
+
+  it('reads the game number however the Round tag is written', () => {
+    const url = 'https://lichess.org/broadcast/fide-world-chess-championship-2026/game-7/OZYNuhhF/abcd1234';
+    expect(gameNumberOf({ round: '7' })).toBe(7);
+    expect(gameNumberOf({ round: 'Game 7' })).toBe(7);
+    expect(gameNumberOf({ round: '7.1' })).toBe(7);
+    // No usable Round tag: the round's slug in the game's address.
+    expect(gameNumberOf({ round: '', gameUrl: url })).toBe(7);
+    expect(gameNumberOf({ round: '?', gameUrl: url })).toBe(7);
+    expect(gameNumberOf({ round: '', gameUrl: undefined })).toBeNull();
+    // Scored through it: a "Game 3" Round tag still counts.
+    const s = scoreMatch([{ round: 'Game 3', white: 'Gukesh D', black: 'Sindarov, Javokhir', result: '1-0' }]);
+    expect(s.games.get(3)?.result).toBe('white');
+    expect(s.points.gukesh).toBe(1);
   });
 
   it('takes the round id from a GameURL', () => {

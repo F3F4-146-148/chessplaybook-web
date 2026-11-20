@@ -149,7 +149,7 @@ const LASTMOD = {
   // Event hubs: the events are over; these are archival end dates.
   worldCup2025: '2025-11-27',
   candidates2026: '2026-04-16',
-  worldChampionship2026: '2026-11-11',
+  worldChampionship2026: '2026-11-20',
   // Articles: publish dates.
   news: '2026-11-11', // the hub lists the Geneva schedule article (articleWch2026Geneva)
   articleCandidatesPreview: '2026-03-27',
@@ -160,7 +160,7 @@ const LASTMOD = {
   articleWch2026Geneva: '2026-11-11',
   articleSindarovGukesh: '2026-07-27',
   articleVaishaliJu: '2026-07-27',
-  legal: '2026-11-14',
+  legal: '2026-11-20',
 };
 
 /*

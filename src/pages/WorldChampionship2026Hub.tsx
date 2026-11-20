@@ -4,8 +4,8 @@
  * A Document page: the score, what is on today, and every game with its date and
  * result, each linking to its game page (the live board). Facts and schedule come
  * from `features/world-championship/match.ts`; the score and results from
- * Lichess's broadcast once `LICHESS_TOURNAMENT_ID` is set. Until then it shows the
- * schedule with the score at 0-0, which is true.
+ * Lichess's broadcast (`LICHESS_TOURNAMENT_ID`, set 2026-11-20); before a game has a
+ * result the score is 0-0, which is true. FIDE's trailer sits below the games.
  *
  * Indexed and in the sitemap (the queries: "Gukesh Sindarov live", "world chess
  * championship 2026 score"). The game pages are not: they are a board with no text.
@@ -32,8 +32,10 @@ import {
   genevaTime,
   type PlayerKey,
   type ScoredGame,
+  whiteIn,
 } from '@/features/world-championship/match';
 import { startOf, useMatchBroadcast } from '@/features/world-championship/useMatchBroadcast';
+import { MatchVideo } from '@/features/world-championship/MatchVideo';
 
 const JSON_LD = {
   '@context': 'https://schema.org',
@@ -81,9 +83,12 @@ function resultText(g: ScoredGame | undefined): string {
   return g.result === 'white' ? '1-0' : '0-1';
 }
 
-function colours(g: ScoredGame | undefined): string {
-  if (!g) return '';
-  return `${PLAYERS[g.white].shortName} - ${PLAYERS[g.black].shortName}`;
+/** "Gukesh - Sindarov" (White first): the broadcast's game, else worked out by `whiteIn`; '' while unknown. */
+function colours(g: ScoredGame | undefined, n: number, known: ScoredGame[]): string {
+  const white = g?.white ?? whiteIn(n, known);
+  if (!white) return '';
+  const black = PLAYER_ORDER.find((k) => k !== white)!;
+  return `${PLAYERS[white].shortName} - ${PLAYERS[black].shortName}`;
 }
 
 export default function WorldChampionship2026Hub() {
@@ -99,6 +104,18 @@ export default function WorldChampionship2026Hub() {
 
   const timeKnown = (g: number) => broadcast.rounds.get(g)?.startsAt != null || SCHEDULED_GAMES[g - 1].timeConfirmed;
   const calendar = matchCalendarEvents(start, timeKnown, lastGame);
+
+  const knownColours = [...(score?.games.values() ?? [])];
+
+  // The score card's one button: the live game, else the next one, else the last game played.
+  const playedGames = [...(score?.games.values() ?? [])].filter((g) => g.result !== 'playing').map((g) => g.game);
+  const gameLink: { game: number; live: boolean; label: string } | null = liveGame
+    ? { game: liveGame, live: true, label: `Watch game ${liveGame} live` }
+    : cal.nextGame
+      ? { game: cal.nextGame.game, live: false, label: `Follow game ${cal.nextGame.game}` }
+      : playedGames.length
+        ? { game: Math.max(...playedGames), live: false, label: `Replay game ${Math.max(...playedGames)}` }
+        : null;
 
   let status: string;
   if (score?.winner) {
@@ -162,19 +179,30 @@ export default function WorldChampionship2026Hub() {
                   </div>
                 </div>
               ))}
-              <div className="order-2 mt-2.5 text-3xl sm:mt-0 sm:text-5xl font-bold tabular-nums text-foreground whitespace-nowrap">
+              {/* The widest score, "7½ - 6½", measures 4.22em; held from the start, so a score arriving after load
+                  never narrows the players' columns and rewraps their lines (+16px on a phone at "½ - ½"). */}
+              <div className="order-2 mt-2.5 min-w-[4.3em] text-center text-3xl sm:mt-0 sm:text-5xl font-bold tabular-nums text-foreground whitespace-nowrap">
                 {formatPoints(points.gukesh)} <span className="text-muted-foreground">-</span> {formatPoints(points.sindarov)}
               </div>
             </div>
-            <p className="mt-5 text-center text-foreground">{status}</p>
-            {liveGame && (
+            {/* Two lines held on a phone: "Game 1 starts Tue 24 Nov at 15:00 in Geneva." takes two there and "Game 2
+                is being played now." one, and the switch comes after load (CLS 0.051 at 390). One line from sm. */}
+            <p className="mt-5 min-h-12 text-center text-foreground sm:min-h-0">{status}</p>
+            {/* Always one button, so nothing moves when a game goes live: the live game is known only after the
+                page's clock moves from the build's time and Lichess answers (a CLS of 0.054 on a phone when the
+                button appeared late). Same box both ways; only the fill and the words change. */}
+            {gameLink && (
               <div className="mt-4 flex justify-center">
                 <Link
-                  to={gamePath(liveGame)}
-                  className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 font-semibold text-primary-foreground hover:bg-primary/90"
+                  to={gamePath(gameLink.game)}
+                  className={`inline-flex items-center gap-2 rounded-md border px-5 py-2.5 font-semibold ${
+                    gameLink.live
+                      ? 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90'
+                      : 'border-border text-foreground hover:bg-muted'
+                  }`}
                 >
-                  <Radio className="h-4 w-4" />
-                  Watch game {liveGame} live
+                  {gameLink.live ? <Radio className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  {gameLink.label}
                 </Link>
               </div>
             )}
@@ -212,7 +240,10 @@ export default function WorldChampionship2026Hub() {
                     >
                       <span className="flex flex-col sm:flex-row sm:items-baseline sm:gap-3">
                         <span className="font-semibold text-foreground">Game {n}</span>
-                        {g && <span className="text-sm text-muted-foreground">{colours(g)}</span>}
+                        {/* Always rendered: on a phone the colours are a second line, and appearing when Lichess
+                            answers moved every row below (CLS 0.021 at 390). Known colours from the broadcast,
+                            else alternating from any known game (whiteIn, as the game pages), else held empty. */}
+                        <span className="text-sm text-muted-foreground">{colours(g, n, knownColours) || ' '}</span>
                       </span>
                       <span className="flex items-center gap-1 text-sm whitespace-nowrap">
                         <span className={g?.result === 'playing' ? 'text-live font-semibold' : 'text-muted-foreground'}>{right}</span>
@@ -239,7 +270,9 @@ export default function WorldChampionship2026Hub() {
               })}
             </ol>
             <p className="text-xs text-muted-foreground mt-3">
-              Times are in Geneva (CET). Game 1 starts at 15:00. The other games show their time once it is published.
+              {/* Lichess publishes every game's time; the second sentence only while one is still missing. */}
+              Times are in Geneva (CET).
+              {SCHEDULED_GAMES.some((_, i) => !timeKnown(i + 1)) && ' Each game shows its start time once it is published.'}
             </p>
             {calendar.some((e) => !score?.games.has(e.game)) && (
               <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -258,6 +291,9 @@ export default function WorldChampionship2026Hub() {
               </div>
             )}
           </section>
+
+          {/* -- FIDE's trailer ------------------------------------------------ */}
+          <MatchVideo surface="hub" />
 
           {/* -- Read more ---------------------------------------------------- */}
           <section className="surface-card rounded-lg p-5 sm:p-7">

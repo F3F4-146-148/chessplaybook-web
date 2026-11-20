@@ -393,6 +393,7 @@ type GA4Event =
   | { name: 'plan_calendar_exported'; params: { format: 'ics'; plan_items: number; has_times: boolean } }
   /* The World Championship match in a visitor's calendar: one game to Google, or every game as .ics. */
   | { name: 'match_calendar_added'; params: { method: 'google' | 'ics'; game: number | 'all'; surface: 'hub' | 'game' | 'article' } }
+  | { name: 'match_video_played'; params: { surface: 'hub' } }
   /* A free-plan daily limit met (#46 funnel stage 7; FUNNEL_EVENT_CONTRACT names it `limit_reached`). */
   | { name: 'limit_reached'; params: { feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' } }
   /* The way to Premium from the daily-limit dialog, and which feature ran out. */

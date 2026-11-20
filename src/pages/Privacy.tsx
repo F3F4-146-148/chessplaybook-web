@@ -129,6 +129,7 @@ const Privacy = () => {
                   <li><strong>Google Analytics Cookies:</strong> Track website usage and performance</li>
                   <li><strong>Google Ads Cookies:</strong> Measure ad performance and conversions</li>
                   <li><strong>Meta Pixel Cookies:</strong> Measure ad performance on Facebook and Instagram, and build audiences for retargeting</li>
+                  <li><strong>YouTube Cookies:</strong> Some pages show a YouTube video. YouTube's player loads, and may set its own cookies, only after you press play</li>
                   <li><strong>Essential Cookies:</strong> Enable basic website functionality</li>
                   <li><strong>First-party browser storage:</strong> Retains a random identifier used for privacy-minimized daily engagement totals</li>
                 </ul>
