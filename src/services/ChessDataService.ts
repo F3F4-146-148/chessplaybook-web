@@ -1,12 +1,12 @@
 /**
- * Service for loading and managing chess data (players and games)
+ * Service for loading the champion roster. (Its reader of the bundled /assets/pgn/ collection files, which
+ * nothing called, went with the files in #335: the champion games are never handed out in bulk.)
  */
 
-import type { PlayersMap, PgnGame, ChessGame } from '../types/chess';
+import type { PlayersMap } from '../types/chess';
 
 class ChessDataService {
   private playersCache: PlayersMap | null = null;
-  private gamesCache: Map<string, PgnGame[]> = new Map();
 
   /**
    * Load players list from JSON
@@ -56,126 +56,6 @@ class ChessDataService {
   }
 
   /**
-   * Load PGN games for a specific player
-   */
-  async loadPlayerGames(playerName: string): Promise<PgnGame[]> {
-    // Check cache first
-    if (this.gamesCache.has(playerName)) {
-      return this.gamesCache.get(playerName)!;
-    }
-
-    try {
-      // Load the full game collection for the player
-      const response = await fetch(`/assets/pgn/${playerName}.pgn`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to load games for ${playerName}: ${response.statusText}`);
-      }
-
-      const pgnText = await response.text();
-      const games = this.parsePgnFile(pgnText, playerName);
-
-      // Cache the results
-      this.gamesCache.set(playerName, games);
-
-      return games;
-    } catch (error) {
-      console.error(`Error loading games for ${playerName}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Parse a PGN file into individual games
-   */
-  private parsePgnFile(pgnText: string, playerName: string): PgnGame[] {
-    const games: PgnGame[] = [];
-
-    // Split by [Event tag at the start of a line (preceded by newlines or start of string)
-    const gameBlocks = pgnText.split(/(?=^\[Event\s)/m);
-
-    for (const block of gameBlocks) {
-      const trimmedBlock = block.trim();
-      if (!trimmedBlock || trimmedBlock.length < 10) continue;
-
-      const game = this.parseSingleGame(trimmedBlock, playerName);
-      if (game) {
-        games.push(game);
-      }
-    }
-
-    return games;
-  }
-
-  /**
-   * Parse a single PGN game block
-   */
-  private parseSingleGame(pgnBlock: string, playerName: string): PgnGame | null {
-    try {
-      const lines = pgnBlock.split('\n');
-      const metadata: Partial<ChessGame> = {
-        playerName,
-      };
-
-      // Parse headers
-      for (const line of lines) {
-        const headerMatch = line.match(/\[(\w+)\s+"([^"]+)"\]/);
-        if (headerMatch) {
-          const [, key, value] = headerMatch;
-          switch (key) {
-            case 'White':
-              metadata.white = value;
-              break;
-            case 'Black':
-              metadata.black = value;
-              break;
-            case 'Result':
-              metadata.result = value;
-              break;
-            case 'Event':
-              metadata.event = value;
-              break;
-            case 'Site':
-              metadata.site = value;
-              break;
-            case 'Date':
-              metadata.date = value;
-              break;
-            case 'ECO':
-              metadata.eco = value;
-              break;
-            case 'Opening':
-              metadata.opening = value;
-              break;
-            case 'Round':
-              metadata.round = value;
-              break;
-            case 'WhiteElo':
-              metadata.whiteElo = value;
-              break;
-            case 'BlackElo':
-              metadata.blackElo = value;
-              break;
-          }
-        }
-      }
-
-      // Validate required fields
-      if (!metadata.white || !metadata.black || !metadata.result) {
-        return null;
-      }
-
-      return {
-        metadata: metadata as ChessGame,
-        pgn: pgnBlock,
-      };
-    } catch (error) {
-      console.error('Error parsing game:', error);
-      return null;
-    }
-  }
-
-  /**
    * Get list of available player names
    */
   async getPlayerNames(): Promise<string[]> {
@@ -188,7 +68,6 @@ class ChessDataService {
    */
   clearCache(): void {
     this.playersCache = null;
-    this.gamesCache.clear();
   }
 }
 

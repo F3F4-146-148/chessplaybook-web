@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { OpponentName } from '../components/OpponentName';
 import { Helmet } from 'react-helmet-async';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import env from '@/config/env';
@@ -16,8 +17,12 @@ interface RatingInfo {
 
 interface GameSummary {
   id: string;
-  white: { username: string; rating: number };
-  black: { username: string; rating: number };
+  /** The profile owner's side, from the server (absent from an older server). */
+  ownerColor?: 'white' | 'black';
+  /** `rating` null: the player had no rating in this time control (#440). */
+  /** `profile`: the page to link to, null for a guest or a deleted account (absent from an older server). */
+  white: { username: string; rating: number | null; profile?: string | null };
+  black: { username: string; rating: number | null; profile?: string | null };
   result: string;
   endReason: string;
   timeControl: { initial: number; increment: number; category: string };
@@ -74,10 +79,6 @@ function Initials({ name }: { name: string }) {
     ? parts[0][0] + parts[1][0]
     : name.slice(0, 2);
   return <span className="text-2xl font-bold uppercase">{letters}</span>;
-}
-
-function isFederatedId(name: string): boolean {
-  return /^(Google|Facebook|SignInWithApple)_/.test(name);
 }
 
 const TIME_CONTROL_ORDER = ['bullet', 'blitz', 'rapid', 'classical', 'puzzle'];
@@ -281,7 +282,11 @@ export default function PlayerProfile() {
               {profile.recentGames.length > 0 ? (
                 <div className="space-y-1.5">
                   {profile.recentGames.map(game => {
-                    const isWhite = game.white.username === profile.username;
+                    // The side is read from the account behind it when the server says so: a game keeps the
+                    // name it was played under, which is not always the account's name today.
+                    const isWhite = game.ownerColor
+                      ? game.ownerColor === 'white'
+                      : game.white.username === profile.username;
                     const opponent = isWhite ? game.black : game.white;
                     const won =
                       (isWhite && game.result === '1-0') ||
@@ -298,17 +303,8 @@ export default function PlayerProfile() {
                       <div key={game.id} className="flex items-center gap-2 py-1.5 text-sm border-b border-border/50 last:border-0">
                         <span className={`font-bold w-5 text-center ${resultCls}`}>{resultLabel}</span>
                         <span className="text-muted-foreground">{isWhite ? '♔' : '♚'}</span>
-                        {isFederatedId(opponent.username) ? (
-                          <span className="text-muted-foreground truncate">Anonymous</span>
-                        ) : (
-                          <Link
-                            to={`/player/${opponent.username}`}
-                            className="hover:text-link transition-colors truncate"
-                          >
-                            {opponent.username}
-                          </Link>
-                        )}
-                        <span className="text-xs text-muted-foreground">({opponent.rating})</span>
+                        <OpponentName username={opponent.username} profile={opponent.profile} className="truncate" />
+                        {opponent.rating !== null && <span className="text-xs text-muted-foreground">({opponent.rating})</span>}
                         <span className="text-xs px-1 py-0.5 rounded bg-muted text-muted-foreground capitalize ml-auto">
                           {game.timeControl.category}
                         </span>

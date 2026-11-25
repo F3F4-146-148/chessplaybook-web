@@ -14,7 +14,7 @@ import env from '@/config/env';
 
 const BASE = `${env.apiBaseUrl}/api/puzzles`;
 
-export type SessionSelection = 'adaptive' | 'weak_areas' | 'failed_review' | 'random';
+export type SessionSelection = 'adaptive' | 'weak_areas' | 'failed_review' | 'random' | 'my_games';
 export type SessionStatus = 'active' | 'completed' | 'abandoned';
 export type SessionArea = 'tactics' | 'middlegame' | 'endgame';
 
@@ -57,6 +57,8 @@ export interface PuzzleSession {
   rated: boolean;
   /** The pattern a replay run is limited to, or null (#109). */
   theme?: string | null;
+  /** The one game a `my_games` run is limited to, or null (#510). */
+  gameHash?: string | null;
   status: SessionStatus;
   createdAt: string;
   endedAt: string | null;
@@ -128,6 +130,8 @@ export interface StartSessionInput {
   rated?: boolean;
   /** A motif, for a `failed_review` run only (#109). */
   theme?: string | null;
+  /** One game's puzzles, for a `my_games` run only (#510). The server sets the length. */
+  gameHash?: string | null;
 }
 
 export function startSession(input: StartSessionInput): Promise<PuzzleSession> {

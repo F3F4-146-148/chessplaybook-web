@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Flag, ListChecks, Play } from 'lucide-react';
 import type { SelectionOption, SessionArea, SessionSelection } from '../services/PuzzleSessionApi';
 import { CardListbox, LABEL_INSET_X } from './CardListbox';
@@ -45,6 +46,8 @@ export const SELECTION_LABEL: Record<string, string> = {
      expectation by the evidence rule), which is rarely a diagnosed weakness. */
   weak_areas: 'Needs attention',
   failed_review: 'Missed before',
+  /* Own-game puzzles (#245 C4): the player's own puzzles, all three kinds (C0 decision B). */
+  my_games: 'From my games',
 };
 
 export const AREA_LABEL: Record<string, string> = {
@@ -631,7 +634,11 @@ export function PuzzleRunSetupCard({
             className="text-center leading-tight text-muted-foreground"
             style={{ fontSize: 'calc(var(--card-type) * 0.86)' }}
           >
-            Complete a run and see how its performance rating ranks against others.
+            {/* "From my games" needs games first: the same line, so the card does not change shape,
+                points to the page that makes them (#245 C4). */}
+            {shownSelection === 'my_games'
+              ? <Link to="/puzzles/from-games" className="text-link hover:underline" data-testid="run-from-games">Make puzzles from your games</Link>
+              : 'Complete a run and see how its performance rating ranks against others.'}
           </span>
         )}
         </div>

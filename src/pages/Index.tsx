@@ -32,6 +32,7 @@ import routeMeta from '@/config/route-meta.json';
 import { HOME_V2_LIVE } from '@/design/designFlags';
 import { GoldGradientDefs } from '@/features/home/GoldGradientDefs';
 import { HomeStage } from '@/features/home/HomeStage';
+import { YOUTUBE_CHANNEL_URL } from '@/config/social';
 
 // Below the first screen, so out of the homepage's first chunk (plan S5).
 // Built at deploy time with the page (prerender plan F1): loaded before the built homepage is taken over, so it
@@ -54,7 +55,8 @@ const Index = () => {
           "name": "Chess Playbook",
           "url": "https://www.chessplaybook.com",
           "description": routeMeta[""].description,
-          "sameAs": []
+          // our accounts elsewhere, so search engines tie them to the site (2026-11-25)
+          "sameAs": [YOUTUBE_CHANNEL_URL]
         })}</script>
         {/* No `WebSite` block here. index.html already carries one, with its
             description patched from this same route-meta entry by

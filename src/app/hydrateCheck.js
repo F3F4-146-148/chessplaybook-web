@@ -18,7 +18,7 @@ export function shouldHydrate(search, routeKey, storage) {
   var params = (search || '').replace(/^\?/, '').split('&');
   for (var i = 0; i < params.length; i++) {
     var name = decodeURIComponent(params[i].split('=')[0] || '');
-    if (name && !/^(utm_.+|gclid|gbraid|wbraid|fbclid|msclkid|_gl)$/.test(name)) return false;
+    if (name && !/^(utm_.+|gad_.+|gclid|gbraid|wbraid|fbclid|msclkid|_gl)$/.test(name)) return false;
   }
   // A page's own rule: what only this visitor has saved that changes its first render (B0, 2026-11-19, each key read
   // in a state initialiser or at render). The board theme is an inline style computed at render, and React does not

@@ -6,6 +6,7 @@ import { BoardControls } from '@/components/chess/BoardControls';
 import { useBoardTheme } from '@/hooks/useBoardTheme';
 import { usePuzzleBoard } from '../hooks/usePuzzleBoard';
 import { PuzzleLiveCard } from './PuzzleLiveCard';
+import { AUTO_ADVANCE_AFTER_LINE_MS, AUTO_ADVANCE_MAX_MS, AUTO_ADVANCE_MS } from './puzzleCardVoice';
 import { PuzzleSettingsCard } from './PuzzleSettingsCard';
 import { PuzzleAppearanceCard } from './PuzzleAppearanceCard';
 import { PuzzleStandingsCard } from './PuzzleStandingsCard';
@@ -13,10 +14,14 @@ import { AboutTrainerText, PuzzleAboutPanel } from './PuzzleAboutPanel';
 import { ABOUT_TRAINER_TITLE } from '../aboutTrainer';
 import { PuzzleAnalysisCard } from './PuzzleAnalysisCard';
 import { PuzzleRunSetupCard } from './PuzzleRunSetupCard';
+import { ProgressMomentCard } from './ProgressMomentCard';
+import { MASTER_VOICE_KEY } from '@/features/master/useMasterVoice';
+import { PROGRESS_MOMENT_LIVE } from '@/design/designFlags';
+import { MOMENT_AUTO_ADVANCE_MAX_MS, MOMENT_LOOK_MS } from '../lib/progressMoment';
 import { usePuzzleSettings } from '../hooks/usePuzzleSettings';
 import { usePuzzleRecord } from '../hooks/usePuzzleRecord';
 import { usePuzzleRun } from '../hooks/usePuzzleRun';
-import { resolveLinkedFilters, linkedRunSelection, linkedRunTheme } from '../lib/linkedFilters';
+import { resolveLinkedFilters, linkedRunGame, linkedRunSelection, linkedRunTheme } from '../lib/linkedFilters';
 import { missedOnLabel } from '../services/trainingRecord';
 import { usePlan } from '../hooks/usePlan';
 import { usePlanOffer } from '../hooks/usePlanOffer';
@@ -85,7 +90,9 @@ export default function TrainerLayoutSkeleton() {
   const [linkedRun] = useState(() => linkedRunSelection(new URLSearchParams(addressSearch())));
   /* ...and a Patterns row's "Replay" limits that run to its pattern (#109). */
   const [linkedTheme] = useState(() => linkedRunTheme(new URLSearchParams(addressSearch())));
-  const run = usePuzzleRun(linkedRun, linkedTheme);
+  /* ...and a Game report's "Solve them" starts a run of that game's puzzles (#510). */
+  const [linkedGame] = useState(() => linkedRunGame(new URLSearchParams(addressSearch())));
+  const run = usePuzzleRun(linkedRun, linkedTheme, linkedGame);
   /*
     A LINK THAT NAMES A FILTER WINS OVER THE REMEMBERED ONE (C9).
 
@@ -422,7 +429,7 @@ export default function TrainerLayoutSkeleton() {
     deliberate act would: the offer is made once, ever, and a player with Auto next on would
     otherwise see it for 1.2 seconds and lose it.
   */
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const reminderOffer = useReminderOffer({
     status: puzzle.puzzleState.status,
     puzzleId: puzzle.puzzleState.puzzle?.id ?? null,
@@ -430,7 +437,17 @@ export default function TrainerLayoutSkeleton() {
     confirmedSolves: record.progress.totalSolved,
   });
 
-  const AUTO_ADVANCE_MS = 1200;
+  const autoAdvanceArmedAtRef = useRef(0);
+  // the Master has a line still to say on the live card (#401 B4)
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  /* A RETURNING PLAYER, for the Master's "Welcome back." (#401 C2): someone who solved on an earlier day. Read from
+     the first last-played date this page sees (the browser's copy, then the server's), before today's first result
+     overwrites it with today; fixed once known. */
+  const returningRef = useRef<boolean | null>(null);
+  if (returningRef.current === null && record.progress.lastPlayed) {
+    returningRef.current = record.progress.totalSolved > 0
+      && record.progress.lastPlayed < new Date().toISOString().split('T')[0];
+  }
   const [autoAdvanceCancelled, setAutoAdvanceCancelled] = useState(false);
   const resumedResolvedIdRef = useRef<string | null>(null);
   useEffect(() => { setAutoAdvanceCancelled(false); }, [puzzle.puzzleState.puzzle?.id]);
@@ -444,6 +461,8 @@ export default function TrainerLayoutSkeleton() {
     if (puzzle.puzzleState.status === 'correct') resumedResolvedIdRef.current = id;
   }, [puzzle.puzzleState.puzzle?.id, puzzle.puzzleState.status]);
 
+  const momentOnScreen = PROGRESS_MOMENT_LIVE && !!record.moment
+    && record.moment.puzzleId === (puzzle.puzzleState.puzzle?.id ?? null) && puzzle.puzzleState.status === 'correct';
   const autoAdvanceArmed = settings.autoAdvance
     && !autoAdvanceCancelled
     && puzzle.puzzleState.status === 'correct'
@@ -461,14 +480,32 @@ export default function TrainerLayoutSkeleton() {
        just moved. */
     window.addEventListener('pointerdown', cancel);
     window.addEventListener('keydown', cancel);
-    const timer = window.setTimeout(() => { void puzzle.nextPuzzle(); }, AUTO_ADVANCE_MS);
+    autoAdvanceArmedAtRef.current = performance.now();
     return () => {
-      window.clearTimeout(timer);
       window.removeEventListener('pointerdown', cancel);
       window.removeEventListener('keydown', cancel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAdvanceArmed]);
+  /*
+    THE NEXT PUZZLE WAITS FOR THE MASTER (#401 B4): 1.2 s after the solve cut his solved line on most solves
+    (measured in the speech simulator: 16 of 21). It now moves on 1.2 s after the solve or a short pause after his
+    line ends, whichever is later, and never later than AUTO_ADVANCE_MAX_MS after the solve (a recording that never
+    loads must not hold the page).
+  */
+  useEffect(() => {
+    if (!autoAdvanceArmed) return;
+    const since = performance.now() - autoAdvanceArmedAtRef.current;
+    /* #418: a moment holds the page longer (it is the point of it): until he has finished, plus MOMENT_LOOK_MS to
+       look at the graph, never past its own cap. */
+    const cap = momentOnScreen ? MOMENT_AUTO_ADVANCE_MAX_MS : AUTO_ADVANCE_MAX_MS;
+    const after = momentOnScreen ? MOMENT_LOOK_MS : AUTO_ADVANCE_AFTER_LINE_MS;
+    const wait = voiceBusy
+      ? cap - since
+      : Math.max(AUTO_ADVANCE_MS - since, since > AUTO_ADVANCE_MS ? Math.min(after, cap - since) : 0);
+    const timer = window.setTimeout(() => { void puzzle.nextPuzzle(); }, Math.max(0, wait));
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAdvanceArmed, voiceBusy, momentOnScreen]);
 
   /*
     THE EXPLANATION PANEL (owner, 2026-10-21): opened from the live card's
@@ -481,6 +518,30 @@ export default function TrainerLayoutSkeleton() {
     explained, and the answer is cached at the edge for a day anyway.
   */
   const currentPuzzleId = puzzle.puzzleState.puzzle?.id ?? null;
+  /* #418: the progress moment this solve brought, while its puzzle is on the board solved and not explored. Until
+     the next puzzle starts it replaces "Set up a run"; the live card says it. */
+  const shownMoment = PROGRESS_MOMENT_LIVE && record.moment && record.moment.puzzleId === currentPuzzleId
+    && puzzle.puzzleState.status === 'correct' && !puzzle.exploreAt ? record.moment : null;
+  const momentPending = PROGRESS_MOMENT_LIVE && record.momentPendingFor != null && record.momentPendingFor === currentPuzzleId;
+  /* #418 C6: measured once per moment; the next puzzle after it says how long it stayed and whether he had finished. */
+  const momentShownRef = useRef<{ tryId: string; kind: string; at: number } | null>(null);
+  useEffect(() => {
+    if (!shownMoment || momentShownRef.current?.tryId === shownMoment.tryId) return;
+    momentShownRef.current = { tryId: shownMoment.tryId, kind: shownMoment.kind, at: performance.now() };
+    let voiceOn = false;
+    try { voiceOn = window.localStorage.getItem(MASTER_VOICE_KEY) === '1'; } catch { /* unknown: off */ }
+    logGA4Event({ name: 'puzzle_moment_shown', params: {
+      kind: shownMoment.kind, why: shownMoment.why, returning: shownMoment.returning === true, voice_on: voiceOn, lines: shownMoment.lines.length,
+    } });
+  }, [shownMoment]);
+  const nextPuzzleFromCard = useCallback(() => {
+    const shown = momentShownRef.current;
+    if (shownMoment && shown && shown.tryId === shownMoment.tryId) {
+      logGA4Event({ name: 'puzzle_moment_next', params: { kind: shown.kind, ms_shown: Math.round(performance.now() - shown.at), finished: !voiceBusy } });
+    }
+    return puzzle.nextPuzzle();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownMoment, voiceBusy, puzzle.nextPuzzle]);
   /* The game a puzzle made from a game came from (#245 B4); null for a corpus puzzle. */
   const gameLines = useMemo(() => gameCardLines(puzzle.puzzleState.puzzle), [puzzle.puzzleState.puzzle]);
   const [explain, setExplain] = useState<{ id: string; openedAt: number } | null>(null);
@@ -630,6 +691,7 @@ export default function TrainerLayoutSkeleton() {
           */
           <div
             ref={puzzle.attachWheel}
+            onPointerDownCapture={puzzle.puzzleState.wrongMove ? puzzle.onBoardPointerDown : undefined}
             data-skeleton-card="board"
             className="w-full"
             role="group"
@@ -645,6 +707,9 @@ export default function TrainerLayoutSkeleton() {
               check={puzzle.displayedCheck}
               onMove={puzzle.onBoardMove}
               themeId={currentTheme.id}
+              shapes={puzzle.wrongShapes}
+              brushes={puzzle.boardBrushes}
+              squareClasses={puzzle.wrongSquares}
             />
           </div>
         }
@@ -671,6 +736,7 @@ export default function TrainerLayoutSkeleton() {
             slot('live', 'puzzleLive', (
               <PuzzleLiveCard
                 status={puzzle.puzzleState.status}
+                lastMoveWrong={puzzle.puzzleState.lastMoveWrong}
                 message={puzzle.puzzleState.message}
                 rating={puzzle.puzzleState.puzzle?.rating}
                 isDailyPuzzle={puzzle.isDaily}
@@ -680,6 +746,11 @@ export default function TrainerLayoutSkeleton() {
                 exploring={Boolean(puzzle.exploreAt)}
                 isMidSolve={puzzle.isMidSolve}
                 puzzleId={puzzle.puzzleState.puzzle?.id ?? null}
+                onVoiceBusyChange={setVoiceBusy}
+                moment={shownMoment}
+                momentPending={momentPending}
+                playerRating={isRatingProvisional(record.progress) ? null : record.progress.estimatedRating}
+                returning={returningRef.current === true}
                 gameLines={gameLines}
                 announcement={announcement}
                 /* "Next Puzzle" inside a run, "New Puzzle" outside one. */
@@ -726,7 +797,7 @@ export default function TrainerLayoutSkeleton() {
                   void puzzle.nextPuzzle({ theme: undefined, area: undefined });
                 }}
                 loading={puzzle.loading}
-                onNextPuzzle={puzzle.nextPuzzle}
+                onNextPuzzle={nextPuzzleFromCard}
                 onShowSolution={puzzle.puzzleActions.showSolution}
                 /* Offline practice puzzles have no explanation to fetch. */
                 /* A puzzle made from a game has no explanation (#245 B2): no button, so the
@@ -734,7 +805,7 @@ export default function TrainerLayoutSkeleton() {
                 onExplain={puzzle.serverUnreachable || isGeneratedPuzzleId(currentPuzzleId) ? undefined : openExplanation}
               />
             ), 2, true),
-            slot('run-setup', 'puzzleRunSetup', (
+            slot('run-setup', 'puzzleRunSetup', shownMoment ? <ProgressMomentCard moment={shownMoment} offerAccount={!user && !authLoading} /> : (
               <PuzzleRunSetupCard
                 options={run.options}
                 areas={run.areas}

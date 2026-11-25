@@ -52,7 +52,7 @@ export const featureCards: FeatureCard[] = [
     icon: GraduationCap,
     title: 'Opening Trainer',
     shortTitle: 'Openings',
-    description: 'Learn the London, French or Slav move by move, then play it from memory.',
+    description: 'Learn the London, Colle, French, Caro-Kann, Slav or Najdorf move by move, then play it from memory.',
     cta: 'Start learning',
     href: '/openings',
     gradient: 'from-feature-openings/20 to-feature-openings/5',

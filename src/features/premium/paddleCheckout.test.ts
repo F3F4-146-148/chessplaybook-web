@@ -3,7 +3,28 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 vi.mock('@/config/env', () => ({ default: { apiBaseUrl: '' } }));
-import { isFullPriceCountry, previewPlans, REDUCED_CURRENCIES } from './paddleCheckout';
+import { canAddPassYear, isFullPriceCountry, previewPlans, REDUCED_CURRENCIES, type PremiumState } from './paddleCheckout';
+
+describe('another year for a one-year-pass holder (#467 Phase E)', () => {
+  const PASS: PremiumState = {
+    premium: true, kind: 'pass', status: 'pass', periodEndsAt: '2027-11-24 12:00:00.000', scheduledChange: null,
+    purchasePending: false, openSubscription: false, refund: { available: null, pending: false },
+  };
+  it('is offered to a pass holder the server would sell to', () => {
+    expect(canAddPassYear(PASS)).toBe(true);
+  });
+  it('is never offered where the server refuses: an open subscription (E6), or a backend that does not say', () => {
+    expect(canAddPassYear({ ...PASS, openSubscription: true })).toBe(false);
+    expect(canAddPassYear({ ...PASS, openSubscription: undefined })).toBe(false);
+  });
+  it('nor to a subscriber, to anyone without Premium, while a refund waits, or with given Premium that has no end', () => {
+    expect(canAddPassYear({ ...PASS, kind: 'subscription' })).toBe(false);
+    expect(canAddPassYear({ ...PASS, premium: false, kind: null })).toBe(false);
+    expect(canAddPassYear({ ...PASS, refund: { available: null, pending: true } })).toBe(false);
+    expect(canAddPassYear({ ...PASS, entitled: true, grant: { endsAt: null } })).toBe(false);
+    expect(canAddPassYear(null)).toBe(false);
+  });
+});
 
 const root = path.resolve(__dirname, '../../..');
 const table = JSON.parse(readFileSync(path.join(root, 'src/config/premium-local-prices.json'), 'utf8')).prices as

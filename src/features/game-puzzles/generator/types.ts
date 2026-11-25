@@ -80,7 +80,7 @@ export interface Thresholds {
   materialAccept: number;
   /** A position with more accepted first moves than this is not a puzzle. */
   maxAccepted: number;
-  /** Most solver moves in a solution line. */
+  /** Most solver moves in a solution line that is not a mate (a mate is played to the mate). */
   maxSolverMoves: number;
   /** Skip a candidate whose solver moved with less than this many seconds left (needs [%clk]). */
   lowClockSeconds: number;
@@ -101,6 +101,13 @@ export interface GeneratorSettings {
   players?: string[];
   /** The side to move in the puzzle. */
   color?: Side | 'any';
+  /**
+   * The player's own colour (own-game puzzles, decision A of C0). Set, the generator never makes the
+   * player's own blunder into a puzzle for the opponent (a punish whose solver is the opponent): none
+   * of D5's three kinds, so nothing serves it. That position is then read as an ordinary move, so the
+   * opponent missing the punishment becomes "your opponent missed".
+   */
+  perspective?: Side;
   /** By the full-move number of the puzzle position (proposal: 1-12, 13-35, 36+). */
   phase?: Phase | 'any';
   /** The piece that makes the first solution move. */
@@ -172,6 +179,12 @@ export interface GeneratedPuzzle {
     depth: number;
     multiPv: number;
   };
+  /**
+   * The engine's reply to the line's last solver move (UCI), or null when it has none (mate, no line).
+   * Not part of the puzzle: the server plays it to count the material once a capture is taken back,
+   * so a trade the opponent answers by recapturing is not "win material" (#510).
+   */
+  reply: string | null;
   /** Index of the game in the input, and a hash of its moves and headers. */
   game: { index: number; hash: string };
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePuzzleSession } from './usePuzzleSession';
 import {
   fetchSelectionOptions,
@@ -25,7 +25,12 @@ import type { PuzzleDraw } from './usePuzzleBoard';
  * mind. Collapsing a block moves WHEN its data is fetched, not just where it
  * sits - and the same is true of moving one into a component.
  */
-export function usePuzzleRun(initialSelection: SessionSelection | null = null, initialTheme: string | null = null) {
+export function usePuzzleRun(
+  initialSelection: SessionSelection | null = null,
+  initialTheme: string | null = null,
+  /** #510: a link's game; its run starts on arrival. */
+  linkedGame: string | null = null,
+) {
   const { session, loading, start, end, refresh, reload } = usePuzzleSession();
   const [options, setOptions] = useState<SelectionOption[] | undefined>();
   const [areas, setAreas] = useState<readonly string[] | undefined>();
@@ -65,6 +70,31 @@ export function usePuzzleRun(initialSelection: SessionSelection | null = null, i
 
   const running = session != null && session.status === 'active';
   const ended = session != null && session.status !== 'active';
+
+  /*
+    #510: "SOLVE THEM" ON A GAME REPORT STARTS THAT GAME'S RUN ON ARRIVAL. The click was the choice,
+    so no run card stands in between. A run of this game already going is continued; any other run
+    is ended first (the server allows one at a time, and adopting it would land the player in a run
+    they did not ask for). Once: the link leaves the address so a reload does not start it again.
+  */
+  const linkedStarted = useRef(false);
+  useEffect(() => {
+    if (!linkedGame || loading || linkedStarted.current) return;
+    linkedStarted.current = true;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('run');
+      url.searchParams.delete('game');
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    } catch { /* the address is only tidied */ }
+    if (session?.status === 'active' && session.gameHash === linkedGame) return;
+    void (async () => {
+      setStarting(true);
+      if (session?.status === 'active') await end();
+      await start({ total: 1, selection: 'my_games', area: null, rated: false, gameHash: linkedGame });
+      setStarting(false);
+    })();
+  }, [linkedGame, loading, session, start, end]);
 
   const startRun = useCallback(async (
     input: { total: number; selection: SessionSelection; area: SessionArea | null },

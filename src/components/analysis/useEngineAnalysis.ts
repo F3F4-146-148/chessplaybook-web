@@ -9,7 +9,7 @@
  */
 import { PV_COUNT_KEY } from '@/services/analysisStorageKeys';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { analysisService } from '@/services/AnalysisService';
+import { analysisService, terminalDescription } from '@/services/AnalysisService';
 import type { AnalysisResult } from '@/types/analysis';
 import { userPreferencesService } from '@/services/UserPreferencesService';
 import { logGA4Event } from '@/services/analytics';
@@ -29,6 +29,13 @@ export function useEngineAnalysis(fen: string, { singleLineOnNarrowWindows = tru
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [currentRequestedFen, setCurrentRequestedFen] = useState<string>('');
   const currentRequestedFenRef = useRef<string>(''); // Track current FEN in ref for callback access
+  /*
+    THE POSITION ON THE BOARD IS OVER (#415). A checkmate, a stalemate or a draw has no move to search: Stockfish
+    prints no line and answers `bestmove (none)`, so the card waited on "Calculating…" for ever (a team member, 2026-11-22,
+    a mate on /analysis). The board alone says the game is over, so the result is shown at once and the engine is
+    not asked. Kept in a ref so that late output from the previous position's search, still running, cannot replace it.
+  */
+  const terminalFenRef = useRef<string | null>(null);
 
   // Initialize PV count from localStorage or default to 1 for new users
   // On mobile: always 1 PV line (screen space + performance)
@@ -170,6 +177,8 @@ export function useEngineAnalysis(fen: string, { singleLineOnNarrowWindows = tru
         setIsAnalyzing(false);
         return;
       }
+      // A finished position shows its result; nothing the engine sends (an earlier position's search) replaces it.
+      if (terminalFenRef.current) return;
 
       // Accept all results - AnalysisService handles debouncing/cancellation
       setResult(analysisResult);
@@ -200,7 +209,7 @@ export function useEngineAnalysis(fen: string, { singleLineOnNarrowWindows = tru
     */
     const unsubscribeAvailable = analysisService.subscribeEngineAvailable(() => {
       const fenToResume = currentRequestedFenRef.current;
-      if (!fenToResume || !analysisService.isAnalysisEnabled()) return;
+      if (!fenToResume || !analysisService.isAnalysisEnabled() || terminalFenRef.current) return;
       setResult(null);
       setCurrentRequestedFen('');
       setIsAnalyzing(true);
@@ -234,6 +243,17 @@ export function useEngineAnalysis(fen: string, { singleLineOnNarrowWindows = tru
     if (currentRequestedFen && normalizedNewFen === normalizedCurrentFen) {
       return; // Position hasn't changed, skip analysis
     }
+
+    const ending = terminalDescription(fen);
+    if (ending) {
+      terminalFenRef.current = fen;
+      setResult(terminalResult(fen, ending));
+      setIsAnalyzing(false);
+      setCurrentRequestedFen(fen);
+      currentRequestedFenRef.current = fen;
+      return;
+    }
+    terminalFenRef.current = null;
 
     // Check cache first - if we have a cached result, use it immediately
     const cachedResult = analysisService.getCachedResult(fen);
@@ -273,13 +293,33 @@ export function useEngineAnalysis(fen: string, { singleLineOnNarrowWindows = tru
   */
   const isHeldElsewhere = evaluation === 'OTHER_TAB';
   const isError = evaluation === 'ERROR' || evaluation === 'TIMEOUT' || isHeldElsewhere;
-  const isPositive = evaluation.startsWith('+') || (evaluation.startsWith('M') && !evaluation.startsWith('M-'));
+  const isPositive = evaluation.startsWith('+') || (evaluation.startsWith('M') && !evaluation.startsWith('M-'))
+    || (evaluation === 'TERMINAL' && /White wins/.test(result?.principalVariation ?? ''));
   const isMate = evaluation.startsWith('M');
   const isWaiting = !result && isEnabled;
+  /* The game is over on the board: `result.principalVariation` says how ("Checkmate. White wins"), `gameResult` is the
+     score to show where the evaluation goes ("1-0", "0-1", "½-½"). */
+  const isTerminal = evaluation === 'TERMINAL';
+  const gameResult = isTerminal ? scoreOf(result?.principalVariation ?? '') : null;
 
   return {
     result, isEnabled, isAnalyzing, isWaiting, pvCount,
-    evaluation, isHeldElsewhere, isError, isPositive, isMate,
+    evaluation, isHeldElsewhere, isError, isPositive, isMate, isTerminal, gameResult,
     setPvCount: handlePvCountChange, toggle: handleToggle,
   };
+}
+
+/** The result shown for a finished position, with the bar's win/draw/loss at the result (#415). */
+function terminalResult(fen: string, ending: string): AnalysisResult {
+  const score = scoreOf(ending);
+  const wdl = score === '1-0' ? { win: 1000, draw: 0, loss: 0 }
+    : score === '0-1' ? { win: 0, draw: 0, loss: 1000 }
+      : { win: 0, draw: 1000, loss: 0 };
+  return { fen, evaluation: 'TERMINAL', principalVariation: ending, depth: 0, wdl };
+}
+
+function scoreOf(ending: string): string {
+  if (/White wins/.test(ending)) return '1-0';
+  if (/Black wins/.test(ending)) return '0-1';
+  return '½-½';
 }

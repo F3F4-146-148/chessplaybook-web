@@ -39,7 +39,7 @@ import {
 import { startOf, useMatchBroadcast } from '@/features/world-championship/useMatchBroadcast';
 import { googleCalendarUrl, matchCalendarEvents } from '@/features/world-championship/matchCalendar';
 import { logGA4Event } from '@/services/analytics';
-import { MatchVideoInCard, ShowMatchVideo } from '@/features/world-championship/MatchVideo';
+import { MatchVideoInCard, ShowMatchVideo, TRAILER, gameVideo } from '@/features/world-championship/MatchVideo';
 import type { LiveGame } from '@/types/LiveBroadcast';
 
 function isMatchGame(g: LiveGame): boolean {
@@ -69,9 +69,11 @@ export default function WorldChampionship2026Game() {
   /* FIDE's trailer in the upper half of the Moves card (owner, 2026-11-20); Hide gives the moves the whole card.
      Kept here so it carries from the waiting view to the live one. */
   const [videoShown, setVideoShown] = useState(true);
+  /* This game's broadcast (live, then the replay) once FIDE has published it, else the trailer (owner, 2026-11-23). */
+  const video = (n ? gameVideo(n, broadcast.score?.games.get(n)?.result) : null) ?? TRAILER;
   const movesMedia = videoShown
-    ? { content: <MatchVideoInCard onHide={() => setVideoShown(false)} />, half: true }
-    : { content: <ShowMatchVideo onShow={() => setVideoShown(true)} />, half: false };
+    ? { content: <MatchVideoInCard video={video} onHide={() => setVideoShown(false)} />, half: true }
+    : { content: <ShowMatchVideo video={video} onShow={() => setVideoShown(true)} />, half: false };
 
   const title = n
     ? `Game ${n}: Gukesh vs Sindarov, World Championship 2026 | Chess Playbook`
@@ -171,7 +173,9 @@ export default function WorldChampionship2026Game() {
       <LiveRoundGame
         key={round.roundId}
         roundId={round.roundId}
-        pick={(games) => games.find(isMatchGame)}
+        /* Not before its first move: Lichess pairs every round ahead with Result "*" (2026-11-23), which read as
+           "Live" with no moves; until then the page keeps the waiting view and the poll goes on. */
+        pick={(games) => games.find((g) => isMatchGame(g) && (g.moveCount > 0 || !g.isOngoing))}
         goTo={goTo}
         waiting={beforeGame}
         loadingView={beforeGame}
@@ -183,7 +187,7 @@ export default function WorldChampionship2026Game() {
         }}
         info={(game) => ({
           headline: `Game ${n}`,
-          lines: [scoreLine, [game.eco, game.opening !== 'Unknown Opening' ? game.opening : ''].filter(Boolean).join(' · ')],
+          lines: [scoreLine, [game.eco, game.opening !== 'Unknown Opening' ? game.opening : ''].filter((x) => x && x !== '?').join(' · ')],
         })}
       />
     </>

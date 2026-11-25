@@ -25,6 +25,8 @@ import env from '@/config/env';
 import SeoHead from '@/components/SeoHead';
 import RouteHeading from '@/components/RouteHeading';
 import { readPositionDeepLink } from '@/lib/positionDeepLink';
+import { positionFromFen } from '@/components/chess/chessLogic';
+import { makeFen } from 'chessops/fen';
 import { Workspace, WorkspaceList, type WorkspaceMode } from '@/components/workspace/Workspace';
 import { slot, footSlot } from '@/components/workspace/slots';
 import { useChrome } from '@/app/SiteShell';
@@ -385,8 +387,33 @@ const Analysis = () => {
   const handleLoadPgn = async () => {
     const trimmed = pgnInput.trim();
     if (!trimmed) {
-      setImportError('Please paste a PGN or game link');
+      setImportError('Please paste a PGN, a FEN or a game link');
       return;
+    }
+
+    /*
+      A FEN OPENS ON THE ANALYSIS BOARD (#415's follow-up, owner 2026-11-22: "the box can't read FENs, only accepts
+      PGN"). A position is not a game, so it goes to the live board the way a position link does: through `?fen=`,
+      which the board already follows, and the address can be shared. The side to move is at the bottom. A FEN with
+      only the pieces (no side to move) is completed with White to move, as chessops reads it.
+    */
+    if (!trimmed.includes('\n') && trimmed.includes('/')) {
+      const position = positionFromFen(trimmed);
+      if (position) {
+        setImportError(null);
+        setPgnInput('');
+        setMode('live');
+        // The FEN as chessops completes it (a FEN of only the pieces gets White to move, no castling): the live
+        // board reads it with chess.js, which refuses a partial FEN, and the page went blank on one.
+        const params = new URLSearchParams({ fen: makeFen(position.chess.toSetup()), orientation: position.turnColor });
+        navigate(`/analysis?${params.toString()}`);
+        return;
+      }
+      // Eight ranks and nothing else: it was meant as a FEN, so say that rather than the PGN reader's error.
+      if (/^[^\s/]*(\/[^\s/]*){7}(\s|$)/.test(trimmed)) {
+        setImportError('That FEN is not a valid position. Check it and paste it again.');
+        return;
+      }
     }
 
     // Detect Lichess game URL
@@ -678,8 +705,8 @@ function ImportCard({
         <textarea
           value={pgnInput}
           onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => { setPgnInput(e.target.value); setImportError(null); }}
-          placeholder="Paste PGN or game link..."
-          aria-label="PGN or game link"
+          placeholder="Paste a PGN, a FEN or a game link..."
+          aria-label="PGN, FEN or game link"
           className="w-full shrink-0 resize-none rounded-[0.4em] border border-border bg-background p-[0.5em] font-mono text-[0.86em] placeholder-muted-foreground/50 focus:border-primary focus:outline-none"
           /* No scroll bar in a card (contract §4, owner): a long paste shows its
              last lines, and the box still keeps the caret in view while typing. */

@@ -97,13 +97,17 @@ describe('buildReportView on the fixture game', () => {
     expect(view({ summary: null }).critical).toBeNull();
     expect(view({ summary: { ...SUMMARY_LONG, criticalMoveIndex: 0 } }).critical).toMatchObject({ position: 1, moveNumber: 1 });
   });
-  it('names the critical move by its own class, never "turning point" (owner, 22.Be3)', () => {
-    expect(v.critical!.label).toBe("Go to move 30: Jimenez Morales's blunder Rd8");
-    const inaccuracy = analysis.classifiedMoves.find(m => m.classification === 'mistake')!;
-    expect(view({ summary: { ...SUMMARY_LONG, criticalMoveIndex: inaccuracy.moveIndex } }).critical!.label)
-      .toMatch(/^Go to move \d+: \S.*'s mistake \S+$/);
-    // A plain best move: the server's own words.
-    expect(view({ summary: { ...SUMMARY_LONG, criticalMoveIndex: 0 } }).critical!.label).toBe('Go to move 1, the critical moment');
-    for (const c of [v.critical!.label]) expect(c).not.toMatch(/turning point/);
+  it('names the critical move by the mover and the move, "brilliant" only when it is (#379), never "turning point"', () => {
+    // Not brilliant: no class word, whatever the move's class (the critical move is a good reply since #379).
+    expect(v.critical!.label).toBe("Go to move 30: Jimenez Morales's Rd8");
+    expect(view({ summary: { ...SUMMARY_LONG, criticalMoveIndex: 0 } }).critical!.label).toMatch(/^Go to move 1: \S.*'s \S+$/);
+    // Brilliant: said.
+    const brilliant = {
+      ...analysis,
+      classifiedMoves: analysis.classifiedMoves.map(m => m.moveIndex === 59 ? { ...m, classification: 'brilliant' as const } : m),
+    };
+    expect(view({ analysis: brilliant }).critical!.label)
+      .toBe("Go to move 30: Jimenez Morales's brilliant Rd8");
+    for (const c of [v.critical!.label]) expect(c).not.toMatch(/turning point|critical moment/);
   });
 });

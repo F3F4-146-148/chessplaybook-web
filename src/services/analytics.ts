@@ -169,6 +169,9 @@ type GA4Event =
   | { name: 'champion_challenge_explanation_opened'; params: { champion: string; quality: string } }
   | { name: 'analysis_enabled'; params: { source: 'gameviewer' | 'puzzle' | 'other' } }
   | { name: 'puzzle_completed'; params: { puzzle_id: string; first_try: boolean } }
+  // #417: the arrow for the reply that refutes a wrong move. reason: shown, timeout (no answer by the cap), no_reply
+  // (no move in the position, or the engine unavailable); ms from the wrong move.
+  | { name: 'puzzle_refutation'; params: { puzzle_id: string; shown: boolean; reason: 'shown' | 'timeout' | 'no_reply'; ms: number } }
   // ── /puzzles funnel (PUZZLES_PAGE_IMPLEMENTATION_PLAN A2 / PZ-023) ───────
   // `puzzle_completed` above fires ONLY on a solve, so before these three a
   // failed attempt emitted nothing at all and "did not load", "did not
@@ -196,6 +199,13 @@ type GA4Event =
      product genuinely reports belongs in the contract rather than surviving on a
      technicality. */
   | { name: 'puzzle_result_recorded'; params: { puzzle_id: string; puzzle_index: number; solved: boolean; frozen: boolean; frozen_reason?: string } }
+  /* #418 C6: the progress moment shown, and the next puzzle after it (how long the player stayed on it, whether he
+     had finished). Not a test of whether praise works: the players who get one are the ones doing well. */
+  | { name: 'puzzle_moment_shown'; params: { kind: string; why: string; returning: boolean; voice_on: boolean; lines: number } }
+  | { name: 'puzzle_moment_next'; params: { kind: string; ms_shown: number; finished: boolean } }
+  | { name: 'puzzle_moment_signup'; params: { kind: string; rating: number } }
+  /* A new browser's fifth puzzle attempt on its first day (funnel stage 3b). */
+  | { name: 'first_day_five_puzzles'; params: Record<string, never> }
   // ── Auth session loss (2026-08-12) ──────────────────────────────────────
   // THIS EVENT EXISTS BECAUSE THE BUG COULD NOT BE REPRODUCED. Signed-in
   // players intermittently had their solves filed under their guest identity —
@@ -284,7 +294,7 @@ type GA4Event =
   // The explanation panel on /puzzles (2026-10-21). `outcome` separates a
   // solver checking why it worked from one who gave up.
   | { name: 'puzzle_explanation_opened'; params: { outcome: 'solved' | 'revealed'; puzzle_rating: number; in_run: boolean } }
-  | { name: 'puzzle_explanation_result'; params: { status: 'ready' | 'pending' | 'unavailable' } }
+  | { name: 'puzzle_explanation_result'; params: { status: 'ready' | 'pending' | 'limited' | 'unavailable' } }
   | { name: 'puzzle_explanation_closed'; params: { ms_open: number; via: 'close' | 'next_puzzle' } }
   /** B3: the "About this trainer" panel opened from the Go to card. */
   | { name: 'puzzle_about_opened'; params: { in_run: boolean } }
@@ -302,19 +312,24 @@ type GA4Event =
   // Focus mode is DESKTOP ONLY by construction (`onToggleFocusMode` is
   // undefined below the lg breakpoint), so a zero here is a statement about
   // desktop visitors and must not be read as "nobody uses it" site-wide.
-  | { name: 'focus_mode_toggled'; params: { enabled: boolean; surface: 'puzzles' | 'play_online' | 'play_computer' | 'analysis' | 'champion_challenge' | 'champion_game' | 'live_game' | 'opening_trainer' } }
+  | { name: 'focus_mode_toggled'; params: { enabled: boolean; surface: 'puzzles' | 'play_online' | 'play_computer' | 'analysis' | 'champion_challenge' | 'champion_game' | 'live_game' | 'opening_trainer' | 'shared_game' } }
   // The Master's voice on /play (#186 D8). `enabled` is the state being entered.
   | { name: 'master_voice_toggled'; params: { enabled: boolean; surface?: 'opening_trainer' } }
-  // The voice's volume slider (#310, desktop only). Sent once per change, when the slider is let go. `volume` 0-100.
-  | { name: 'master_voice_volume_set'; params: { volume: number } }
+  // The voice's volume slider (#310 desktop; #401 A3 the touch pop-up, `surface: 'touch_popup'`). Sent once per
+  // change, when the slider is let go. `volume` 0-100.
+  | { name: 'master_voice_volume_set'; params: { volume: number; surface?: 'touch_popup' } }
   // /play games, every level (#186 D10): none existed, so the Master could not be compared with Stockfish.
   | { name: 'computer_game_started'; params: { opponent: 'stockfish' | 'master'; level: number; color: 'white' | 'black'; from_position: boolean } }
   | { name: 'computer_game_finished'; params: { opponent: 'stockfish' | 'master'; level: number; result: 'win' | 'loss' | 'draw'; moves: number; master_fell_back: boolean } }
+  // #416: a game's PGN copied or downloaded, by who it was against and where (register both parameters in GA4).
+  | { name: 'game_pgn_copied'; params: { mode: 'online' | 'master' | 'stockfish'; surface: 'play_computer' | 'play_online' | 'game_history' | 'shared_game' } }
+  | { name: 'game_pgn_downloaded'; params: { mode: 'online' | 'master' | 'stockfish'; surface: 'play_computer' | 'play_online' | 'game_history' | 'shared_game' } }
+  | { name: 'game_shared'; params: { mode: 'online' | 'master' | 'stockfish'; surface: 'play_computer' | 'play_online' | 'game_history' | 'shared_game'; method: 'share_sheet' | 'link_copied' } }
   // The theme picker moved onto /puzzles on 2026-08-10 and has never reported
   // anything either. Worth knowing which themes are actually chosen before any
   // more are drawn, and whether the default is ever changed at all.
   | { name: 'site_theme_changed'; params: { theme: 'light' | 'dark'; surface: 'nav' | 'menu' } }
-  | { name: 'board_theme_changed'; params: { theme_id: string; surface: 'puzzles' | 'play_online' | 'play_computer' | 'analysis' | 'champion_challenge' | 'champion_game' | 'live_game' | 'opening_trainer' } }
+  | { name: 'board_theme_changed'; params: { theme_id: string; surface: 'puzzles' | 'play_online' | 'play_computer' | 'analysis' | 'champion_challenge' | 'champion_game' | 'live_game' | 'opening_trainer' | 'shared_game' } }
   | { name: 'online_full_analysis_opened'; params: { source: 'compact' } }
   | { name: 'computer_full_analysis_opened'; params: { source: 'compact' } }
   | { name: 'champion_full_analysis_opened'; params: { source: 'compact' } }
@@ -393,13 +408,29 @@ type GA4Event =
   | { name: 'plan_calendar_exported'; params: { format: 'ics'; plan_items: number; has_times: boolean } }
   /* The World Championship match in a visitor's calendar: one game to Google, or every game as .ics. */
   | { name: 'match_calendar_added'; params: { method: 'google' | 'ics'; game: number | 'all'; surface: 'hub' | 'game' | 'article' } }
-  | { name: 'match_video_played'; params: { surface: 'hub' | 'game' } }
+  | { name: 'match_video_played'; params: { surface: 'hub' | 'game' | 'recap'; video: 'trailer' | 'upcoming' | 'live' | 'replay' | 'short'; game: number } }
   /* A free-plan daily limit met (#46 funnel stage 7; FUNNEL_EVENT_CONTRACT names it `limit_reached`). */
-  | { name: 'limit_reached'; params: { feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' } }
+  | { name: 'limit_reached'; params: { feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' | 'game_puzzles' | 'puzzle_explanation' } }
   /* The way to Premium from the daily-limit dialog, and which feature ran out. */
-  | { name: 'premium_link_clicked'; params: { from: 'limit_dialog'; feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' } }
+  | { name: 'premium_link_clicked'; params: { from: 'limit_dialog'; feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' | 'game_puzzles' | 'puzzle_explanation' } }
+  /* The other ways to Premium and the Membership page (#467 plan B6): where the visitor came from. */
+  | { name: 'premium_link_clicked'; params: { from: 'account_menu' | 'membership' | 'profile' | 'footer' | 'pending_line' } }
+  /** A link to one of our own accounts elsewhere (2026-11-25: the YouTube channel, from the footer). */
+  | { name: 'social_link_clicked'; params: { network: 'youtube'; from: 'footer' } }
+  /* /membership seen (#467 plan B6): the first block the visitor got (status, plans, signIn, couldNotCheck...). */
+  | { name: 'membership_viewed'; params: { state: string } }
+  /* A Premium invitation on /premium (grants plan D6): what the server answered. Never the token or an email. */
+  | { name: 'premium_invite'; params: { state: 'invited' | 'invalid' | 'granted' | 'already_yours' | 'already_granted' | 'wrong_email' | 'used_by_other' | 'sign_in_again' | 'unconfirmed' } }
+  /*
+    Puzzles from the player's own games (#245 own games C5), on /puzzles/from-games: the games read
+    (from a PGN or from the games played here), a run started, and how it ended. Counts only: no
+    game, name or move is sent.
+  */
+  | { name: 'game_puzzles_games_read'; params: { source: 'pgn' | 'site'; games: number; analysable: number } }
+  | { name: 'game_puzzles_run_started'; params: { games: number } }
+  | { name: 'game_puzzles_run_ended'; params: { outcome: 'done' | 'stopped' | 'limit'; games_saved: number; puzzles: number } }
   /* A plan's buy button on the Premium page; `signed_in` false means it led to sign-in first. */
-  | { name: 'premium_buy_clicked'; params: { plan: 'yearly' | 'monthly' | 'one_year'; signed_in: boolean; control?: 'plans' | 'sticky_bar' } }
+  | { name: 'premium_buy_clicked'; params: { plan: 'yearly' | 'monthly' | 'one_year'; signed_in: boolean; control?: 'plans' | 'sticky_bar' | 'extend' } }
   /* A plan card chosen on the Premium page (#261); the buy button buys the chosen one. */
   | { name: 'premium_plan_selected'; params: { plan: 'yearly' | 'monthly' | 'one_year' } }
   /*
@@ -438,6 +469,11 @@ type GA4Event =
   /* #308: an item of the Play list in the nav was pressed. `item` is which one, `surface` the desktop row or the
      phone menu. A click on Play itself is not here: it is the /play page_view, as it was before the list. */
   | { name: 'nav_play_menu_clicked'; params: { item: 'master' | 'online' | 'friend'; surface: 'desktop' | 'mobile' } }
+  /* The Puzzles list in the nav, the same shape as Play's: `puzzles` is the trainer, `my_games` the own-game puzzles. */
+  | { name: 'nav_puzzles_menu_clicked'; params: { item: 'puzzles' | 'my_games'; surface: 'desktop' | 'mobile' } }
+  /* #510: puzzles made from a Game report, and how many; side_known false means both colours (R3). */
+  | { name: 'report_puzzles_made'; params: { puzzles: number; side_known: boolean } }
+  | { name: 'report_puzzles_solve_clicked'; params: { puzzles: number } }
   | { name: 'contact_form_failed'; params: { reason: 'invalid' | 'rate_limited' | 'network' | 'server' } }
   | { name: 'signed_in'; params: { provider: 'google' | 'cognito' } }
   /**

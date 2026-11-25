@@ -93,7 +93,7 @@ export interface GameViewerWorkspaceProps {
   initialPly: 'start' | 'latest';
   /** Game report and Explain position, for a finished game (the champion viewers). */
   review?: { metadata: ChessGame; gameResult: 'white' | 'black' | 'draw' };
-  analyticsSurface: 'champion_game' | 'live_game' | 'analysis';
+  analyticsSurface: 'champion_game' | 'live_game' | 'analysis' | 'shared_game';
   boardLabel: string;
   /** The position on the board, for the page's engagement event. */
   onPositionChange?: (fen: string) => void;
@@ -249,7 +249,9 @@ export function GameViewerWorkspace({
                     </WorkspaceList>
                   </div>
                   {review && model && (
-                    <GameReviewActions fen={fen} startFen={model.startFen} plies={plies} ply={ply} onGoTo={stepTo} metadata={review.metadata} gameResult={review.gameResult} />
+                    <GameReviewActions fen={fen} startFen={model.startFen} plies={plies} ply={ply} onGoTo={stepTo} metadata={review.metadata} gameResult={review.gameResult}
+                      /* #510: puzzles from a game brought to /analysis or shared; never a champion's (R2). Side unknown: both colours. */
+                      puzzles={analyticsSurface === 'analysis' || analyticsSurface === 'shared_game' ? { perspective: null } : undefined} />
                   )}
                 </div>
               </>

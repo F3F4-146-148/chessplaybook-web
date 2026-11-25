@@ -11,16 +11,76 @@
     {
       "text": "Have a good look first.",
       "key": "8a6b9d0cc345b99a"
+    },
+    {
+      "text": "No rush.",
+      "key": "6e786a3d84ce7d4d"
+    },
+    {
+      "text": "Have a think.",
+      "key": "afc9831e59b84c31"
+    },
+    {
+      "text": "Over to you.",
+      "key": "1f1409e7595232ed"
+    },
+    {
+      "text": "What do you see?",
+      "key": "2ad6922fe0a29904"
+    },
+    {
+      "text": "Have a proper look.",
+      "key": "b30126c3c0933715"
+    },
+    {
+      "text": "Let's see what you find.",
+      "key": "3058cfadb0d38bec"
+    },
+    {
+      "text": "See what you make of this one.",
+      "key": "198ce1aaf1bf5e95"
+    },
+    {
+      "text": "Right, let's see this one.",
+      "key": "25872d469527914a"
+    },
+    {
+      "text": "Your turn, take a moment.",
+      "key": "420e866d73eb7b26"
     }
   ],
   "going": [
     {
-      "text": "Good. Keep going.",
-      "key": "1723acbdda33bd24"
+      "text": "Good, keep going.",
+      "key": "b9793cd0ac91431b"
     },
     {
-      "text": "That's it. What next?",
-      "key": "c6b643e2cfd1d4c6"
+      "text": "That's it, so what next?",
+      "key": "2aacd17ee55dacc3"
+    },
+    {
+      "text": "Yes, carry on.",
+      "key": "41c65b9a4f7209ae"
+    },
+    {
+      "text": "Right, and now what?",
+      "key": "8d995633aaabb4ca"
+    },
+    {
+      "text": "So far, so good.",
+      "key": "eabd8f7e2a6a6908"
+    },
+    {
+      "text": "Well spotted, go on.",
+      "key": "08e971d18476d6d8"
+    },
+    {
+      "text": "Good, don't stop there.",
+      "key": "1faff5dc7e2056da"
+    },
+    {
+      "text": "That's the idea, keep at it.",
+      "key": "4d7ad59c375ad977"
     }
   ],
   "solved": [
@@ -35,6 +95,68 @@
     {
       "text": "Nicely done.",
       "key": "f4a5825ca76b656d"
+    },
+    {
+      "text": "Very good.",
+      "key": "7612729ba12125c2"
+    },
+    {
+      "text": "Well found.",
+      "key": "04f3d12cb02e8ef3"
+    },
+    {
+      "text": "That's the one.",
+      "key": "7ec3a904cf5b1e19"
+    },
+    {
+      "text": "Lovely.",
+      "key": "8bd673d49d7f3fab"
+    },
+    {
+      "text": "Spot on.",
+      "key": "5686b3c57f54bc0d"
+    },
+    {
+      "text": "Good work.",
+      "key": "29b5593bf4c8bdab"
+    },
+    {
+      "text": "Exactly right.",
+      "key": "0183bcf784d56f89"
+    },
+    {
+      "text": "Neatly done.",
+      "key": "d2588f94a0193b76"
+    },
+    {
+      "text": "Couldn't have done it better myself.",
+      "key": "80b23ce268f19c04"
+    }
+  ],
+  "solvedAfterMiss": [
+    {
+      "text": "You got there.",
+      "key": "82782aeafa339078"
+    },
+    {
+      "text": "There it is.",
+      "key": "15e8f757ac76f3c2"
+    },
+    {
+      "text": "That's it.",
+      "key": "24962f784414ddc6"
+    },
+    {
+      "text": "Got it in the end.",
+      "key": "737ae14e61a7c86b"
+    },
+    {
+      "text": "Good, you found it.",
+      "key": "216c2792417f54db"
+    },
+    {
+      "text": "That's better.",
+      "key": "11cffb2b173443e6"
     }
   ],
   "solution": [
@@ -45,12 +167,130 @@
     {
       "text": "Worth remembering, this one.",
       "key": "74af5b95fe294090"
+    },
+    {
+      "text": "Let me show you.",
+      "key": "57ef7ad501507419"
+    },
+    {
+      "text": "Watch this.",
+      "key": "0ee450ff495e6f67"
+    },
+    {
+      "text": "Here's the idea.",
+      "key": "9a055bc73face14f"
+    },
+    {
+      "text": "This is how it works.",
+      "key": "2c015d543cdb070e"
+    },
+    {
+      "text": "Have a look at this.",
+      "key": "7713523cf85874de"
+    },
+    {
+      "text": "Here's what it was.",
+      "key": "d2ef8dbe2d47b8b5"
     }
   ],
   "exploring": [
     {
       "text": "Let's see what happens.",
       "key": "33de99fcbbc15557"
+    },
+    {
+      "text": "Go on, try it.",
+      "key": "eb9a01dfa9567af4"
+    },
+    {
+      "text": "Let's find out.",
+      "key": "c49fdbb366b75e58"
+    },
+    {
+      "text": "Good idea to check.",
+      "key": "4c437155fd04d0b5"
+    }
+  ],
+  "streak3": [
+    {
+      "text": "Three in a row.",
+      "key": "ab3ef11a1aecaf25"
+    },
+    {
+      "text": "That's three.",
+      "key": "4bb87fcd5b6848da"
+    }
+  ],
+  "streak5": [
+    {
+      "text": "Five in a row, very good.",
+      "key": "0fc29fb34174ae4c"
+    },
+    {
+      "text": "That's five running.",
+      "key": "9f6b29d1f399f802"
+    }
+  ],
+  "streak10": [
+    {
+      "text": "Ten in a row, that's impressive.",
+      "key": "55f7bffdc5807fe1"
+    }
+  ],
+  "hard": [
+    {
+      "text": "That was a hard one, well found.",
+      "key": "cad2da45fc35b916"
+    },
+    {
+      "text": "Not an easy one, that.",
+      "key": "7fc577563427ef9e"
+    },
+    {
+      "text": "A tough one, well done.",
+      "key": "5d47b5f090ffed8a"
+    }
+  ],
+  "quick": [
+    {
+      "text": "Quick!",
+      "key": "094228e10b617882"
+    },
+    {
+      "text": "That was fast.",
+      "key": "e371e05afada8ec4"
+    },
+    {
+      "text": "No hesitation.",
+      "key": "8ec83907061d3f27"
+    }
+  ],
+  "welcome": [
+    {
+      "text": "Good to see you again.",
+      "key": "c664e134f9da0d39"
+    },
+    {
+      "text": "Welcome back.",
+      "key": "4308f5ef22c95c32"
+    },
+    {
+      "text": "Nice to have you back.",
+      "key": "1de6b5e813839180"
+    }
+  ],
+  "missed": [
+    {
+      "text": "Not that one, have another look.",
+      "key": "c344e9e3c3131259"
+    },
+    {
+      "text": "Not quite, look again.",
+      "key": "f873be36e98de63a"
+    },
+    {
+      "text": "Not that one, keep looking.",
+      "key": "271b27e99bbd5563"
     }
   ]
 }

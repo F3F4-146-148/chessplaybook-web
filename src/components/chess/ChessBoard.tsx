@@ -60,7 +60,7 @@ export interface ChessBoardProps {
   /** Called when the board state changes */
   onChange?: () => void;
   /** SVG shapes to draw on the board (arrows, circles) */
-  shapes?: Array<{ orig: Key; dest?: Key; brush: string }>;
+  shapes?: Array<{ orig: Key; dest?: Key; brush: string; customSvg?: { html: string } }>;
   /** Extra brushes the shapes may name (#324: the reason kinds' colours), by name. */
   brushes?: Record<string, { color: string; opacity: number; lineWidth: number }>;
   /** Squares tinted with a class each (#324: the squares a reason names); an empty map clears them. */

@@ -14,6 +14,7 @@ import {
   News, CandidatesArticle2026, CandidatesArticleWomen2026, CandidatesRound1Recap2026, CandidatesRound3Recap2026,
   CandidatesConclusion2026, SindarovGukeshHeadToHead, VaishaliJuWenjunTitleMatch, WorldChampionship2026Announced,
   Candidates2026Hub, WorldCup2025Hub, WorldChampionship2026Hub, WorldChampionshipCycle, Contact, Credits,
+  WorldChampionship2026Recap,
   // Phase F: the homepage, Premium and Explain.
   Home, Premium, Explain,
 } from "@/app/prerenderRoutes";
@@ -33,10 +34,13 @@ const LiveEventsHub = lazy(() => lazyRetry(() => import("@/pages/LiveEventsHub")
 const WorldCup2025GameDay = lazy(() => lazyRetry(() => import("@/pages/WorldCup2025GameDay")));
 const LiveGameViewer = lazy(() => lazyRetry(() => import("@/pages/live-game/LiveGameViewer")));
 const Reminders = lazy(() => lazyRetry(() => import("@/pages/Reminders")));
+/* #467: the account's Premium, managed, and the plans for a free account. Personal: noindex, not built. */
+const Membership = lazy(() => lazyRetry(() => import("@/pages/Membership")));
 const Play = lazy(() => lazyRetry(() => import("@/features/play/pages/PlayComputer")));
 const PlayOnline = lazy(() => lazyRetry(() => import("@/features/online/pages/PlayOnline")));
 const PuzzleProgress = lazy(() => lazyRetry(() => import("@/features/puzzles/pages/PuzzleProgress")));
 const PuzzlePlan = lazy(() => lazyRetry(() => import("@/features/puzzles/pages/PuzzlePlan")));
+const PuzzlesFromGames = lazy(() => lazyRetry(() => import("@/features/game-puzzles/pages/PuzzlesFromGames")));
 const Analysis = lazy(() => lazyRetry(() => import("@/pages/Analysis")));
 const ChampionChallenge = lazy(() => lazyRetry(() => import("@/features/champion-challenge/pages/ChampionChallenge")));
 const ChallengeSessionPage = lazy(() => lazyRetry(() => import("@/features/champion-challenge/pages/ChallengeSessionPage")));
@@ -67,6 +71,10 @@ const GamePuzzlesBench = import.meta.env.DEV
   : null;
 const HomeV2Preview = import.meta.env.DEV
   ? lazy(() => import("@/design/preview/v2/HomeV2Preview"))
+  : null;
+// Marketing videos plan A2: one frame of a video for a given time, rendered by scripts/video/render.mjs.
+const VideoPage = import.meta.env.DEV
+  ? lazy(() => import("@/features/marketing-video/VideoPage"))
   : null;
 /*
   THE REBUILT PUZZLES PAGE, which `/puzzles` serves as of 2026-08-16.
@@ -108,6 +116,7 @@ const ResetPasswordPage = lazy(() => lazyRetry(() => import("@/features/auth/pag
 const AuthCallbackPage = lazy(() => lazyRetry(() => import("@/features/auth/pages/AuthCallbackPage")));
 const ProfilePage = lazy(() => lazyRetry(() => import("@/features/auth/pages/ProfilePage")));
 const GameHistory = lazy(() => lazyRetry(() => import("@/features/online/pages/GameHistory")));
+const SharedGame = lazy(() => lazyRetry(() => import("@/pages/SharedGame")));
 const PlayerProfile = lazy(() => lazyRetry(() => import("@/features/online/pages/PlayerProfile")));
 const Leaderboard = lazy(() => lazyRetry(() => import("@/features/online/pages/Leaderboard")));
 
@@ -231,6 +240,8 @@ export function AppRoutes() {
         <Route path="/live-game/:roundId/:gameId" element={<LiveGameViewer />} />
         {/* The 2026 World Championship match: one game, the live board (2026-11-11). */}
         <Route path="/world-championship-2026/:slug" element={<WorldChampionship2026Game />} />
+        {/* #416: a game played on the site, opened from a shared link (noindex, its own shell, game-shell.html). */}
+        <Route path="/game/:id" element={<SharedGame />} />
         {/*
           `/dev/puzzles-layout` moves WITH `/puzzles`, as it always said it would:
           it is the same component, and the layout guards drive it as the
@@ -271,6 +282,12 @@ export function AppRoutes() {
           account.
         */}
         <Route path="/puzzles/plan" element={<PuzzlePlan />} />
+        {/*
+          Puzzles from the player's own games (#245, own-game puzzles C1). A form and a list,
+          so a Document; not in ProtectedRoute, for the same reason as the plan: a guest's
+          anonymous id is an identity, and most traffic has no account.
+        */}
+        <Route path="/puzzles/from-games" element={<PuzzlesFromGames />} />
 
         {/* Dev-only galleries, tree-shaken from production builds (guarded by
             import.meta.env.DEV; Vite drops the dead branch and the lazy import
@@ -290,6 +307,9 @@ export function AppRoutes() {
         )}
         {import.meta.env.DEV && HomeV2Preview && (
           <Route path="/dev/home-v2" element={<HomeV2Preview />} />
+        )}
+        {import.meta.env.DEV && VideoPage && (
+          <Route path="/dev/video" element={<VideoPage />} />
         )}
 
         {/* Home */}
@@ -319,6 +339,8 @@ export function AppRoutes() {
         <Route path="/news/sindarov-gukesh-head-to-head" element={<SindarovGukeshHeadToHead />} />
         <Route path="/news/vaishali-ju-wenjun-title-match" element={<VaishaliJuWenjunTitleMatch />} />
         <Route path="/news/world-championship-2026-geneva" element={<WorldChampionship2026Announced />} />
+        {/* A game recap per match game (owner, 2026-11-23); the slug picks the recap, an unknown one is the 404 page. */}
+        <Route path="/news/world-championship-2026/:slug" element={<WorldChampionship2026Recap />} />
 
         {/* Legal & Info */}
         <Route path="/privacy" element={<Privacy />} />
@@ -327,6 +349,7 @@ export function AppRoutes() {
         <Route path="/premium" element={<Premium />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/reminders" element={<Reminders />} />
+        <Route path="/membership" element={<Membership />} />
         <Route path="/credits" element={<Credits />} />
         <Route path="/world-championship-cycle" element={<WorldChampionshipCycle />} />
 

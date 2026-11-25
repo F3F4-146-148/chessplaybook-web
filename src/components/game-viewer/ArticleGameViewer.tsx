@@ -33,7 +33,8 @@ export interface ArticleGame {
  * LISTEN ON THE PAGE: on an article they scroll the reading. They step once focus is in
  * the move list.
  */
-export function ArticleGameViewer({ games }: { games: ArticleGame[] }) {
+/** `title`: the section heading (a single-game recap says "Replay the whole game"); one game shows no picker. */
+export function ArticleGameViewer({ games, title = 'Replay the Games' }: { games: ArticleGame[]; title?: string }) {
   const [selectedId, setSelectedId] = useState(games[0].id);
   const selected = games.find(g => g.id === selectedId) ?? games[0];
   const sections = [...new Set(games.map(g => g.section))];
@@ -41,10 +42,10 @@ export function ArticleGameViewer({ games }: { games: ArticleGame[] }) {
   return (
     <section className="mb-16">
       <h2 className="text-2xl font-playfair font-bold text-foreground mb-4 border-b border-primary/30 pb-2">
-        Replay the Games
+        {title}
       </h2>
 
-      <div className="mb-4">
+      {games.length > 1 && <div className="mb-4">
         <p className="text-sm text-muted-foreground mb-3">Select a game to replay with engine analysis:</p>
         <div className="flex flex-col sm:flex-row gap-2 sm:gap-0 sm:flex-wrap">
           {sections.map(section => (
@@ -70,7 +71,7 @@ export function ArticleGameViewer({ games }: { games: ArticleGame[] }) {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
       {/* Keyed by the game, so another game opens at its starting position. */}
       <ArticleBoard key={selected.id} pgn={selected.pgn} />

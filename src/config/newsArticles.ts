@@ -16,6 +16,8 @@
  * article to one and not the other fails the build rather than drifting.
  */
 
+import { PUBLISHED_RECAPS, recapPath } from '@/features/world-championship/recaps/recaps';
+
 export interface NewsArticle {
   /** Route path, and the key by which route-meta is cross-checked (minus the leading slash). */
   href: string;
@@ -25,9 +27,23 @@ export interface NewsArticle {
   /** Human-readable publication date, as displayed on the cards. */
   date: string;
   image: string;
+  /** A tall version for the card's narrow column from the `sm` width up (the recaps, 2026-11-24); else `image`. */
+  cardImage?: string;
 }
 
+/** The match's game recaps, newest first (2026-11-23): each published recap is listed with no line here. */
+const recapArticles: NewsArticle[] = [...PUBLISHED_RECAPS].reverse().map((r) => ({
+  category: 'World Championship 2026',
+  title: r.title,
+  excerpt: r.lead,
+  date: r.dateLabel,
+  href: recapPath(r),
+  image: r.photo?.src ?? '/assets/news/title-matches-2026/geneva-jet-deau.webp',
+  cardImage: r.cardImage,
+}));
+
 export const newsArticles: NewsArticle[] = [
+  ...recapArticles,
   {
     category: 'Title Match Build-up',
     title: 'Geneva, 24 November: The World Championship Schedule',

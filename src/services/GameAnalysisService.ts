@@ -13,7 +13,7 @@
  * All formulas from chess-accuracy-analyzer (validated within 0.3% of Lichess).
  */
 
-import { Chess, type Square } from 'chess.js';
+import type { Detection } from './brilliantDetection';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -33,6 +33,8 @@ export interface ClassifiedMove {
   evalAfter: number;        // cp after the move
   bestMove: string;         // engine's recommended move
   isBestMove: boolean;      // player played the engine's top choice
+  /** #379: set on a brilliant move; 1 cashing in on the opponent's mistake, 2 holding (brilliantRule.ts). */
+  brilliantType?: 1 | 2;
 }
 
 export interface PlayerAccuracy {
@@ -79,12 +81,6 @@ export interface FullGameAnalysis {
   evalGraph: number[];  // cp values per half-move for plotting
 }
 
-/** LC0 policy data per position (from backend /api/analyze-game response) */
-export interface PolicyEntry {
-  topMoves: Array<{ move: string; policy: number }>;
-  wdl: { win: number; draw: number; loss: number };
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // Constants
 // ═══════════════════════════════════════════════════════════════════════════
@@ -127,20 +123,23 @@ export function analyzeFullGame(
   mateIn: (number | null)[],
   moves: string[],
   result: 'white' | 'black' | 'draw',
-  policyData?: PolicyEntry[] | null,
+  detection?: Detection | null,
 ): FullGameAnalysis {
   // 1. Classify each move
   const classifiedMoves = classifyAllMoves(evals, bestMoves, moves);
 
-  // 2. Brilliant move detection — two independent paths:
-  //    (a) policy-based (LC0 underweighted the move), needs LC0 data
-  //    (b) sacrifice-based (Chess.com primary criterion), works without LC0
-  // Order matters only for tie-break: policy path runs first; sacrifice
-  // path skips moves already flagged.
-  if (policyData) {
-    detectBrilliantMovesFromPolicy(classifiedMoves, moves, policyData);
+  // 2. Brilliant moves (#379): only those a complete detection lists (brilliantDetection.ts, the owner's rule).
+  //    A failed or absent detection marks none: a guess is never shown as brilliant. The LC0 policy path and the
+  //    sacrifice path it replaces flagged about 3 moves a game.
+  if (detection?.status === 'complete') {
+    for (const b of detection.moves) {
+      const m = classifiedMoves.find((x) => x.moveIndex === b.moveIndex);
+      if (m) {
+        m.classification = 'brilliant';
+        m.brilliantType = b.type;
+      }
+    }
   }
-  detectSacrificeBrilliancies(classifiedMoves, moves);
 
   // 3. Compute accuracy per player (exact port from chess-accuracy-analyzer)
   const { white: whiteAccuracy, black: blackAccuracy } = computeBothAccuracies(evals);
@@ -272,203 +271,6 @@ function classifySingleMove(
   }
 
   return 'excellent';
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Brilliant move detection
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Sacrifice-based brilliant move detection (Chess.com primary criterion).
- *
- * A move is sacrifice-brilliant when:
- *   1. It's the best or near-best move (cpLoss <= 20) — SF endorses it
- *   2. The position was not already winning (|eval| < 500)
- *   3. The move loses material on this turn:
- *      a) capture where attacker piece is more valuable than captured, OR
- *      b) non-capture that puts the moving piece on a square attacked by
- *         opponent (i.e. allows recapture for free)
- *   4. The post-move eval is at least as good as the pre-move eval
- *      (sacrifice didn't blow the position)
- *
- * This catches the classic Tal/Kasparov-style brilliancies that the policy
- * path may miss when the engine's policy network learned to "expect" the
- * sacrifice from training data (e.g. famous textbook sacs).
- *
- * Relies on chess.js for FEN navigation + attack detection. Reuses the
- * same imports already used elsewhere in the frontend.
- */
-/** Material value per piece type (king intentionally high — it never gets
- *  captured, but a king recapture must be counted as the cheapest defender). */
-const SEE_PIECE_VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 1000 };
-
-/**
- * Static Exchange Evaluation on a single square.
- *
- * Returns the material the side-to-move can win by resolving the capture
- * sequence on `target`, assuming both sides always recapture with their
- * least-valuable attacker and each side stops as soon as continuing is
- * unfavourable (the `Math.max(0, …)` stand-pat option).
- *
- * Implemented by mutating the live chess.js board with real legal moves, so
- * x-ray/battery attackers, pins, and check constraints are all handled for
- * free (an illegal recapture simply isn't in `moves()`), and the board is
- * left exactly as it was found (every move is undone).
- */
-function seeGain(board: Chess, target: Square): number {
-  const captures = board
-    .moves({ verbose: true })
-    .filter((m) => m.to === target && m.captured);
-  if (captures.length === 0) return 0;
-
-  // Least-valuable attacker first.
-  captures.sort((a, b) => (SEE_PIECE_VALUE[a.piece] ?? 0) - (SEE_PIECE_VALUE[b.piece] ?? 0));
-  const chosen = captures[0];
-  const capturedValue = SEE_PIECE_VALUE[chosen.captured ?? 'p'] ?? 0;
-
-  board.move({ from: chosen.from, to: chosen.to, promotion: chosen.promotion });
-  const gain = Math.max(0, capturedValue - seeGain(board, target));
-  board.undo();
-  return gain;
-}
-
-function detectSacrificeBrilliancies(
-  classifiedMoves: ClassifiedMove[],
-  moves: string[],
-): void {
-
-  // Walk the game forward, replaying each move on a chess.js board, and
-  // for each move check the sacrifice gates.
-  const board = new Chess();
-  for (let i = 0; i < moves.length; i++) {
-    const move = classifiedMoves[i];
-    const uci = moves[i];
-    if (!move || !uci) continue;
-    const from = uci.slice(0, 2) as Square;
-    const to = uci.slice(2, 4) as Square;
-    const promotion = uci.length > 4 ? uci.slice(4) : undefined;
-
-    // Pre-move state
-    const movingPiece = board.get(from);
-    const targetPiece = board.get(to);
-
-    // Apply the move so we can probe post-move attacks.
-    let applied: unknown;
-    try {
-      applied = board.move(promotion ? { from, to, promotion } : { from, to });
-    } catch {
-      applied = null;
-    }
-    if (!applied) {
-      // Move couldn't be applied — desync; bail out of this game's sacrifice detection
-      // (rare: usually means the moves list and the analyzed game don't match).
-      return;
-    }
-
-    // Cheap exits — same as the policy path, share the same primary gates
-    if (move.cpLoss > 20) continue;
-    if (Math.abs(move.evalBefore) > 500) continue;
-    if (move.classification === 'brilliant') continue;  // already flagged via policy
-
-    // Skip openings — early sacrifices are gambit theory, not brilliant
-    if (i < 10) continue;
-
-    if (!movingPiece) continue;
-
-    // A move is a sacrifice only if it genuinely gives up material — decided
-    // by resolving the capture sequence on the destination square, NOT by the
-    // crude "an enemy attacks that square" test that flagged fully-defended
-    // moves like a3 (Bxa3? Rxa3 just loses the bishop for a pawn → net 0).
-    //
-    //   netMaterial = (what this move captured) − (what the opponent can now
-    //                  win back on that square by SEE)
-    //
-    // The board is already in the post-move state here, opponent to move, so
-    // seeGain(board, to) is exactly the material the opponent can claim.
-    const capturedValue = targetPiece ? (SEE_PIECE_VALUE[targetPiece.type] ?? 0) : 0;
-    const netMaterial = capturedValue - seeGain(board, to);
-
-    // Not a sacrifice if the mover comes out even or ahead on the square.
-    // Real material must be surrendered (netMaterial < 0, i.e. ≥ a pawn).
-    if (netMaterial >= 0) continue;
-
-    move.classification = 'brilliant';
-  }
-}
-
-/**
- * Policy-based brilliant move detection using LC0 neural network data.
- *
- * A move is brilliant when:
- *   1. It's the best or near-best move (cpLoss <= 20)
- *   2. LC0's neural network gave it LOW probability (< 5%) — meaning the NN
- *      didn't "expect" this move, but deep search proves it's strongest
- *   3. The player was NOT already completely winning (|eval| < 500)
- *   4. It's not in the opening (first 10 half-moves) — low policy is normal
- *      when many reasonable moves exist
- *   5. The move is not in the top 3 policy moves — must be truly unexpected
- *
- * This catches non-sacrifice brilliancies (quiet moves that are hard to find)
- * which the old heuristic (sacrifice-only) missed entirely.
- *
- * Calibration (Phase B of LC0_FACTS_INTEGRATION_PLAN, 2026-05-07):
- * Empirical sweep against cached games showed the previous threshold of
- * `< 2%` filtered out ALL real brilliancies (e.g. d8a8 at 4.21% policy was
- * a clear "NN didn't see it" candidate but failed the 2% gate). Threshold
- * raised to `< 5%`; rank exclusion relaxed from top-5 to top-3 to align
- * with empirical hit rate (~0.5–1 brilliancy per championship game).
- *
- * @param policyData - LC0 policy per position (index i = position BEFORE move i)
- */
-function detectBrilliantMovesFromPolicy(
-  classifiedMoves: ClassifiedMove[],
-  moves: string[],
-  policyData: PolicyEntry[],
-): void {
-  // Phase B threshold (2026-05-07): 5% raised from 2% based on empirical sweep
-  // (scripts/sweep-brilliant-thresholds.ts). Real brilliancies in our cache
-  // sit in the 4–6% policy band; 2% was unreachable.
-  const POLICY_THRESHOLD = 5;
-  // Top-3 (was top-5): a move ranked 4th or 5th in policy is already
-  // off the obvious radar; the rank-5 cutoff was filtering out real
-  // candidates without adding signal.
-  const TOP_N_EXCLUSION = 3;
-  // Concentration ratio kept (NN must have had clear preferences).
-  const CONCENTRATION_RATIO = 3;
-
-  for (const move of classifiedMoves) {
-    // Must be best or near-best (SF confirms it's a strong move)
-    if (move.cpLoss > 20) continue;
-
-    // Not already winning — brilliant in a won position is less impressive
-    if (Math.abs(move.evalBefore) > 500) continue;
-
-    // Look up policy for the played move in the position BEFORE this move
-    const posPolicy = policyData[move.moveIndex];
-    if (!posPolicy || !posPolicy.topMoves || posPolicy.topMoves.length < 3) continue;
-
-    const playedMove = moves[move.moveIndex];
-    const policyEntry = posPolicy.topMoves.find(m => m.move === playedMove);
-
-    // Must have known policy — if not found in data, we can't determine brilliance
-    if (!policyEntry) continue;
-    const policyProb = policyEntry.policy;
-
-    // Must not be in the top-N expected moves — truly unexpected
-    const topNMoves = posPolicy.topMoves.slice(0, TOP_N_EXCLUSION).map(m => m.move);
-    if (topNMoves.includes(playedMove)) continue;
-
-    // The NN must have had clear preferences — top move at least 3x higher
-    // than the played move. In spread positions (opening), this ratio is low
-    // and the move won't qualify. In focused positions, it's high.
-    const topPolicy = posPolicy.topMoves[0]?.policy ?? 0;
-    if (topPolicy < policyProb * CONCENTRATION_RATIO) continue;
-
-    // Very low policy = NN didn't expect this move = hard to find = brilliant
-    if (policyProb < POLICY_THRESHOLD) {
-      move.classification = 'brilliant';
-    }
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

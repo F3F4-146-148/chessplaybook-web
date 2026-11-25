@@ -1,6 +1,9 @@
 import { startTransition, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Youtube } from 'lucide-react';
 import { COMPANY } from '@/config/company';
+import { YOUTUBE_CHANNEL_URL } from '@/config/social';
+import { logGA4Event } from '@/services/analytics';
 
 /**
  * The SITE footer, rendered once by the content layout route (#72).
@@ -95,6 +98,17 @@ export const Footer = () => {
             <p className="text-sm text-muted-foreground leading-relaxed">
               Your complete chess platform for playing, watching, and learning.
             </p>
+            {/* The channel's videos (2026-11-25): a link a visitor can find on every page, counted. */}
+            <a
+              href={YOUTUBE_CHANNEL_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => logGA4Event({ name: 'social_link_clicked', params: { network: 'youtube', from: 'footer' } })}
+              className="mt-3 inline-flex items-center gap-2 min-h-[36px] py-1 text-sm text-muted-foreground hover:text-link transition-colors"
+            >
+              <Youtube className="h-4 w-4" aria-hidden />
+              Watch us on YouTube
+            </a>
           </div>
 
           {/* Link columns */}
@@ -106,6 +120,8 @@ export const Footer = () => {
                   <li key={link.label}>
                     <Link
                       to={link.to}
+                      /* The footer is one of the ways to Premium; counted with the others (#467 B6). */
+                      onClick={link.to === '/premium' ? () => logGA4Event({ name: 'premium_link_clicked', params: { from: 'footer' } }) : undefined}
                       className="inline-flex items-center min-h-[36px] py-1 text-sm text-muted-foreground hover:text-link transition-colors"
                     >
                       {link.label}
@@ -125,7 +141,7 @@ export const Footer = () => {
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <a href="/credits" className="hover:text-link transition-colors">Credits & Attribution</a>
             <a
-              href="https://github.com/mihaikondort/chessplaybook-web"
+              href="https://github.com/F3F4-146-148/chessplaybook-web"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-link transition-colors"

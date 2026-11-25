@@ -10,9 +10,9 @@
  * pages too; legalDates.test.ts fails if it falls behind either date here.
  */
 export const LEGAL_LAST_UPDATED = {
-  privacy: '2026-11-20',
-  terms: '2026-11-14',
-  refund: '2026-11-13',
+  privacy: '2026-11-24',
+  terms: '2026-11-24',
+  refund: '2026-11-24',
 } as const;
 
 /**

@@ -29,6 +29,8 @@ describe('shouldHydrate', () => {
     for (const route of ['openings', 'puzzles', 'terms']) {
       expect(shouldHydrate('', route, storageWith({}))).toBe(true);
       expect(shouldHydrate('?utm_source=x&gclid=1', route, storageWith({}))).toBe(true);
+      // Google Ads appends gad_source and gad_campaignid to every auto-tagged click (2026-11-21).
+      expect(shouldHydrate('?gad_source=1&gad_campaignid=123&gclid=1', route, storageWith({}))).toBe(true);
     }
   });
 

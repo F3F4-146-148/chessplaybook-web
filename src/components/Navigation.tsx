@@ -9,6 +9,7 @@ import { MATCH_LAST_DAY, MATCH_PATH, calendarState, gamePath, genevaDate } from 
 import { startTransition, Suspense, useState, useEffect, useRef, type CSSProperties } from 'react';
 import { preloadWithEveryBuiltPage, prerenderable } from '@/app/prerenderRoutes';
 import { PlayMenu, PlayMenuGroup, isPlayPath } from '@/components/nav/PlayMenu';
+import { PuzzlesMenu, PuzzlesMenuGroup, isPuzzlesPath } from '@/components/nav/PuzzlesMenu';
 
 // Lazy-load auth (perf: defers 125KB aws-amplify vendor chunk from initial load)
 // Loaded with the page's code before a built page is taken over (prerender plan A16; see prerenderRoutes.tsx).
@@ -133,7 +134,8 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
     // keeps eight items (an eighth item more needed ~960px, measured; the row starts at 840). Explain stays on the
     // homepage cards and in the footer.
     { to: '/openings', icon: BookOpen, label: 'Openings' },
-    { to: '/puzzles', icon: MdPsychology, label: 'Puzzles' },
+    // Puzzles carries a list too, like Play: the puzzles we pick and My Games (components/nav/PuzzlesMenu.tsx).
+    { to: '/puzzles', icon: MdPsychology, label: 'Puzzles', isPuzzles: true },
     // #308: Play goes to the Master (/play) and carries the list of ways to play (components/nav/PlayMenu.tsx).
     { to: '/play', icon: Swords, label: 'Play', isPlay: true },
     { to: liveTarget ?? '/live-events', icon: Radio, label: 'Live', isLive: isEventLive, isTournamentDay },
@@ -263,6 +265,7 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
           <div data-nav-desktop className="hidden navrow:flex items-center gap-1 shrink-0">
             {navLinks.map((link) => {
               if (link.isPlay) return <PlayMenu key={link.to} isActive={isPlayPath(activePath)} />;
+              if (link.isPuzzles) return <PuzzlesMenu key={link.to} isActive={isPuzzlesPath(activePath)} />;
               const isActive = (activePath ?? location.pathname).startsWith(link.to);
               return (
                 <Link
@@ -317,11 +320,19 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
 
         {/* Mobile menu */}
         {mobileMenuOpen && (
-          <div className="navrow:hidden py-4 border-t border-border/50 animate-fade-in" style={{ animationDuration: '0.2s' }}>
+          /* AT MOST THE SCREEN UNDER THE BAR, SCROLLING INSIDE (#467 A3). The nav is sticky, so a taller panel ran past
+             the screen's bottom with nothing to scroll: on a 360x640 phone the account menu's Sign out sat at y=1055. */
+          <div
+            className="navrow:hidden py-4 border-t border-border/50 animate-fade-in overflow-y-auto overscroll-contain"
+            style={{ animationDuration: '0.2s', maxHeight: 'calc(100dvh - var(--nav-block, 3.5rem))' }}
+          >
             <div className="flex flex-col gap-1">
               {navLinks.map((link) => {
                 if (link.isPlay) {
                   return <PlayMenuGroup key={link.to} isActive={isPlayPath(activePath)} onNavigate={() => setMobileMenuOpen(false)} />;
+                }
+                if (link.isPuzzles) {
+                  return <PuzzlesMenuGroup key={link.to} isActive={isPuzzlesPath(activePath)} onNavigate={() => setMobileMenuOpen(false)} />;
                 }
                 const isActive = (activePath ?? location.pathname).startsWith(link.to);
                 return (
@@ -363,7 +374,7 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
               </div>
               <div className="px-2 pt-2 border-t border-border/50 mt-1">
                 <Suspense fallback={<div className="h-8" />}>
-                  <UserDropdown />
+                  <UserDropdown placement="panel" />
                 </Suspense>
               </div>
             </div>

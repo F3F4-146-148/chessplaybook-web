@@ -20,6 +20,7 @@ import {
 import type { ChessPosition } from '@/components/chess/chessLogic';
 import type { Key, Color, Dests } from '@lichess-org/chessground/types';
 import { soundService } from '@/services/SoundService';
+import { newClientGameId, saveFinishedGame, savePendingGame } from '../services/computerGameSave';
 
 export interface ComputerGameState {
   position: ChessPosition | null;
@@ -45,11 +46,22 @@ export interface ComputerGameState {
   masterLine: MasterLine | null;
   /** His face at the player's last move (D9), a face only; `at` is when it was decided, so the page shows it briefly. */
   masterReaction: { expression: MasterExpression; at: number } | null;
+  /**
+   * #416: the finished game's id on the server once it is stored (its PGN, the history, a share link), null
+   * before. `saving` while it is sent; `failed` when it could not be (kept in the browser, sent on the next visit).
+   */
+  savedGame: { status: 'saving' | 'saved' | 'failed'; id: string | null } | null;
 }
 
+/** #416: the game's clock, in seconds; 0 and 0 is a game with no clock. */
+export interface GameClock { initial: number; increment: number }
+
 export interface ComputerGameActions {
-  /** `startFen`: a position to start from (opening trainer E3b); the initial position when absent. */
-  startGame: (playerColor: Color, level: PlayLevel, startFen?: string) => void;
+  /**
+   * `startFen`: a position to start from (opening trainer E3b); the initial position when absent.
+   * `clock`: the game's time control, stored with the finished game (#416); no clock when absent.
+   */
+  startGame: (playerColor: Color, level: PlayLevel, startFen?: string, clock?: GameClock) => void;
   onMove: (orig: Key, dest: Key) => void;
   resign: () => void;
   timeout: (loser: Color) => void;
@@ -82,6 +94,11 @@ export function useComputerGame(): [ComputerGameState, ComputerGameActions] {
   const levelRef = useRef<PlayLevel | null>(null);
   const gameIdRef = useRef(0);
   const fellBackRef = useRef(false);
+  /* #416: what is sent when the game ends: its id for the server, its clock, the player's colour */
+  const clientGameIdRef = useRef<string | null>(null);
+  const clockRef = useRef<GameClock>({ initial: 0, increment: 0 });
+  const playerColorRef = useRef<Color>('white');
+  const [savedGame, setSavedGame] = useState<ComputerGameState['savedGame']>(null);
   const [position, setPosition] = useState<ChessPosition | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [isEngineReady, setIsEngineReady] = useState(false);
@@ -129,6 +146,35 @@ export function useComputerGame(): [ComputerGameState, ComputerGameActions] {
     else soundService.move();
   }, []);
 
+  /*
+    #416: THE FINISHED GAME GOES TO THE SERVER, whatever ended it. Once per game (the id is cleared), and a
+    reply that belongs to an earlier game never lands on this one. The server replays the moves and decides
+    the result; `claim` is only for a resignation or a loss on time.
+  */
+  const saveGame = useCallback((claim: { reason: 'resignation' | 'timeout'; loser: Color } | null) => {
+    const clientGameId = clientGameIdRef.current;
+    const lvl = levelRef.current;
+    if (!clientGameId || !lvl) return;
+    clientGameIdRef.current = null;
+    const gameId = gameIdRef.current;
+    setSavedGame({ status: 'saving', id: null });
+    saveFinishedGame({
+      clientGameId,
+      level: lvl.id,
+      playerColor: playerColorRef.current,
+      startFen: startFenRef.current ?? null,
+      moves: [...movesRef.current],
+      timeControl: clockRef.current,
+      claim,
+    }).then((outcome) => {
+      if (gameId !== gameIdRef.current) return;
+      setSavedGame(outcome.ok ? { status: 'saved', id: outcome.id } : { status: 'failed', id: null });
+    });
+  }, []);
+
+  // A game an earlier visit could not save is sent once, when /play opens.
+  useEffect(() => { savePendingGame().catch(() => { /* kept for the next visit */ }); }, []);
+
   // Handle game over
   const handleGameOver = useCallback((pos: ChessPosition, myColor: Color, rule: DrawRule = null) => {
     let result: string;
@@ -155,7 +201,8 @@ export function useComputerGame(): [ComputerGameState, ComputerGameActions] {
     store.endGame(pos.isCheckmate
       ? (pos.turnColor === 'white' ? 'black' : 'white')
       : 'draw');
-  }, [store]);
+    saveGame(null);
+  }, [store, saveGame]);
 
   /** Record a move; returns the draw rule that ends the game, if any. */
   const record = useCallback((uciMove: string, newPos: ChessPosition): DrawRule => {
@@ -287,8 +334,13 @@ export function useComputerGame(): [ComputerGameState, ComputerGameActions] {
   }, [store, engineMove, handleGameOver, playMoveSound, record]);
 
   // Start a new game
-  const startGame = useCallback((playerColor: Color, lvl: PlayLevel, startFen?: string) => {
+  const startGame = useCallback((playerColor: Color, lvl: PlayLevel, startFen?: string, clock?: GameClock) => {
     gameIdRef.current++;
+    // #416: a new game; the one before, if unfinished, is dropped (owner, 2026-11-23).
+    clientGameIdRef.current = newClientGameId();
+    clockRef.current = clock ?? { initial: 0, increment: 0 };
+    playerColorRef.current = playerColor;
+    setSavedGame(null);
     levelRef.current = lvl;
     setLevel(lvl);
     fellBackRef.current = false;
@@ -333,7 +385,8 @@ export function useComputerGame(): [ComputerGameState, ComputerGameActions] {
     setGameResult(`${winner} wins by resignation`);
     store.endGame(store.playerColor === 'white' ? 'black' : 'white');
     soundService.gameEnd('loss');
-  }, [store]);
+    saveGame({ reason: 'resignation', loser: store.playerColor as Color });
+  }, [store, saveGame]);
 
   const timeout = useCallback((loser: Color) => {
     if (store.status !== 'playing') return;
@@ -341,11 +394,14 @@ export function useComputerGame(): [ComputerGameState, ComputerGameActions] {
     setGameResult(`${winner} wins on time`);
     store.endGame(loser === 'white' ? 'black' : 'white');
     soundService.gameEnd(loser === store.playerColor ? 'loss' : 'win');
-  }, [store]);
+    saveGame({ reason: 'timeout', loser });
+  }, [store, saveGame]);
 
   // Reset
   const reset = useCallback(() => {
     gameIdRef.current++;
+    clientGameIdRef.current = null; // an unfinished game is dropped
+    setSavedGame(null);
     positionRef.current = null;
     movesRef.current = [];
     keysRef.current = [];
@@ -384,6 +440,7 @@ export function useComputerGame(): [ComputerGameState, ComputerGameActions] {
     masterFellBack,
     masterLine,
     masterReaction,
+    savedGame,
   };
 
   const actions: ComputerGameActions = {

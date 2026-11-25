@@ -6,9 +6,11 @@
  * the month and the one-year pass; elsewhere the pass (chosen first) and the year, at one price.
  */
 import local from '@/config/premium-local-prices.json';
+import stripeLocal from '@/config/stripe-local-prices.json';
 import lists from '@/config/premium-full-price-countries.json';
 import { supported as paddleSupported } from '@/config/paddle-supported-countries.json';
 import { priceFor, type LocalPrice, type PremiumPlan } from './countryPrices';
+import { mergedLocalPrices } from './stripeLocalPrices';
 import type { Plans } from './paddleCheckout';
 
 export type PlanKey = PremiumPlan;
@@ -65,9 +67,16 @@ function format(amount: number, currency: string): string {
   }
 }
 
-/** Cards from the table Paddle is given, for a country (before checkout is live). */
+/**
+ * Cards from our price table for a country: Paddle's table with the Stripe local prices over it
+ * (stripeLocalPrices.js), the table the server charges Stripe buyers from. Shown with Stripe and before
+ * anyone sells; with Paddle selling, Paddle's own preview is shown instead (plansFromPaddle).
+ */
+const L = mergedLocalPrices(
+  (local as { prices: Record<string, LocalPrice> }).prices,
+  (stripeLocal as unknown as { prices: Record<string, LocalPrice> }).prices,
+);
 export function plansForCountry(country: string | null | undefined): ShownPlan[] {
-  const L = (local as { prices: Record<string, LocalPrice> }).prices;
   const at = (plan: PlanKey) => {
     const p = priceFor(country, plan, L, lists, paddleSupported);
     return p ? { price: format(p.amount, p.currency), minor: Number(p.minor), currency: p.currency, priceId: null as string | null } : undefined;

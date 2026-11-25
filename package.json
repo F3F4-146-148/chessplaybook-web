@@ -19,6 +19,7 @@
     "sitemap": "node scripts/generate-sitemap.cjs",
     "check:indexability": "node scripts/check-indexability.cjs",
     "verify:premium-fold": "node scripts/verify-premium-fold.mjs",
+    "ads:check": "node scripts/ads/check-ads.mjs",
     "lint": "eslint src",
     "preview": "vite preview",
     "test": "vitest run",

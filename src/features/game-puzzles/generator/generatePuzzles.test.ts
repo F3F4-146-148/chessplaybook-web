@@ -122,6 +122,21 @@ test('color and players filters keep only the solver asked for', async () => {
   assert.equal(nobody.puzzles.length, 0);
 });
 
+test("perspective: the player's own blunder is never a puzzle for the opponent; the opponent missing it is", async () => {
+  // White's 3.Qh5 loses on these evals (Black to move could punish), then Black's 3...Nf6 lets White mate.
+  const evals: Array<PositionEval | null> = Array.from({ length: SANS.length + 1 }, () => ({ cp: 0, mate: null }));
+  evals[5] = { cp: -500, mate: null };
+  evals[6] = { cp: null, mate: 1 };
+  evals[7] = { cp: null, mate: 0 };
+  const kinds = (r: { puzzles: Array<{ kind: string; solver: string }> }) => r.puzzles.map((p) => `${p.kind}:${p.solver}`).sort();
+  const free = await generatePuzzles([{ pgn: GAME, evals }], {}, scriptedEngine());
+  assert.ok(!kinds(free).includes('missed:black'), 'without it, the position after 3.Qh5 is the punish');
+  const asWhite = await generatePuzzles([{ pgn: GAME, evals }], { perspective: 'white' }, scriptedEngine());
+  assert.deepEqual(kinds(asWhite), ['missed:black', 'punish:white']);
+  const asBlack = await generatePuzzles([{ pgn: GAME, evals }], { perspective: 'black' }, scriptedEngine());
+  assert.ok(asBlack.puzzles.every((p) => !(p.kind === 'punish' && p.solver === 'white')), JSON.stringify(kinds(asBlack)));
+});
+
 test('piece filter', async () => {
   const r = await generatePuzzles([{ pgn: GAME }], { piece: 'queen' }, scriptedEngine());
   assert.deepEqual(r.puzzles.map((p) => p.piece), ['queen']);
@@ -230,6 +245,57 @@ test('a given first pass replaces the search and gives the same puzzles', async 
   const short = scriptedEngine();
   await generatePuzzles([{ pgn: GAME, evals: evals.slice(1) }], {}, short);
   assert.equal(short.passCalls, plain.passCalls);
+});
+
+test('a forced mate longer than two moves is played to the mate (V7, #510)', async () => {
+  // Scripted: after 3...Nf6, d3 "mates in 3" (d3 a6, Nf3 a5, Qxf7#). V6 stopped such a line after two moves.
+  const f = fensBefore(['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6', 'd3', 'a6', 'Nf3', 'a5', 'Qxf7#']);
+  const mateIn3 = {
+    [FENS[6]]: [line('d2d3', null, 3, ['a7a6']), line('c4f7', 300), line('h5e5', 100), line('a2a3', 0), line('b1c3', 0)],
+    [f[8]]: [line('g1f3', null, 2, ['a6a5']), line('a2a3', 300), line('b1c3', 100), line('h2h3', 0), line('c1d2', 0)],
+    [f[10]]: [line('h5f7', null, 1), line('a2a3', 300), line('b1c3', 100), line('h2h3', 0), line('c1d2', 0)],
+  };
+  const r = await generatePuzzles([{ pgn: GAME }], {}, scriptedEngine(mateIn3));
+  const punish = r.puzzles.find((p) => p.kind === 'punish')!;
+  assert.ok(punish, 'punish puzzle');
+  assert.equal(punish.goal, 'mate');
+  assert.equal(punish.mateIn, 3);
+  assert.deepEqual(punish.moves, ['g8f6', 'd2d3', 'a7a6', 'g1f3', 'a6a5', 'h5f7']);
+
+  const v6 = await generatePuzzles([{ pgn: GAME }], { thresholds: { maxMateMoves: 2 } }, scriptedEngine(mateIn3));
+  assert.notEqual(v6.puzzles.find((p) => p.kind === 'punish')?.goal, 'mate');
+});
+
+test('a material line goes on while the next move is again the one clear answer (#510)', async () => {
+  // White already +8 before 3...Nf6. After it, d3 keeps +17 (a7a6 reply), then Nf3 is again the only
+  // good move (a6a5), then everything is level with everything: the line stops there.
+  const f = fensBefore(['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6', 'd3', 'a6', 'Nf3', 'a5']);
+  const decided = {
+    [FENS[5]]: [line('g7g6', -800), line('d8e7', -820), line('d8f6', -850), line('g8h6', -870), line('a7a6', -900)],
+    [FENS[6]]: [line('d2d3', 1700, null, ['a7a6']), line('c4f7', 1300), line('h5e5', 1200), line('a2a3', 1100), line('b1c3', 1000)],
+    [f[8]]: [line('g1f3', 1700, null, ['a6a5']), line('a2a3', 1300), line('b1c3', 1200), line('h2h3', 1100), line('c1d2', 1000)],
+    [f[10]]: [line('a2a3', 1700), line('b1c3', 1690), line('h2h3', 1680), line('c1d2', 1670), line('e1g1', 1660)],
+  };
+  const r = await generatePuzzles([{ pgn: GAME }], {}, scriptedEngine(decided));
+  const punish = r.puzzles.find((p) => p.kind === 'punish')!;
+  assert.equal(punish.goal, 'material');
+  assert.deepEqual(punish.moves, ['g8f6', 'd2d3', 'a7a6', 'g1f3']);
+  assert.deepEqual(punish.acceptedMoves, [['d2d3'], ['g1f3']]);
+  assert.equal(punish.reply, 'a6a5', "the engine reply to the last solver move, for the server's material count");
+});
+
+test('a line ends when a position comes back (#510)', async () => {
+  // Scripted shuffle: Qg4 Ng8 Qh5 Nf6 would repeat the puzzle's position for ever.
+  const f = fensBefore(['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6', 'Qg4', 'Ng8', 'Qh5', 'Nf6', 'Qg4']);
+  const shuffle = {
+    [FENS[5]]: [line('g7g6', -800), line('d8e7', -820), line('d8f6', -850), line('g8h6', -870), line('a7a6', -900)],
+    [FENS[6]]: [line('h5g4', 1700, null, ['f6g8']), line('c4f7', 1300), line('h5e5', 1200), line('a2a3', 1100), line('b1c3', 1000)],
+    [f[8]]: [line('g4h5', 1700, null, ['g8f6']), line('a2a3', 1300), line('b1c3', 1200), line('h2h3', 1100), line('c1d2', 1000)],
+  };
+  shuffle[f[10]] = shuffle[FENS[6]]; // the same position again, only the move counters differ
+  const r = await generatePuzzles([{ pgn: GAME }], {}, scriptedEngine(shuffle));
+  const punish = r.puzzles.find((p) => p.kind === 'punish')!;
+  assert.deepEqual(punish.moves, ['g8f6', 'h5g4', 'f6g8', 'g4h5']);
 });
 
 test('game hash: stable, and different for a different game', () => {

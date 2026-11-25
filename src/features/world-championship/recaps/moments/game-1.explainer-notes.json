@@ -1,0 +1,332 @@
+{
+  "pipelineVersion": "4.9.6",
+  "notes": [
+    {
+      "ply": 27,
+      "san": "c4",
+      "fen": "r3k2r/pppbbppp/2p3n1/4P3/2P1N3/4BN1P/PP3PP1/R2R2K1 b - - 0 14",
+      "action": "Black is under pressure and must find the right defense.",
+      "structured": {
+        "verdict": {
+          "eval": "Equal position",
+          "phase": "middlegame"
+        },
+        "action": "Black is under pressure and must find the right defense.",
+        "sections": {
+          "threats_and_tactics": {
+            "summary": "Nothing is hanging on either side.",
+            "items": [
+              {
+                "text": "Nothing is hanging on either side.",
+                "side": "neutral",
+                "priority": 10
+              }
+            ]
+          },
+          "king_safety": {
+            "summary": "White is castled kingside; the king is off the centre and the rook joins the game.",
+            "items": [
+              {
+                "text": "White is castled kingside; the king is off the centre and the rook joins the game.",
+                "side": "white",
+                "priority": 50
+              },
+              {
+                "text": "The pawns in front of White's king are intact.",
+                "side": "white",
+                "priority": 45
+              }
+            ]
+          },
+          "material": {
+            "summary": "Black's two bishops are a formidable duo, controlling diagonals of both colors across the entire board.",
+            "items": [
+              {
+                "text": "Black's two bishops are a formidable duo, controlling diagonals of both colors across the entire board.",
+                "side": "black",
+                "priority": 60
+              }
+            ]
+          },
+          "pieces": {
+            "summary": "White's rook is on d1 with the d-file pointing at the opposing king.",
+            "items": [
+              {
+                "text": "White's rook is on d1 with the d-file pointing at the opposing king.",
+                "side": "white",
+                "priority": 70
+              },
+              {
+                "text": "White's rooks are coordinated on the back rank.",
+                "side": "white",
+                "priority": 40
+              },
+              {
+                "text": "Black's rook on h8 is essentially a spectator, hemmed in by Black's own king.",
+                "side": "black",
+                "priority": 65
+              }
+            ]
+          },
+          "pawn_structure": {
+            "summary": "The position offers both sides something to play for.",
+            "items": [
+              {
+                "text": "The position offers both sides something to play for.",
+                "side": "both",
+                "priority": 88
+              },
+              {
+                "text": "White's attacking chances on the king is offset by Black's piece activity, keeping the position in balance.",
+                "side": "both",
+                "priority": 85
+              },
+              {
+                "text": "Black holds a four vs three pawn majority on the queenside. Mobilizing these pawns is a key long-term plan.",
+                "side": "black",
+                "priority": 55
+              },
+              {
+                "text": "The doubled pawns on the c-file hamper Black's structure. The rear pawn is especially difficult to advance.",
+                "side": "black",
+                "priority": 50
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "ply": 46,
+      "san": "Nxe5",
+      "fen": "r5r1/1pp1kpp1/4b2p/2p1n2N/1bP3P1/1P2B2P/4RP2/3RN1K1 w - - 0 24",
+      "action": "Play Nc2.",
+      "structured": {
+        "verdict": {
+          "eval": "Equal position",
+          "phase": "middlegame"
+        },
+        "action": "Play Nc2.",
+        "sections": {
+          "threats_and_tactics": {
+            "summary": "Nothing is hanging on either side.",
+            "items": [
+              {
+                "text": "Nothing is hanging on either side.",
+                "side": "neutral",
+                "priority": 10
+              }
+            ]
+          },
+          "king_safety": {
+            "summary": "White is castled kingside; the king is off the centre and the rook joins the game.",
+            "items": [
+              {
+                "text": "White is castled kingside; the king is off the centre and the rook joins the game.",
+                "side": "white",
+                "priority": 50
+              }
+            ]
+          },
+          "material": {
+            "summary": "Black is up a bishop and a pawn for a knight, but White has equal play here.",
+            "items": [
+              {
+                "text": "Black is up a bishop and a pawn for a knight, but White has equal play here.",
+                "side": "both",
+                "priority": 80
+              },
+              {
+                "text": "With the bishop pair, Black's minor pieces complement each other perfectly: one covers what the other cannot.",
+                "side": "black",
+                "priority": 60
+              }
+            ]
+          },
+          "pieces": {
+            "summary": "White's rook on d1 aims down the d-file at the opponent's king.",
+            "items": [
+              {
+                "text": "White's rook on d1 aims down the d-file at the opponent's king.",
+                "side": "white",
+                "priority": 70
+              },
+              {
+                "text": "White's rook is on e2 with the e-file pointing at the opposing king.",
+                "side": "white",
+                "priority": 70
+              },
+              {
+                "text": "Black's rook on a8 sits on the open a-file, giving Black potential pressure along this line.",
+                "side": "black",
+                "priority": 60
+              }
+            ]
+          },
+          "pawn_structure": {
+            "summary": "An even position, but not a lifeless one.",
+            "items": [
+              {
+                "text": "An even position, but not a lifeless one.",
+                "side": "both",
+                "priority": 90
+              },
+              {
+                "text": "Black's three-vs-two pawn majority on the queenside gives them the potential to create a passed pawn.",
+                "side": "black",
+                "priority": 55
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "ply": 64,
+      "san": "Kg8",
+      "fen": "r2r2k1/1pp2p2/2n4B/2p4R/2P3P1/1PbN3P/8/3R2K1 w - - 1 33",
+      "action": "Play Rg5+.",
+      "structured": {
+        "verdict": {
+          "eval": "Equal position",
+          "phase": "middlegame"
+        },
+        "action": "Play Rg5+.",
+        "sections": {
+          "threats_and_tactics": {
+            "summary": "White must deal with Black's threat of Ne5.",
+            "items": [
+              {
+                "text": "White must deal with Black's threat of Ne5.",
+                "side": "black",
+                "priority": 86,
+                "tag": "asset"
+              },
+              {
+                "text": "Black's pawn on c5 is undefended and attacked by White's rook on h5. It must be saved or lost.",
+                "side": "white",
+                "priority": 85,
+                "tag": "problem"
+              }
+            ]
+          },
+          "king_safety": {
+            "summary": "The rook on h5 and the bishop on h6 are aimed at Black's king, two attackers in the zone.",
+            "items": [
+              {
+                "text": "The rook on h5 and the bishop on h6 are aimed at Black's king, two attackers in the zone.",
+                "side": "black",
+                "priority": 80
+              },
+              {
+                "text": "Note the check for Black: the bishop can move to d4.",
+                "side": "black",
+                "priority": 78
+              },
+              {
+                "text": "White has a check available: the rook can move to g5.",
+                "side": "white",
+                "priority": 78
+              },
+              {
+                "text": "White has castled kingside, tucking the king into safety.",
+                "side": "white",
+                "priority": 50
+              }
+            ]
+          },
+          "material": {
+            "summary": "Material is level. Neither side enjoys a material edge.",
+            "items": [
+              {
+                "text": "Material is level. Neither side enjoys a material edge.",
+                "side": "neutral",
+                "priority": 25
+              }
+            ]
+          },
+          "pieces": {
+            "summary": "Black's bishop on c3 has a dangerous diagonal reaching into the heart of the opponent's king shelter.",
+            "items": [
+              {
+                "text": "Black's bishop on c3 has a dangerous diagonal reaching into the heart of the opponent's king shelter.",
+                "side": "black",
+                "priority": 65
+              },
+              {
+                "text": "Black's knight on c6 and bishop on c3 concentrate on the queenside, outnumbering the opponent there.",
+                "side": "black",
+                "priority": 62
+              },
+              {
+                "text": "Black's rook on a8 controls the open a-file, a clear lane toward the back rank.",
+                "side": "black",
+                "priority": 60
+              },
+              {
+                "text": "Black's bishop on c3 commands an empty a1-h8.",
+                "side": "black",
+                "priority": 55
+              },
+              {
+                "text": "Black's rooks are coordinated on the back rank.",
+                "side": "black",
+                "priority": 40
+              },
+              {
+                "text": "White's bishop on h6 and rook on h5 give it the heavier presence on the kingside.",
+                "side": "white",
+                "priority": 62
+              },
+              {
+                "text": "The e-file is open. Controlling it with a rook would be a major plus.",
+                "side": "white",
+                "priority": 35
+              },
+              {
+                "text": "The half-open f-file gives White a natural lane for rook pressure against the enemy pawn.",
+                "side": "white",
+                "priority": 35
+              },
+              {
+                "text": "The d-file is open but contested, meaning neither side can penetrate along it without first winning the file.",
+                "side": "both",
+                "priority": 60
+              }
+            ]
+          },
+          "pawn_structure": {
+            "summary": "A razor-sharp equilibrium where both sides walk a tightrope. Precision is essential.",
+            "items": [
+              {
+                "text": "A razor-sharp equilibrium where both sides walk a tightrope. Precision is essential.",
+                "side": "both",
+                "priority": 90
+              },
+              {
+                "text": "The queenside pawn majority favors Black (three vs two). A potential passed pawn looms.",
+                "side": "black",
+                "priority": 55
+              },
+              {
+                "text": "Black's isolated f-pawn on f7 is a long-term target. No friendly pawn can ever come to its defense.",
+                "side": "black",
+                "priority": 50
+              },
+              {
+                "text": "White holds a two vs one pawn majority on the kingside. Mobilizing these pawns is a key long-term plan.",
+                "side": "white",
+                "priority": 55
+              },
+              {
+                "text": "White's b-pawn on b3 is backward: it cannot advance safely and is a long-term weakness.",
+                "side": "white",
+                "priority": 50
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { userPreferencesService } from '@/services/UserPreferencesService';
 import { getRequestHeaders } from '@/features/auth/utils/getAuthToken';
 import { logGA4Event } from '@/services/analytics';
+import { countFirstDayAttempt } from '@/services/funnel';
 import { partialCredit } from '../lib/partialCredit';
 import { postPuzzleResult } from '../services/postPuzzleResult';
+import { asProgressMoment, type ProgressMoment } from '../lib/progressMoment';
 
 export interface PuzzleProgress {
   totalSolved: number;
@@ -85,6 +87,8 @@ export function usePuzzleRecord(
     hasFailed: boolean;
     firstFailure: boolean;
     moveIndex: number;
+    /* #418 A1: optional, so callers built before it (tests, fixtures) still type-check. */
+    mainLine?: boolean | null;
     /* `tryId` is the server-issued presentation id (plan B1). It is optional
        because a legacy client or a resumed pre-B1 position has none, and the
        result endpoint must still accept those - see `puzzle_attempts.try_id`,
@@ -162,6 +166,10 @@ export function usePuzzleRecord(
   /** The puzzle whose result has already been sent. One report per puzzle. */
   const reportedRef = useRef<string | null>(null);
   const [attemptRecordedFor, setAttemptRecordedFor] = useState<string | null>(null);
+  /* #418: the progress moment a clean solve's answer brought, and the puzzle whose solve is still waiting for its
+     answer (the Master holds his ordinary line briefly in case it brings one). */
+  const [moment, setMoment] = useState<ProgressMoment | null>(null);
+  const [pendingFor, setPendingFor] = useState<string | null>(null);
 
   /*
     A RESTORED, ALREADY-SCORED ATTEMPT IS ADOPTED BEFORE ANY EFFECT CAN REPORT IT.
@@ -202,6 +210,7 @@ export function usePuzzleRecord(
        result arrived (C6, D27; v1 reset both, PuzzleTrainer.tsx:1244). */
     setRatingDelta(null);
     setLastSolveFrozen(false);
+    setMoment(null);
   }, [puzzleState.puzzle?.id]);
 
   /*
@@ -274,6 +283,7 @@ export function usePuzzleRecord(
     });
 
     const elapsed = startedAtRef.current != null ? Date.now() - startedAtRef.current : null;
+    if (solved && !frozen) setPendingFor(puzzle.id);
     try {
       const headers = await getRequestHeaders();
       /* Retries a 503 with the SAME tryId — see postPuzzleResult for why that
@@ -290,6 +300,8 @@ export function usePuzzleRecord(
             ? null
             : elapsed,
           frozenReason,
+          /* #418 A1: only a solve has a line to have followed; unknown is left out. */
+          mainLine: solved && typeof puzzleState.mainLine === 'boolean' ? puzzleState.mainLine : undefined,
           /* The server verifies this against the caller's own identity and
              ignores a run that is not theirs or no longer active. */
           sessionId: liveRef.current.sessionId ?? null,
@@ -306,12 +318,18 @@ export function usePuzzleRecord(
         }));
         setRatingDelta(data.ratingChange);
         setLastSolveFrozen(data.frozen === true);
+        /* A new browser's fifth attempt on its first day (funnel stage 3b), as a GA4 event. Counted only once the server has stored the attempt, as the funnel counts it. */
+        if (countFirstDayAttempt()) logGA4Event({ name: 'first_day_five_puzzles', params: {} });
+        // only for this puzzle: an answer for another (a slow one) is dropped (analysis 3.7)
+        if (solved) setMoment(asProgressMoment(data.moment, puzzle.id));
       }
       /* Re-read the run AFTER the write, whether or not the response parsed:
          the attempt row is what advances it, and progress is a count over that
          log rather than anything this page increments. */
       liveRef.current.onResultRecorded?.();
+      setPendingFor((p) => (p === puzzle.id ? null : p));
     } catch {
+      setPendingFor((p) => (p === puzzle.id ? null : p));
       /* Offline keeps the local record; the attempt is lost rather than the
          page. Deliberately NO local rating estimate here: two writers for one
          number is what made the displayed rating disagree with the server's. */
@@ -409,5 +427,9 @@ export function usePuzzleRecord(
       one answer to "has this puzzle been scored" whichever way it got that way.
     */
     attemptRecordedFor: attemptRecordedFor ?? restored,
+    /** The progress moment this puzzle's clean solve brought (#418), or null. */
+    moment,
+    /** A clean solve of this puzzle is waiting for the server's answer. */
+    momentPendingFor: pendingFor,
   };
 }

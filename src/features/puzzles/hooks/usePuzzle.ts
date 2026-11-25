@@ -7,6 +7,7 @@ import {
 import type { ChessPosition } from '@/components/chess/chessLogic';
 import type { Key, Color, Dests } from '@lichess-org/chessground/types';
 import { logGA4Event } from '@/services/analytics';
+import { analysisService } from '@/services/AnalysisService';
 import { recordPuzzleTry } from '@/features/puzzles/services/puzzleTry';
 import type { PuzzleGameSource } from '../lib/gamePuzzleSource';
 
@@ -66,6 +67,25 @@ export interface Puzzle {
 
 export type PuzzleStatus = 'loading' | 'ready' | 'playing' | 'correct' | 'failed' | 'solution';
 
+/** How long a wrong move stays on the board, marked, before it is taken back (owner, 2026-11-22: "lets try 500 ms";
+ *  Lichess holds 300ms, Chess.com until Retry). */
+export const WRONG_MOVE_HOLD_MS = 500;
+
+/*
+  THE REFUTATION (#417, owner 2026-11-22). After a wrong move the engine finds the opponent's best reply in the
+  position the wrong move made, and the board shows it as an arrow while the wrong move is held. Owner: the arrow
+  only (the reply is never played), on every wrong move, on by default, from the browser engine loaded on demand.
+
+  No engine answers inside WRONG_MOVE_HOLD_MS (a 300 ms search, more when the engine has to start), so the hold
+  WAITS for the arrow, up to REFUTATION_WAIT_MS, and then leaves it REFUTATION_READ_MS to be read. With no answer
+  by the cap, or none at all (a position with no reply, the engine unavailable), the move goes back as before.
+  Any press on the board ends the hold at once (`dismissWrongMove`), so a quick retry is never blocked.
+*/
+export const REFUTATION_WAIT_MS = 2500;
+export const REFUTATION_READ_MS = 1500;
+/** The card's line after a wrong move, kept until the next move. */
+export const WRONG_MOVE_LINE = 'Not that move. Try another.';
+
 export interface PuzzleState {
   puzzle: Puzzle | null;
   position: ChessPosition | null;
@@ -74,6 +94,12 @@ export interface PuzzleState {
   turnColor: Color;
   movableColor: Color | undefined;
   lastMove: Key[] | undefined;
+  /** The wrong move on the board while it is held, [from, to]; marked in soft red with a badge. */
+  wrongMove: Key[] | undefined;
+  /** The opponent's reply that refutes the held wrong move, [from, to], drawn as an arrow (#417); undefined until the engine answers. */
+  refutation: Key[] | undefined;
+  /** The last move played was wrong: true from the wrong move until the next move (the card keeps its line). */
+  lastMoveWrong: boolean;
   isCheck: boolean;
   status: PuzzleStatus;
   playerColor: Color;
@@ -89,6 +115,10 @@ export interface PuzzleState {
    *  the trainer can treat a retry-solve as free (no rating, no stats,
    *  no streak). Resets in `loadPuzzle`. */
   hasFailed: boolean;
+  /** #418 A1: the player's moves so far are the puzzle's stored ones (true); another accepted move was
+   *  played, an alternative mate or a game puzzle's accepted alternative (false); unknown after a resume
+   *  (null). Sent with a solve, so the Master never praises a move the player did not play. */
+  mainLine: boolean | null;
 }
 
 /**
@@ -123,6 +153,8 @@ export interface PuzzleActions {
   onMove: (orig: Key, dest: Key) => void;
   retry: () => void;
   showSolution: () => void;
+  /** End a held wrong move now (a press on the board, #417): the move goes back and the board takes moves at once. */
+  dismissWrongMove: () => void;
 }
 
 /**
@@ -141,6 +173,8 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
   const [status, setStatus] = useState<PuzzleStatus>('loading');
   const [lastMove, setLastMove] = useState<Key[] | undefined>(undefined);
   const [moveIndex, setMoveIndex] = useState(0);
+  // #418 A1: see `PuzzleState.mainLine`
+  const [mainLine, setMainLine] = useState<boolean | null>(true);
   const [message, setMessage] = useState('');
   const [playerColor, setPlayerColor] = useState<Color>('white');
 
@@ -159,6 +193,19 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
   const [firstFailure, setFirstFailure] = useState(false);
   const [hasFailed, setHasFailed] = useState(false);
   const revertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /*
+    THE WRONG MOVE IS SHOWN BEFORE IT IS TAKEN BACK (2026-11-22). A first-time visitor read the old behaviour as a
+    broken mouse: the piece went back in the same render it landed (one frame), nothing marked the board, and the board
+    ignored moves for the rest of a 700ms window. Now, as on Lichess and Chess.com, the move stays on the board for
+    WRONG_MOVE_HOLD_MS with its squares marked (`wrongMove`), then slides back and the board takes moves at once.
+    `lastMoveWrong` keeps the card's line and mark until the player's next move (Lichess keeps "Not the move!" the same
+    way), where it used to vanish after 700ms. Owner's choices: take back by itself, soft red squares and a badge, 500ms.
+  */
+  const [wrongMove, setWrongMove] = useState<{ from: Key; to: Key; fen: string; reply?: [Key, Key] } | null>(null);
+  // Which wrong move a refutation answer belongs to (#417): an answer for an earlier wrong move, or one that
+  // arrives after the hold ended, is dropped.
+  const wrongSeqRef = useRef(0);
+  const [lastMoveWrong, setLastMoveWrong] = useState(false);
 
   // Funnel instrumentation (A2). `metaRef` is the presentation this puzzle
   // arrived with; `readyAtRef` is when the board actually became touchable;
@@ -185,6 +232,24 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     for (const t of pendingTimersRef.current) clearTimeout(t);
     pendingTimersRef.current = [];
   }, []);
+
+  // The end of a wrong move's hold: the board slides the piece home and takes moves again in the same render.
+  // Clears the last-move highlight so the user faces a fresh board (since B1 the setup move's, not an answer).
+  const takeBackWrongMove = useCallback(() => {
+    setLastMove(undefined);
+    setWrongMove(null);
+    setStatus('playing');
+  }, []);
+
+  // (Re)schedule the end of the hold `ms` from now (#417: the hold waits for the refutation, then gives it time).
+  const holdWrongMove = useCallback((ms: number, onExpire?: () => void) => {
+    if (revertTimerRef.current) clearTimeout(revertTimerRef.current);
+    revertTimerRef.current = setTimeout(() => {
+      revertTimerRef.current = null;
+      onExpire?.();
+      takeBackWrongMove();
+    }, ms);
+  }, [takeBackWrongMove]);
 
   // Play a UCI move on the current position and update state
   const playMove = useCallback((uciMove: string): ChessPosition | null => {
@@ -286,10 +351,13 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     hasFailedOnceRef.current = false;
     setFirstFailure(false);
     setHasFailed(false);
+    setMainLine(true);
     if (revertTimerRef.current) {
       clearTimeout(revertTimerRef.current);
       revertTimerRef.current = null;
     }
+    setWrongMove(null);
+    setLastMoveWrong(false);
 
     // Lichess puzzle format:
     // - FEN is the position BEFORE the opponent's last move
@@ -387,6 +455,8 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
       clearTimeout(revertTimerRef.current);
       revertTimerRef.current = null;
     }
+    setWrongMove(null);
+    setLastMoveWrong(false);
     // A resume is not a presentation: leave metaRef null so nothing downstream
     // reports this as a newly shown puzzle.
     metaRef.current = null;
@@ -396,6 +466,9 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     puzzleRef.current = p;
     positionRef.current = pos;
     setPosition(pos);
+    /* #418 A1: the board was rebuilt from the stored moves; when it matched the saved board, those were the
+       moves played; without a saved board to compare, it is unknown. */
+    setMainLine(options.expectedFen ? true : null);
 
     const previousMove = p.moves[targetIndex - 1];
     setLastMove([
@@ -456,6 +529,8 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     const puz = puzzleRef.current;
     const idx = moveIndexRef.current;
     if (!puz || status !== 'playing') return;
+    // The card's "Not that move" line lasts until this, the next move.
+    setLastMoveWrong(false);
 
     const userMove = toUci(orig, dest);
     const expectedMove = puz.moves[idx];
@@ -530,6 +605,7 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
       // over (mate ends the game), so we also force-end below regardless
       // of the puzzle's stored move count.
       playMove(acceptedAlt ?? (isAltMate ? userMove : expectedMove));
+      if (isAltMate || acceptedAlt) setMainLine(false);
       const newIdx = idx + 1;
       moveIndexRef.current = newIdx;
       setMoveIndex(newIdx);
@@ -561,16 +637,12 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
         playOpponentMove();
       }
     } else {
-      // Wrong move. Show the "Incorrect" overlay briefly, then auto-revert
-      // to the position before the user's move and let them try again.
-      // chessground updates its internal state when the user moves the
-      // piece, but our React `position`/`positionRef` was never updated
-      // (we only call `playMove` on the correct branch above), so when
-      // the next render fires with status='failed' the ChessBoard's
-      // useEffect calls `apiRef.current.set({ fen })` with the
-      // pre-wrong-move FEN — chessground snaps the wrong piece back.
-      // The auto-revert timer below then flips status back to 'playing'
-      // so the user can try a different move from the same position.
+      // Wrong move. It stays on the board, marked, for WRONG_MOVE_HOLD_MS (the
+      // board's fen is `wrongMove.fen` meanwhile), then the timer below takes it
+      // back and the board takes moves again at once. `position`/`positionRef`
+      // never change here: only the correct branch above calls `playMove`.
+      // Until 2026-11-22 the board was handed the old fen in this same render,
+      // so the piece went straight back and the move was never seen.
       //
       // First-failure-only rating: hasFailedOnceRef tracks whether THIS
       // puzzle has already produced a 'failed' transition. Subsequent
@@ -583,6 +655,10 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
       setFirstFailure(isFirstFailure);
       setHasFailed(true);
       setStatus('failed');
+      const shown = positionRef.current ? applyMove(positionRef.current, userMove) : null;
+      setWrongMove(shown ? { from: orig, to: dest, fen: shown.fen } : null);
+      const seq = ++wrongSeqRef.current;
+      setLastMoveWrong(true);
       // B2 / PZ-016 — say what has actually happened. The rating outcome is
       // fixed on this first failure and a later retry-solve is explicitly not
       // counted, so "Try again..." on its own invited the user to keep playing
@@ -608,7 +684,13 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
         It also fits ONE line in the narrow card, where the old sentence needed
         two - and the slot reserves for the longest state it can hold.
       */
-      setMessage(isFirstFailure ? 'Incorrect. Keep trying.' : 'Incorrect. Try again...');
+      /*
+        "Not that move. Try another." (2026-11-22) replaces both wrong-move lines. It now stays until the next move
+        (it used to give way to "White to move. Keep going." after 700ms), so it says what happened and what to do,
+        the way Lichess's "Not the move! Try something else." does. Same words on a second wrong move: retries are
+        free and the scoring is shown in the session card's Missed count.
+      */
+      setMessage(WRONG_MOVE_LINE);
 
       // The correct move is NOT revealed here (PZ-015 / plan B1).
       //
@@ -625,33 +707,41 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
       // `showSolution()` — an explicit choice the user makes, rather than a
       // consolation the page hands out for being wrong.
 
-      // Auto-revert after 700ms total — return to 'playing' state at the
-      // pre-wrong-move position. Clear any prior timer first (defensive).
-      if (revertTimerRef.current) clearTimeout(revertTimerRef.current);
-      revertTimerRef.current = setTimeout(() => {
-        revertTimerRef.current = null;
-        // Clear the last-move highlight so the user faces a fresh board. Since
-        // B1 this is the setup move's highlight, not a revealed answer.
-        setLastMove(undefined);
-        setStatus('playing');
-        /*
-          The flash lasts 700ms and this line outlives it, so the page does not
-          spend the rest of the puzzle looking like the result is still open.
-
-          "already scored" was dropped from it (owner, 2026-08-06). The flash
-          itself already says "Incorrect — that one is scored", so repeating the
-          scoring for the rest of the attempt only kept telling someone they had
-          lost something while they were still working. What has to survive is
-          that the branch is DIFFERENT after a failure — that is what stops
-          "Correct so far" coming back — not the words that were in it.
-        */
-        const side = playerColorRef.current === 'white' ? 'White' : 'Black';
-        setMessage(hasFailedOnceRef.current
-          ? `${side} to move. Keep going.`
-          : `${side} to move`);
-      }, 700);
+      // Take the move back after the hold: the board slides the piece home and
+      // takes moves again in the same render. The card keeps WRONG_MOVE_LINE
+      // until the next move. The hold waits for the refutation's arrow (#417),
+      // up to REFUTATION_WAIT_MS; see `holdWrongMove`.
+      const puzzleId = puzzleRef.current?.id ?? '';
+      const startedAt = Date.now();
+      holdWrongMove(REFUTATION_WAIT_MS, () => {
+        logGA4Event({ name: 'puzzle_refutation', params: { puzzle_id: puzzleId, shown: false, reason: 'timeout', ms: Date.now() - startedAt } });
+      });
+      if (shown) {
+        void analysisService.findBestReply(shown.fen).then((uci) => {
+          // Another wrong move, a new puzzle, Show solution or a press on the board has ended this hold.
+          if (wrongSeqRef.current !== seq || !revertTimerRef.current) return;
+          const ms = Date.now() - startedAt;
+          if (!uci) {
+            logGA4Event({ name: 'puzzle_refutation', params: { puzzle_id: puzzleId, shown: false, reason: 'no_reply', ms } });
+            holdWrongMove(Math.max(0, WRONG_MOVE_HOLD_MS - ms));
+            return;
+          }
+          const reply: [Key, Key] = [uci.substring(0, 2) as Key, uci.substring(2, 4) as Key];
+          setWrongMove(prev => (prev ? { ...prev, reply } : prev));
+          logGA4Event({ name: 'puzzle_refutation', params: { puzzle_id: puzzleId, shown: true, reason: 'shown', ms } });
+          holdWrongMove(REFUTATION_READ_MS);
+        });
+      }
     }
-  }, [status, playMove, playOpponentMove]);
+  }, [status, playMove, playOpponentMove, holdWrongMove]);
+
+  // End a held wrong move now: a press on the board (#417).
+  const dismissWrongMove = useCallback(() => {
+    if (!revertTimerRef.current) return;
+    clearTimeout(revertTimerRef.current);
+    revertTimerRef.current = null;
+    takeBackWrongMove();
+  }, [takeBackWrongMove]);
 
   // Retry the current puzzle
   const retry = useCallback(() => {
@@ -684,6 +774,8 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
       clearTimeout(revertTimerRef.current);
       revertTimerRef.current = null;
     }
+    setWrongMove(null);
+    setLastMoveWrong(false);
 
     /*
       And cancel anything still animating from a previous reveal or setup move,
@@ -742,11 +834,14 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
   const state: PuzzleState = {
     puzzle,
     position,
-    fen: position?.fen || 'start',
+    fen: wrongMove?.fen || position?.fen || 'start',
     dests: status === 'playing' ? position?.dests : undefined,
     turnColor: position?.turnColor || 'white',
     movableColor: status === 'playing' ? playerColor : undefined,
-    lastMove,
+    lastMove: wrongMove ? undefined : lastMove,
+    wrongMove: wrongMove ? [wrongMove.from, wrongMove.to] : undefined,
+    refutation: wrongMove?.reply,
+    lastMoveWrong,
     isCheck: position?.isCheck || false,
     status,
     playerColor,
@@ -754,7 +849,8 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     message,
     firstFailure,
     hasFailed,
+    mainLine,
   };
 
-  return [state, { loadPuzzle, resumePuzzle, onMove, retry, showSolution }];
+  return [state, { loadPuzzle, resumePuzzle, onMove, retry, showSolution, dismissWrongMove }];
 }

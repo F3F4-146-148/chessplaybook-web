@@ -117,15 +117,13 @@ export function phasePositions(range: [number, number], lastPosition: number): {
 }
 
 /*
-  THE CRITICAL MOVE'S BUTTON SAYS WHAT THE MOVE IS (#374, owner on staging, 2026-11-19). The
-  server's critical moment prefers a brilliant move over a swing, so "the turning point" was
-  false for Polgar - Anand 1994: 22.Be3 is the highlight of a slow squeeze, the evaluation
-  barely moves. The label comes from the move's own class; anything else is "the critical
-  moment", the server's own words.
+  THE CRITICAL MOVE'S BUTTON SAYS WHAT THE MOVE IS (#374, owner on staging, 2026-11-19), never
+  "the turning point". Since #379 the critical move is the hard-to-find reply that took the chance
+  the opponent gave (BRILLIANT_MOVES_ANALYSIS §7): a good move, so the button names the mover and
+  the move ("Go to move 30: Kasparov's Nd4"), with "brilliant" when it is one. Without the move's
+  SAN it says "the critical moment".
 */
-const CRITICAL_WORD: Partial<Record<string, string>> = {
-  brilliant: 'brilliant', blunder: 'blunder', severe_blunder: 'blunder', mistake: 'mistake',
-};
+const CRITICAL_WORD: Partial<Record<string, string>> = { brilliant: 'brilliant' };
 
 export function buildReportView({
   analysis, summary, metadata, sans, gameResult,
@@ -183,9 +181,9 @@ export function buildReportView({
     const cls = analysis.classifiedMoves.find(m => m.moveIndex === mi)?.classification;
     const word = cls ? CRITICAL_WORD[cls] : undefined;
     const san = sans[mi];
-    if (!word || !san) return `Go to move ${number}, the critical moment`;
+    if (!san) return `Go to move ${number}, the critical moment`;
     const mover = mi % 2 === 0 ? displayName(metadata?.white, 'White') : displayName(metadata?.black, 'Black');
-    return `Go to move ${number}: ${mover}'s ${word} ${san}`;
+    return word ? `Go to move ${number}: ${mover}'s ${word} ${san}` : `Go to move ${number}: ${mover}'s ${san}`;
   };
   const critical = cmi !== null && cmi !== undefined && cmi >= 0 && cmi < lastPosition
     ? { position: cmi + 1, moveNumber: Math.floor(cmi / 2) + 1, label: criticalLabel(cmi) }

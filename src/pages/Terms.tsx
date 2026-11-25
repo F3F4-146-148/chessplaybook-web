@@ -2,10 +2,11 @@
  * Terms of Service Page
  *
  * Defines the terms and conditions for using Chess Playbook, including Premium: payment through
- * Paddle as merchant of record, renewal, cancellation and the refund rule (owner, 2026-11-13: a full
- * refund within 30 days of a payment, then none). Paddle's review checks that these name the seller,
- * name Paddle as merchant of record and state an unconditional refund window
- * (PREMIUM_OFFER_ANALYSIS section 7). The company details come from src/config/company.ts.
+ * Stripe Managed Payments, whose affiliate Sold through Link, LLC is the merchant of record (Stripe's
+ * service terms, read 2026-11-23), renewal, cancellation and the refund rule (owner, 2026-11-13: a full
+ * refund within 30 days of a payment; Link may also refund under its own policy within 60 days).
+ * Stripe's terms ask that the subscription terms, the cancellation method and a link to Link's
+ * customer terms are given before checkout. The company details come from src/config/company.ts.
  */
 
 import { Link } from 'react-router-dom';
@@ -82,8 +83,8 @@ const Terms = () => {
                 <p className={P}>
                   You can delete your account at any time from your{' '}
                   <Link to="/profile" className={A}>account page</Link>. Deleting your account cancels a Premium
-                  subscription straight away and ends a one-year pass, and Premium ends. If we cannot reach Paddle
-                  to cancel at that moment, the account page asks you to try again. If you want a refund, ask for
+                  subscription straight away and ends a one-year pass, and Premium ends. If we cannot reach our
+                  payment provider to cancel at that moment, the account page asks you to try again. If you want a refund, ask for
                   it before you delete your account.
                 </p>
               </section>
@@ -105,20 +106,29 @@ const Terms = () => {
                   Premium starts as soon as your payment is confirmed. The price you pay is the one shown at
                   checkout.
                 </p>
+                {/* Owner-approved 2026-11-24 (premium grants plan D8). */}
+                <p className={P}>
+                  We sometimes give Premium for free, for example by invitation. Premium we give has no cash
+                  value, cannot be transferred, and we may end it at any time.
+                </p>
               </section>
 
               <section className="mb-8">
                 <h2 className={H2}>Payment</h2>
                 <p className={P}>
-                  Our order process is conducted by our online reseller Paddle.com. Paddle.com is the Merchant of
-                  Record for all our orders. Paddle provides all customer service inquiries and handles returns.
+                  Premium is sold through Link. Sold through Link, LLC, an affiliate of Stripe, is the Merchant of
+                  Record for all our orders: it takes your payment and sends your receipt, and the payment shows
+                  on your statement as LINK.COM*. We are the seller of Premium and are responsible for it.
                 </p>
                 <p className={P}>
-                  Prices are shown in your currency where Paddle supports it, and include any sales tax or VAT.
-                  Your payment details go to Paddle. We never see your card number. Paddle's{' '}
-                  <a href="https://www.paddle.com/legal/buyer-terms" target="_blank" rel="noopener noreferrer" className={A}>
-                    buyer terms
-                  </a>{' '}
+                  For a question about a payment or a receipt, contact{' '}
+                  <a href="https://support.link.com/topics/sold-through-link" target="_blank" rel="noopener noreferrer" className={A}>Link support</a>. For anything about Premium itself, write to us.
+                </p>
+                <p className={P}>
+                  Prices are shown in your currency for most countries, otherwise in US dollars, and include any
+                  sales tax or VAT. Your payment details go to
+                  Link. We never see your card number. Link's{' '}
+                  <a href="https://link.com/terms" target="_blank" rel="noopener noreferrer" className={A}>terms</a>{' '}
                   also apply to your purchase.
                 </p>
               </section>
@@ -126,17 +136,17 @@ const Terms = () => {
               <section className="mb-8">
                 <h2 className={H2}>Renewal and Cancellation</h2>
                 <p className={P}>
-                  A subscription renews automatically at the end of each month or year, and Paddle charges the
-                  same payment method. Your account page shows the date of the next renewal.
+                  A subscription renews automatically at the end of each month or year, and Link charges the
+                  same payment method. Your <Link to="/membership" className={A}>Membership page</Link> shows the date of the next renewal.
                 </p>
                 <p className={P}>
-                  You can cancel at any time in Paddle's billing portal, which you open from your account page or
-                  from the link in your Paddle receipt. When you cancel, you keep Premium until the end of the period you
-                  have paid for, and you are not charged again.
+                  You can cancel at any time from your Membership page, with "Manage your subscription". When you
+                  cancel there, you keep Premium until the end of the period you have paid for, and you are not
+                  charged again. You can also manage the subscription in your Link account.
                 </p>
                 <p className={P}>
-                  If a renewal payment fails, Paddle will try again for a short time. If it still fails, the
-                  subscription ends.
+                  If a renewal payment fails, Link tries again for about two weeks, and you keep Premium
+                  meanwhile. If it still fails, the subscription ends.
                 </p>
               </section>
 
@@ -144,9 +154,14 @@ const Terms = () => {
                 <h2 className={H2}>Refunds</h2>
                 <p className={P}>
                   You can have a full refund of any Premium payment within 30 days of that payment, for any
-                  reason. After 30 days, that payment is not refunded. This applies to subscriptions and to the
+                  reason. After 30 days, we do not refund that payment. This applies to subscriptions and to the
                   one-year pass. A refund ends the Premium that payment paid for, and refunding a subscription's
                   latest payment also cancels the subscription.
+                </p>
+                <p className={P}>
+                  Link may also refund a payment under its own{' '}
+                  <a href="https://support.link.com/questions/sold-through-link-refunds" target="_blank" rel="noopener noreferrer" className={A}>refund policy</a>, within 60 days, for
+                  example if the payment was not authorised.
                 </p>
                 <p className={P}>
                   The details and how to ask are in our{' '}
@@ -178,12 +193,12 @@ const Terms = () => {
                   The Website's code is free software. You can use, copy and change it under the GNU General Public
                   License, version 3 or later. The source is at{' '}
                   <a
-                    href="https://github.com/mihaikondort/chessplaybook-web"
+                    href="https://github.com/F3F4-146-148/chessplaybook-web"
                     target="_blank"
                     rel="noopener noreferrer"
                     className={A}
                   >
-                    github.com/mihaikondort/chessplaybook-web
+                    github.com/F3F4-146-148/chessplaybook-web
                   </a>
                   .
                 </p>

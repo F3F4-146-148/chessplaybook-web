@@ -32,8 +32,12 @@ import { defaultLevelId, findLevel, playLevels, type PlayLevel } from '../servic
 import { MAIA_LIVE, MASTER_LIVE } from '@/design/designFlags';
 import { MasterStrip } from '../components/MasterStrip';
 import { logGA4Event } from '@/services/analytics';
+import { GamePgnActions } from '@/features/games/GamePgnActions';
+import { buildGamePgn, gamePgnFileName } from '@/features/games/gamePgn';
+import { fetchStoredGamePgn } from '@/features/games/storedGame';
+import { useAuth } from '@/features/auth/AuthContext';
 import { useMasterVoice } from '@/features/master/useMasterVoice';
-import { eventLine } from '@/features/master/eventLines';
+import { chosenEventLine } from '@/features/master/eventLines';
 import type { MasterExpression } from '@/components/master/masterAssets';
 
 const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
@@ -240,7 +244,9 @@ export function PlayComputer() {
     setGameStartFen(startFen);
     const chosen = findLevel(LEVELS, levelId);
     logGA4Event({ name: 'computer_game_started', params: { opponent: chosen.kind === 'master' ? 'master' : 'stockfish', level: chosen.approxRating, color, from_position: Boolean(fromPosition) } });
-    actions.startGame(color, chosen, fromPosition ? startFen : undefined);
+    // #416: the clock is stored with the finished game (no clock: 0 and 0).
+    const clock = selectedTimeControl.initial === null ? { initial: 0, increment: 0 } : { initial: selectedTimeControl.initial, increment: selectedTimeControl.increment };
+    actions.startGame(color, chosen, fromPosition ? startFen : undefined, clock);
   };
 
   const challengeFriend = () => navigate('/play-online?setup=friend');
@@ -303,6 +309,37 @@ export function PlayComputer() {
   const opponentClockMs = opponentColor === 'white' ? whiteMs : blackMs;
 
   const timeControl = gameState.gameStatus === 'idle' ? selectedTimeControl : activeTimeControl;
+
+  /*
+    #416: COPY AND DOWNLOAD THE GAME, at any time against the computer. While it is played (or before the
+    server has it) the PGN is built here with the server's own tags (gamePgn.test.ts holds the two builders
+    together); once the game is stored, the server's PGN, which has the player's public name.
+  */
+  const { user } = useAuth();
+  const botName = levelInPlay.kind === 'master' ? `Chess Playbook Master (${levelInPlay.approxRating})` : `Stockfish level ${levelInPlay.stockfish.level}`;
+  const personName = user?.username || 'Player';
+  const pgnWhite = gameState.playerColor === 'white' ? personName : botName;
+  const pgnBlack = gameState.playerColor === 'white' ? botName : personName;
+  const gameMode = levelInPlay.kind === 'master' ? 'master' as const : 'stockfish' as const;
+  const pgnNow = async (): Promise<string> => {
+    const saved = gameState.savedGame;
+    if (saved?.status === 'saved' && saved.id) {
+      try { return await fetchStoredGamePgn(saved.id); } catch { /* the browser's copy below */ }
+    }
+    const clock = activeTimeControl.initial === null ? { initial: 0, increment: 0 } : activeTimeControl;
+    return buildGamePgn({
+      white: { username: pgnWhite, rating: gameState.playerColor === 'white' ? null : levelInPlay.approxRating },
+      black: { username: pgnBlack, rating: gameState.playerColor === 'white' ? levelInPlay.approxRating : null },
+      result: resultScore ?? '*',
+      endReason: /on time/.test(gameState.gameResult ?? '') ? 'timeout' : '',
+      sanMoves: gameState.sanMoves,
+      timeControlInitial: clock.initial ?? 0,
+      timeControlIncrement: clock.increment,
+      playedAt: new Date(),
+      mode: gameMode,
+      startFen: gameStartFen === STARTING_FEN ? null : gameStartFen,
+    });
+  };
   /*
     THE MASTER ON THE CARD (#186 D4): only while MASTER_LIVE is on and he is the opponent. His line follows the
     game; D6 replaces "Your move." with the sentence that says the move he just played.
@@ -341,7 +378,7 @@ export function PlayComputer() {
   const playerWon = (gameState.gameResult ?? '').startsWith(activeColor === 'white' ? 'White' : 'Black');
   const endEvent = gameState.gameStatus !== 'ended' ? null
     : (gameState.gameResult ?? '').startsWith('Draw') ? 'draw' : playerWon ? 'win' : 'loss';
-  const startLine = useMemo(() => eventLine('start', linePick), [linePick]);
+  const startLine = useMemo(() => chosenEventLine('start', linePick), [linePick]);
   /*
     "Good luck" is for BEFORE his first move only. Each move of his clears his last sentence while the server
     answers with the new one; falling back to the start line in that gap replayed its first syllable before every
@@ -353,7 +390,7 @@ export function PlayComputer() {
   }, [gameState.masterLine]);
   const opening = heSpoke ? null : startLine;
   const lineNow = gameState.masterLine?.text ?? opening?.text ?? '…';
-  const endLine = useMemo(() => (endEvent ? eventLine(endEvent, linePick) : null), [endEvent, linePick]);
+  const endLine = useMemo(() => (endEvent ? chosenEventLine(endEvent, linePick) : null), [endEvent, linePick]);
   /*
     HE TAKES A MOMENT AT THE END TOO (owner, 2026-11-16: after a mate "Well done, you beat me!" came instantly).
     The end line waits a pause like his move's, and never cuts off what he is saying: when his own move ends the
@@ -480,6 +517,17 @@ export function PlayComputer() {
                       <span>Moves</span>
                       {/* No position label (owner: "Latest position" removed 2026-10-08,
                           "Move N" removed 2026-10-10): the list marks the move shown. */}
+                      {/* #416: Copy and Download, at any time against the computer, in the row's empty right side. */}
+                      {gameState.sanMoves.length > 0 && (
+                        <GamePgnActions
+                          pgn={pgnNow}
+                          fileName={gamePgnFileName(pgnWhite, pgnBlack, new Date())}
+                          mode={gameMode}
+                          surface="play_computer"
+                          /* Share only once the game is stored: a link needs the server's id (owner: after the game ends). */
+                          shareId={gameState.savedGame?.status === 'saved' ? gameState.savedGame.id : null}
+                        />
+                      )}
                     </span>
                     <div className="flex min-h-0 flex-1 flex-col">
                       <WorkspaceList label="Moves">
@@ -511,6 +559,7 @@ export function PlayComputer() {
                             onGoTo={jumpToMove}
                             metadata={finishedGame.metadata}
                             gameResult={finishedGame.winner}
+                            puzzles={{ perspective: gameState.playerColor }}
                           />
                         )}
                         <button type="button" onClick={() => startGame()} className="card-btn card-btn-primary w-full">{fromPosition ? 'Play this position again' : 'New game'}</button>

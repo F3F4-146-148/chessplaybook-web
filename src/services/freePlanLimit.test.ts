@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 vi.mock('@/services/analytics', () => ({ logGA4Event: vi.fn() }));
 import {
-  DAILY_LIMIT_EVENT, FREE_PLAN_ALLOWANCE, dailyLimitMessage, dailyLimitTitle, readDailyLimit, reportDailyLimit, whenBack,
+  DAILY_LIMIT_EVENT, FREE_PLAN_ALLOWANCE, backLabel, dailyLimitMessage, limitApplies, dailyLimitTitle, readDailyLimit, reportDailyLimit, whenBack,
 } from './freePlanLimit';
 
 const body = { success: false, error: 'daily_limit', feature: 'game_report', limit: 1, resetsAt: '2026-11-20T22:00:00Z' };
@@ -38,6 +38,29 @@ describe('the message', () => {
       expect(text).toMatch(/^You've (used|played) today's /);
       expect(text).not.toContain('—');
     }
+  });
+});
+
+describe('a refused button (#472)', () => {
+  it("says when it is back in a few words: tomorrow at the visitor's midnight, else the hour", () => {
+    const lim = (at: Date) => ({ feature: 'opening_session' as const, limit: 1, resetsAt: at.toISOString() });
+    const afternoon = new Date(2026, 10, 20, 15, 0, 0);
+    // the reset on the visitor's next day: midnight (Romania) or early morning (India)
+    expect(backLabel(lim(new Date(2026, 10, 21, 0, 0, 0)), afternoon)).toBe('Back tomorrow');
+    expect(backLabel(lim(new Date(2026, 10, 21, 3, 30, 0)), afternoon)).toBe('Back tomorrow');
+    // later the same day (the Americas): the hour, minutes only when not zero
+    const fivePm = new Date(2026, 10, 20, 17, 0, 0);
+    expect(backLabel(lim(fivePm), afternoon)).toBe(`Back at ${fivePm.toLocaleTimeString([], { hour: 'numeric' })}`);
+    const halfPast = new Date(2026, 10, 20, 17, 30, 0);
+    expect(backLabel(lim(halfPast), afternoon)).toBe(`Back at ${halfPast.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`);
+    expect(backLabel({ feature: 'opening_session', limit: 1, resetsAt: 'not a date' })).toBe('Back tomorrow');
+  });
+
+  it('applies until its reset, then not', () => {
+    const limit = { feature: 'opening_session' as const, limit: 1, resetsAt: '2026-11-20T22:00:00Z' };
+    expect(limitApplies(limit, Date.parse('2026-11-20T21:59:00Z'))).toBe(true);
+    expect(limitApplies(limit, Date.parse('2026-11-20T22:00:00Z'))).toBe(false);
+    expect(limitApplies(null)).toBe(false);
   });
 });
 

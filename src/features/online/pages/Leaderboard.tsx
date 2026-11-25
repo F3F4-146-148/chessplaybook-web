@@ -199,6 +199,8 @@ interface SearchResult {
   /** Puzzle boards only: REAL lifetime solves. `gamesPlayed` is rated attempts. */
   puzzlesSolved?: number | null;
   rank: number;
+  /** A guest has no profile page, so the name is not a link (as on the board's own rows). */
+  isGuest?: boolean;
 }
 
 export default function Leaderboard() {
@@ -516,12 +518,16 @@ export default function Leaderboard() {
                       <span className="w-12 flex justify-center">
                         {rankBadge(r.rank)}
                       </span>
-                      <Link
-                        to={`/player/${r.username}`}
-                        className="flex-1 font-medium text-sm hover:text-link transition-colors truncate"
-                      >
-                        {r.username}
-                      </Link>
+                      {r.isGuest ? (
+                        <span className="flex-1 font-medium text-sm truncate">{r.username}</span>
+                      ) : (
+                        <Link
+                          to={`/player/${encodeURIComponent(r.username)}`}
+                          className="flex-1 font-medium text-sm hover:text-link transition-colors truncate"
+                        >
+                          {r.username}
+                        </Link>
+                      )}
                       <span className="w-20 text-right font-bold text-sm">{r.rating}</span>
                       <span className="w-20 text-right text-sm text-muted-foreground hidden sm:block">
                         {countFor(timeControl, r)}
@@ -833,7 +839,7 @@ export default function Leaderboard() {
                         </span>
                       ) : (
                         <Link
-                          to={`/player/${entry.username}`}
+                          to={`/player/${encodeURIComponent(entry.username)}`}
                           className="flex-1 font-medium text-sm hover:text-link transition-colors truncate"
                         >
                           {entry.username}

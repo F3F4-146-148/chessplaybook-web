@@ -13,7 +13,7 @@
 
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { CalendarPlus, ChevronRight, Radio } from 'lucide-react';
+import { CalendarPlus, Newspaper, ChevronRight, Radio } from 'lucide-react';
 import SeoHead from '@/components/SeoHead';
 import { renderNow } from '@/app/buildClock';
 import { PlayerPortrait } from '@/components/chess/PlayerPortrait';
@@ -32,10 +32,12 @@ import {
   genevaTime,
   type PlayerKey,
   type ScoredGame,
+  isFinished,
   whiteIn,
 } from '@/features/world-championship/match';
 import { startOf, useMatchBroadcast } from '@/features/world-championship/useMatchBroadcast';
-import { MatchVideo } from '@/features/world-championship/MatchVideo';
+import { MatchVideo, hubVideo } from '@/features/world-championship/MatchVideo';
+import { recapOfGame, recapPath } from '@/features/world-championship/recaps/recaps';
 
 const JSON_LD = {
   '@context': 'https://schema.org',
@@ -77,7 +79,7 @@ function useNow(): Date {
 }
 
 function resultText(g: ScoredGame | undefined): string {
-  if (!g) return '';
+  if (!g || g.result === 'pending') return '';
   if (g.result === 'playing') return 'Live';
   if (g.result === 'draw') return '½-½';
   return g.result === 'white' ? '1-0' : '0-1';
@@ -108,7 +110,7 @@ export default function WorldChampionship2026Hub() {
   const knownColours = [...(score?.games.values() ?? [])];
 
   // The score card's one button: the live game, else the next one, else the last game played.
-  const playedGames = [...(score?.games.values() ?? [])].filter((g) => g.result !== 'playing').map((g) => g.game);
+  const playedGames = [...(score?.games.values() ?? [])].filter((g) => isFinished(g.result)).map((g) => g.game);
   const gameLink: { game: number; live: boolean; label: string } | null = liveGame
     ? { game: liveGame, live: true, label: `Watch game ${liveGame} live` }
     : cal.nextGame
@@ -154,7 +156,7 @@ export default function WorldChampionship2026Hub() {
           </p>
 
           {/* -- FIDE's trailer: at the top, small until enlarged (owner, 2026-11-20) -- */}
-          <MatchVideo />
+          <MatchVideo video={hubVideo(score?.games.values() ?? [], liveGame)} />
 
           {/* -- The score ---------------------------------------------------- */}
           <section aria-label="Match score" className="surface-card rounded-lg p-5 sm:p-7 mb-8">
@@ -253,7 +255,17 @@ export default function WorldChampionship2026Hub() {
                         <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
                       </span>
                     </Link>
-                    {event ? (
+                    {/* A published recap takes the slot a game to come gives the calendar (fixed at build: no shift). */}
+                    {recapOfGame(n) ? (
+                      <Link
+                        to={recapPath(recapOfGame(n)!)}
+                        aria-label={`Read the recap of game ${n}`}
+                        title="Read the recap"
+                        className="ml-2 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <Newspaper className="h-4 w-4" aria-hidden />
+                      </Link>
+                    ) : event ? (
                       <a
                         href={googleCalendarUrl(event)}
                         target="_blank"

@@ -45,9 +45,12 @@
  */
 
 // --- BEGIN GENERATED ROUTE TABLE (scripts/generate-cloudfront-function.cjs) ---
-var ROUTES = 'analysis auth/callback candidates-2026 candidates-2026/: champion-challenge champion-challenge/: champions champions/:/best-games champions/:/best-games/: champions/:/games champions/:/games/: champions/list contact credits explain forgot-password game-history leaderboard live-events live-game/:/: login news news/candidates-2026 news/candidates-2026-conclusion news/candidates-2026-round-1 news/candidates-2026-round-3 news/candidates-2026-women news/sindarov-gukesh-head-to-head news/vaishali-ju-wenjun-title-match news/world-championship-2026-geneva openings play play-online player/: premium privacy profile puzzles puzzles/plan puzzles/progress refund-policy reminders reset-password signup terms verify-email world-championship-2026 world-championship-2026/: world-championship-cycle world-cup-2025 world-cup-2025/:'.split(' ');
-var SHELL = 'auth/callback candidates-2026/: champion-challenge/: champions/:/best-games/: champions/:/games/: forgot-password game-history live-game/:/: login player/: profile reset-password signup verify-email world-championship-2026/: world-cup-2025/:'.split(' ');
+var ROUTES = 'analysis auth/callback candidates-2026 candidates-2026/: champion-challenge champion-challenge/: champions champions/:/best-games champions/:/best-games/: champions/:/games champions/:/games/: champions/list contact credits explain forgot-password game-history game/: leaderboard live-events live-game/:/: login membership news news/candidates-2026 news/candidates-2026-conclusion news/candidates-2026-round-1 news/candidates-2026-round-3 news/candidates-2026-women news/sindarov-gukesh-head-to-head news/vaishali-ju-wenjun-title-match news/world-championship-2026-geneva news/world-championship-2026/: openings play play-online player/: premium privacy profile puzzles puzzles/from-games puzzles/plan puzzles/progress refund-policy reminders reset-password signup terms verify-email world-championship-2026 world-championship-2026/: world-championship-cycle world-cup-2025 world-cup-2025/:'.split(' ');
+var SHELL = 'auth/callback candidates-2026/: champion-challenge/: champions/:/best-games/: champions/:/games/: forgot-password game-history game/: live-game/:/: login player/: profile reset-password signup verify-email world-championship-2026/: world-cup-2025/:'.split(' ');
 // --- END GENERATED ROUTE TABLE ---
+
+/* #416: the shared game page (/game/<id>) is served its own shell, /game-shell.html, not /index.html. */
+var GAME_SHELL = ['game/:'];
 
 /*
  * Inlined because a viewer-request function can only GENERATE a response, not
@@ -229,7 +232,8 @@ function handler(event) {
     // A page with no file of its own: the SPA shell, fetched as a 200 so the
     // CSP function runs (see the header). A redirect is judged first.
     if (uri !== '/' && !looksLikeFile(uri) && matchTable(SHELL, uri) !== null) {
-      request.uri = '/index.html';
+      // #416: a shared game has a shell of its own (its preview text and noindex, generate-route-html.cjs).
+      request.uri = matchTable(GAME_SHELL, uri) !== null ? '/game-shell.html' : '/index.html';
     }
     // The homepage has its own prerendered object (P2): index.html stays the plain shell for the routes above.
     if (uri === '/') request.uri = '/home.html';

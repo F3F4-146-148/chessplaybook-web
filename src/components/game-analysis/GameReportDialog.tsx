@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import type { FullGameAnalysis } from '@/services/GameAnalysisService';
@@ -29,8 +29,10 @@ import { ReportPhases } from './ReportPhases';
 const GRAPH_DOTS: ClassKey[] = ['brilliant', 'inaccuracy', 'mistake', 'blunder', 'severe_blunder'];
 
 export function GameReportDialog({
-  open, onOpenChange, analysis, summary, moveIndex, onMoveClick, metadata, sans, gameResult, returnFocusTo,
+  open, onOpenChange, analysis, summary, moveIndex, onMoveClick, metadata, sans, gameResult, returnFocusTo, puzzles,
 }: {
+  /** #510: the puzzles line (made, being made, or none), under the graph. */
+  puzzles?: ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   analysis: FullGameAnalysis | null;
@@ -111,6 +113,7 @@ export function GameReportDialog({
                   onMoveClick={goTo} sans={sans} height={96} />
               </div>
             </div>
+            {puzzles && <div className="mt-3.5" data-report-puzzles-in-dialog>{puzzles}</div>}
             {summary && (
               <>
                 <div className="mt-[18px]"><ReportSummary summary={summary} critical={view.critical} onMoveClick={goTo} /></div>

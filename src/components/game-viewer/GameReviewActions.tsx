@@ -5,6 +5,8 @@ import { GameReportDialog } from '@/components/game-analysis/GameReportDialog';
 import { ExplanationOverlay } from '@/components/game-analysis/ExplanationOverlay';
 import type { GamePly } from '@/lib/game/gameModel';
 import { pliesBefore } from '@/lib/game/moveSpeech';
+import { useReportPuzzles } from '@/features/game-puzzles/report/useReportPuzzles';
+import { ReportPuzzlesLine } from '@/features/game-puzzles/report/ReportPuzzlesLine';
 
 const INITIAL = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -';
 
@@ -31,8 +33,14 @@ import type { ChessGame } from '@/types/chess';
  * position alone and stays, taking the whole row.
  */
 export function GameReviewActions({
-  fen, startFen, plies, ply, onGoTo, metadata, gameResult,
+  fen, startFen, plies, ply, onGoTo, metadata, gameResult, puzzles,
 }: {
+  /**
+   * #510: offer puzzles from this game (a game played here, or one brought to /analysis; never a
+   * champion's or a broadcast game, R2). `perspective` is the player's side when the page knows
+   * it; null makes both colours' puzzles (R3).
+   */
+  puzzles?: { perspective: 'white' | 'black' | null };
   fen: string;
   /** Where the game starts: the initial position, or a `[FEN]` tag's. */
   startFen: string;
@@ -52,6 +60,7 @@ export function GameReviewActions({
     moveIndex: ply + 1,
   });
   const [reportOpen, setReportOpen] = useState(false);
+  const uciMoves = useMemo(() => plies.map(p => p.uci), [plies]);
   /* Focus returns here when the report closes (#374): the dialog is controlled, not a Radix trigger. */
   const reportRef = useRef<HTMLButtonElement>(null);
   const sans = useMemo(() => plies.map(p => p.san), [plies]);
@@ -68,6 +77,22 @@ export function GameReviewActions({
     void review.handleGameReport();
   };
   const canReport = isInitialPosition(startFen);
+  const reportPuzzles = useReportPuzzles({
+    offered: !!puzzles && canReport,
+    ready: review.reportButtonState === 'ready',
+    arrays: review.reportArrays,
+    moves: uciMoves,
+    sans,
+    metadata,
+    gameResult,
+    perspective: puzzles?.perspective ?? null,
+  });
+  const puzzlesLine = puzzles && canReport ? (
+    <ReportPuzzlesLine
+      state={reportPuzzles.state} wanted={reportPuzzles.wanted}
+      onWanted={reportPuzzles.setWanted} onRetry={() => void reportPuzzles.retry()}
+    />
+  ) : null;
   const firstPly = pliesBefore(startFen);
   /* "5... Bg7" for a board ply index. */
   const moveLabel = (p: number) =>
@@ -90,7 +115,9 @@ export function GameReviewActions({
     if (explainedPly !== null && ply === explainedPly) void explainNow.current();
   }, [explainedPly, ply]);
   const reportLabel = review.reportButtonState === 'analyzing'
-    ? (review.reportProgress ? `Analyzing ${review.reportProgress.current}/${review.reportProgress.total}` : 'Analyzing…')
+    ? (review.reportStage === 'brilliant'
+      ? 'Checking brilliant moves'
+      : review.reportProgress ? `Analyzing ${review.reportProgress.current}/${review.reportProgress.total}` : 'Analyzing…')
     : review.reportError ? 'Try the report again' : 'Game report';
 
   return (
@@ -121,6 +148,7 @@ export function GameReviewActions({
           <span className="truncate">Explain position</span>
         </button>
       </div>
+      {puzzlesLine && <div style={{ marginTop: 'calc(var(--card-air) * 2)' }}>{puzzlesLine}</div>}
       <ExplanationOverlay
         open={explainedPly !== null}
         onClose={() => setExplainedPly(null)}
@@ -153,6 +181,7 @@ export function GameReviewActions({
         sans={sans}
         gameResult={gameResult}
         returnFocusTo={reportRef}
+        puzzles={puzzlesLine}
       />
     </>
   );

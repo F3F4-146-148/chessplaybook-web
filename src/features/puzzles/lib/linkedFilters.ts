@@ -40,6 +40,16 @@ export function linkedRunSelection(params: URLSearchParams): 'failed_review' | n
 }
 
 /**
+ * The game a linked run is made of (#510): the Game report's "Solve them" is `?run=game&game=<hash>`.
+ * The run starts on arrival with that game's puzzles. Anything that is not a game hash is ignored.
+ */
+export function linkedRunGame(params: URLSearchParams): string | null {
+  if (params.get('run') !== 'game') return null;
+  const hash = params.get('game') ?? '';
+  return /^[0-9a-f]{16}$/.test(hash) ? hash : null;
+}
+
+/**
  * The pattern a linked replay run is limited to (#109): a Patterns row's
  * "Replay" link is `?run=missed&theme=fork`. Only with `run=missed`; the
  * server refuses a theme that is not a motif, so nothing is checked here.

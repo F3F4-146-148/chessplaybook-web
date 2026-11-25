@@ -153,7 +153,7 @@ export default function SignupPage() {
 
               <p className="text-center text-sm text-muted-foreground">
                 Already have an account?{' '}
-                <Link to="/login" className="text-link hover:underline">Sign in</Link>
+                <Link to={returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : '/login'} className="text-link hover:underline">Sign in</Link>
               </p>
             </CardContent>
           </Card>

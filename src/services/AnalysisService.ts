@@ -13,7 +13,7 @@ import {
   getCommentarySearchData as runCommentaryProtocol,
   type CommentarySearchData,
 } from './commentarySearch';
-import { claimEngineLease, releaseEngineLease } from './engineLease';
+import { claimEngineLease, releaseEngineLease, ENGINE_LEASE_NAME } from './engineLease';
 
 /**
  * Which surface a search belongs to.
@@ -45,6 +45,8 @@ export type AnalysisProfile = 'panel' | 'compact';
  * card while the engine thinks.
  */
 const COMPACT_MOVETIME_MS = 300;
+/** The engine's WebAssembly, the file a cached engine is recognised by (#417, `prewarmIfCached`). */
+const STOCKFISH_WASM_PATH = '/stockfish/stockfish-18-lite-single.wasm';
 
 /**
  * Name the ending, for a position the engine has no move for.
@@ -58,14 +60,14 @@ const COMPACT_MOVETIME_MS = 300;
  * Falls back to "No moves" if the FEN will not parse at all — the card must say
  * something rather than hang, which is the entire defect this exists to fix.
  */
-function terminalDescription(fen: string): string | null {
+export function terminalDescription(fen: string): string | null {
   try {
     const position = new Chess(fen);
     if (position.isCheckmate()) {
       // Whose win, not merely that it ended: the side to move is the mated one.
-      return position.turn() === 'w' ? 'Checkmate — Black wins' : 'Checkmate — White wins';
+      return position.turn() === 'w' ? 'Checkmate. Black wins' : 'Checkmate. White wins';
     }
-    if (position.isStalemate()) return 'Stalemate — draw';
+    if (position.isStalemate()) return 'Stalemate. Draw';
     if (position.isDraw()) return 'Draw';
     return null;
   } catch {
@@ -143,6 +145,9 @@ export class AnalysisService {
   private batchSearchMode = false;
   private batchSearchOutput: string[] = [];
   private batchSearchResolve: (() => void) | null = null;
+  // Ends a session's search in flight as a timeout, when another tab takes the engine
+  // (own-game puzzles C2): without it each search waited out its full timeout on a dead worker.
+  private sessionSearchCancel: (() => void) | null = null;
   // Commentary search is active (getCommentarySearchData is running).
   // While true, handleEngineOutput suppresses the panel's
   // parseInfoLine dispatch so commentary's deep MultiPV=1 search
@@ -359,6 +364,7 @@ export class AnalysisService {
    */
   private handleLeaseLost(): void {
     this.leaseLost = true;
+    this.sessionSearchCancel?.();
     this.stopAnalysis();
     this.stopCompactAnalysis();
 
@@ -408,6 +414,11 @@ export class AnalysisService {
    * Deliberately not a result stream: this says *"you may ask again"*, not
    * *"here is an evaluation"*.
    */
+  /** Whether another tab holds the engine (a session's searches then end at once as timeouts). */
+  isEngineTaken(): boolean {
+    return this.leaseLost;
+  }
+
   subscribeEngineAvailable(callback: () => void): () => void {
     this.engineAvailableCallbacks.add(callback);
     return () => this.engineAvailableCallbacks.delete(callback);
@@ -1596,6 +1607,10 @@ export class AnalysisService {
   ): Promise<{ evals: number[]; bestMoves: string[]; mateIn: (number | null)[] }> {
     // Force MultiPV 1 for batch (fastest, cleanest output).
     this.sendCommand('setoption name MultiPV value 1');
+    // A fresh hash (#379): depth-16 results depend on what the engine searched before, so without
+    // this a report changed with whatever the panel had just analysed (Kasparov-Topalov's 37.Rd7
+    // lost its place as the critical move after the panel looked at the starting position).
+    this.sendCommand('ucinewgame');
 
     // Walk the game via chess.js to derive a FEN for every position.
     const chess = new Chess();
@@ -1614,7 +1629,21 @@ export class AnalysisService {
 
     for (let i = 0; i < fens.length; i++) {
       const fen = fens[i];
-      const result = await this.runBatchSearch(fen, 16);
+      // The position as the game's moves from the start (#379): the engine then knows the game's history
+      // (repetitions), as in the measurement the brilliant-move rule was set on. The FEN gives the side to move.
+      const position = i === 0 ? 'startpos' : `startpos moves ${moves.slice(0, i).join(' ')}`;
+      let result = await this.runBatchSearch(fen, 16, position);
+      /*
+        A TIMED-OUT POSITION IS SEARCHED AGAIN ON A FRESH HASH (#379, the owner's game on the local stack).
+        What the hash holds from the earlier positions can send one search astray: ply 53 of
+        that game took 64.6 s and 87M nodes in the batch, 2 s and 3M nodes from a fresh hash.
+        The batch gave up at 10 s and wrote 0 (always a wrong evaluation in the report), and
+        the brilliant-move detection then failed the whole game. Once, with more time.
+      */
+      if (!result.bestMove) {
+        this.sendCommand('ucinewgame');
+        result = await this.runBatchSearch(fen, 16, position, 20_000);
+      }
       evals.push(result.evalCp);
       bestMoves.push(result.bestMove);
       mateInArr.push(result.mateIn);
@@ -1640,6 +1669,9 @@ export class AnalysisService {
   private runBatchSearch(
     fen: string,
     depth: number,
+    /** What follows `position` (`fen …` by default; `startpos moves …` from the full-game batch). */
+    position = `fen ${fen}`,
+    timeoutMs = 10_000,
   ): Promise<{ evalCp: number; bestMove: string; mateIn: number | null }> {
     return new Promise((resolve) => {
       const isWhite = this.isWhiteToMove(fen);
@@ -1658,7 +1690,7 @@ export class AnalysisService {
           this.sendCommand('stop');
           resolve({ evalCp: 0, bestMove: '', mateIn: null });
         }
-      }, 10000);
+      }, timeoutMs);
 
       this.batchSearchResolve = () => {
         clearTimeout(safetyTimer);
@@ -1700,7 +1732,7 @@ export class AnalysisService {
         resolve({ evalCp, bestMove, mateIn });
       };
 
-      this.sendCommand(`position fen ${fen}`);
+      this.sendCommand(`position ${position}`);
       this.sendCommand(`go depth ${depth}`);
     });
   }
@@ -1734,6 +1766,9 @@ export class AnalysisService {
     }
     const release = await this.acquireEngine();
     const search = (fen: string, multiPv: number, depth: number) => new Promise<string[] | null>((resolve) => {
+      // Another tab has the engine: there is no worker to ask, so this is a timeout now,
+      // not in `timeoutMs` (the caller skips the position, and a page can tell why).
+      if (this.leaseLost || !this.worker) { resolve(null); return; }
       this.batchSearchOutput = [];
       this.batchSearchMode = true;
       // A search that reaches the timeout is never used, even if its stopped
@@ -1756,12 +1791,21 @@ export class AnalysisService {
       }, timeoutMs);
       const done = () => {
         clearTimeout(safetyTimer);
+        this.sessionSearchCancel = null;
         resolve(timedOut ? null : [...this.batchSearchOutput]);
       };
       this.batchSearchResolve = done;
+      this.sessionSearchCancel = () => {
+        clearTimeout(safetyTimer);
+        this.sessionSearchCancel = null;
+        this.batchSearchMode = false;
+        this.batchSearchResolve = null;
+        resolve(null);
+      };
       this.sendCommand('ucinewgame');
       this.sendCommand(`setoption name MultiPV value ${multiPv}`);
-      this.sendCommand(`position fen ${fen}`);
+      // `fen` may be a move list from the start ("startpos moves e2e4 …", #379), which keeps the game's history.
+      this.sendCommand(fen.startsWith('startpos') ? `position ${fen}` : `position fen ${fen}`);
       this.sendCommand(`go depth ${depth}`);
     });
     try {
@@ -1769,6 +1813,87 @@ export class AnalysisService {
     } finally {
       this.sendCommand(`setoption name MultiPV value ${this.multiPvCount}`);
       release();
+    }
+  }
+
+  /**
+   * The engine's best move in `fen`, as UCI, from one short search (#417: the opponent's reply that
+   * refutes a wrong puzzle move, drawn as an arrow while the wrong move is held on the board).
+   *
+   * Null when the position is over (mate or stalemate: there is no reply), when the engine cannot
+   * start or another tab holds it, or when no answer comes within `timeoutMs`. The caller then
+   * simply shows no arrow. The search holds the engine like the Game report does, so nothing it
+   * prints reaches the analysis card or the panel, and it starts from `ucinewgame` so the answer
+   * depends on the position alone.
+   */
+  async findBestReply(fen: string, movetimeMs = 300, timeoutMs = 1500): Promise<string | null> {
+    if (!fen || terminalDescription(fen)) return null;
+    try {
+      if (!this.isInitialized) await this.initialize();
+    } catch {
+      return null;
+    }
+    const release = await this.acquireEngine();
+    try {
+      if (this.leaseLost || !this.worker) return null;
+      const lines = await new Promise<string[] | null>((resolve) => {
+        this.batchSearchOutput = [];
+        this.batchSearchMode = true;
+        const safetyTimer = setTimeout(() => {
+          if (this.batchSearchMode && this.batchSearchResolve === done) {
+            this.batchSearchMode = false;
+            this.batchSearchResolve = null;
+            this.sessionSearchCancel = null;
+            this.abandonedSearches += 1; // its late bestmove must not end the next search (E3)
+            this.sendCommand('stop');
+            resolve(null);
+          }
+        }, timeoutMs);
+        const done = () => {
+          clearTimeout(safetyTimer);
+          this.sessionSearchCancel = null;
+          resolve([...this.batchSearchOutput]);
+        };
+        this.batchSearchResolve = done;
+        // Losing the lease mid-search ends it now rather than at the timeout.
+        this.sessionSearchCancel = () => {
+          clearTimeout(safetyTimer);
+          this.sessionSearchCancel = null;
+          this.batchSearchMode = false;
+          this.batchSearchResolve = null;
+          resolve(null);
+        };
+        this.sendCommand('ucinewgame');
+        this.sendCommand('setoption name MultiPV value 1');
+        this.sendCommand(`position fen ${fen}`);
+        this.sendCommand(`go movetime ${movetimeMs}`);
+      });
+      const best = lines?.find(l => l.startsWith('bestmove'))?.match(/^bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
+      return best ? best[1] : null;
+    } finally {
+      this.sendCommand(`setoption name MultiPV value ${this.multiPvCount}`);
+      release();
+    }
+  }
+
+  /**
+   * Start the engine in the background, but only when it costs no download and takes it from no
+   * other tab (#417). A returning visitor has the engine file in the browser cache, so it can be
+   * running before their first wrong move; a new visitor downloads nothing they may never need, and
+   * a tab with `/analysis` open keeps its engine.
+   */
+  async prewarmIfCached(): Promise<void> {
+    if (this.isInitialized || this.initPromise) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.locks?.query) {
+        const { held } = await navigator.locks.query();
+        if (held?.some(l => l.name === ENGINE_LEASE_NAME)) return;
+      }
+      const cached = await fetch(STOCKFISH_WASM_PATH, { cache: 'only-if-cached', mode: 'same-origin' });
+      if (!cached.ok) return;
+      await this.initialize();
+    } catch {
+      // Not cached (the fetch rejects), or the engine failed: it starts on demand instead.
     }
   }
 

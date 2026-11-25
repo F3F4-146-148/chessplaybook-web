@@ -45,9 +45,11 @@ export function PuzzleExplanationPanel({
     : null;
   const error = explanation?.status === 'pending'
     ? 'The explanation for this puzzle is not ready yet.'
-    : explanation?.status === 'unavailable'
-      ? 'The explanation could not be loaded. Close this and try again.'
-      : null;
+    : explanation?.status === 'limited'
+      ? "You've read today's free puzzle explanations. Puzzles stay free, as many as you like."
+      : explanation?.status === 'unavailable'
+        ? 'The explanation could not be loaded. Close this and try again.'
+        : null;
 
   return (
     <div className="flex min-h-full flex-col gap-3 p-3">

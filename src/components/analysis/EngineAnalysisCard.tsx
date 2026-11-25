@@ -45,7 +45,7 @@ function useSlotsThatFit(block: HTMLElement | null) {
 export function EngineAnalysisCard({ fen, notice }: { fen: string; notice?: string | null }) {
   const {
     result, isEnabled, isAnalyzing, isWaiting, pvCount,
-    evaluation, isHeldElsewhere, isError, isPositive, isMate, setPvCount,
+    evaluation, isHeldElsewhere, isError, isPositive, isMate, isTerminal, gameResult, setPvCount,
   } = useEngineAnalysis(fen, { singleLineOnNarrowWindows: false });
   const [block, setBlock] = useState<HTMLDivElement | null>(null);
   const fit = useSlotsThatFit(block);
@@ -68,15 +68,15 @@ export function EngineAnalysisCard({ fen, notice }: { fen: string; notice?: stri
           )}
           <span
             className={`text-[1.5em] font-bold leading-none tabular-nums ${!isEnabled || isWaiting ? 'text-muted-foreground' : 'text-foreground'}`}
-            aria-label={isMate && !isError ? `${isPositive ? 'White' : 'Black'} mates, ${evaluation}` : `Evaluation ${evaluation}`}
+            aria-label={isTerminal ? `Game over, ${result?.principalVariation}` : isMate && !isError ? `${isPositive ? 'White' : 'Black'} mates, ${evaluation}` : `Evaluation ${evaluation}`}
           >
-            {!isEnabled ? 'Off' : isError ? '?' : evaluation}
+            {!isEnabled ? 'Off' : isError ? '?' : isTerminal ? gameResult : evaluation}
           </span>
         </span>
       </span>
 
       <span className="card-row justify-between text-[0.86em]">
-        <span className="truncate">{isMate && isEnabled && !isError ? (isPositive ? 'White mates' : 'Black mates') : 'Engine lines'}</span>
+        <span className="truncate">{isTerminal && isEnabled ? 'Game over' : isMate && isEnabled && !isError ? (isPositive ? 'White mates' : 'Black mates') : 'Engine lines'}</span>
         <span className="flex shrink-0 items-center gap-[0.15em] rounded-[0.35em] bg-muted p-[0.15em]" role="group" aria-label="Number of engine lines">
           {[0, 1, 2, 3].filter(count => count <= fit).map(count => (
             <button
@@ -106,6 +106,11 @@ export function EngineAnalysisCard({ fen, notice }: { fen: string; notice?: stri
       <div ref={setBlock} className="flex flex-1 flex-col overflow-hidden" style={{ gap: `${SLOT_GAP_EM}em`, minHeight: `${SLOT_EM}em` }}>
         {!isEnabled ? (
           <span className="text-[0.92em] text-muted-foreground">Analysis is off.</span>
+        ) : isTerminal ? (
+          /* A finished position (#415): how it ended, in the first slot's place; nothing to calculate. */
+          <div className="shrink-0 overflow-hidden rounded-[0.35em] bg-muted px-[0.45em]" style={{ height: `${SLOT_EM}em` }}>
+            <p className="line-clamp-2 font-mono text-[0.92em] font-semibold leading-[1.4] text-foreground">{result?.principalVariation}</p>
+          </div>
         ) : (
           Array.from({ length: shown }).map((_, index) => {
             const line = result?.lines?.find(l => l.multipv === index + 1);
@@ -129,7 +134,7 @@ export function EngineAnalysisCard({ fen, notice }: { fen: string; notice?: stri
       </div>
 
       <span className="card-row justify-between text-[0.8em]">
-        <span>Depth {isEnabled ? (result?.depth ?? '-') : '-'}</span>
+        <span>Depth {isEnabled && !isTerminal ? (result?.depth ?? '-') : '-'}</span>
         {isEnabled && result?.nodes ? <span>{(result.nodes / 1000000).toFixed(1)}M nodes</span> : null}
       </span>
     </div>

@@ -14,6 +14,28 @@ import env from '@/config/env';
 const FIRST_TOUCH_KEY = 'cp_first_touch';
 const FIRST_TOUCH_SENT_KEY = 'cp_first_touch_sent';
 const VISIT_DAY_KEY = 'cp_visit_day';
+/* The browser's first day, for the first-day count below; written only with a first touch. */
+const FIRST_DAY_KEY = 'cp_first_day';
+const FIRST_DAY_ATTEMPTS_KEY = 'cp_first_day_attempts';
+const FIRST_DAY_FIVE_KEY = 'cp_first_day_five';
+
+/*
+  WAS THIS BROWSER HERE BEFORE THIS PAGE LOAD? Read when this module loads, which is before React
+  draws anything, so before any component creates an anonymous id: a guest id, or a stored sign-in
+  (Amplify's `...LastAuthUser`), means a returning player. The funnel's cohort leaves those out
+  (FunnelReport's existed_before), so the first-day count below must too. The first-touch keys alone
+  cannot tell: they were first written on 2026-11-12, so every browser from before looks new.
+*/
+export function seenBeforeThisLoad(): boolean {
+  try {
+    if (localStorage.getItem('cp_anonymous_id')) return true;
+    for (let i = 0; i < localStorage.length; i++) {
+      if (localStorage.key(i)?.endsWith('.LastAuthUser')) return true;
+    }
+  } catch { /* no storage: nothing can be counted anyway */ }
+  return false;
+}
+const SEEN_BEFORE_LOAD = typeof window === 'undefined' ? true : seenBeforeThisLoad();
 
 export interface FirstTouch {
   touchedAt: string;
@@ -22,6 +44,8 @@ export interface FirstTouch {
   utmMedium?: string;
   utmCampaign?: string;
   utmContent?: string;
+  /** The ad keyword that matched (Google Ads `{keyword}`), so return can be read by keyword. */
+  utmTerm?: string;
   paidClick: boolean;
   referrerHost?: string;
 }
@@ -56,6 +80,7 @@ export function readFirstTouch(location: { pathname: string; search: string; hos
     utmMedium: medium,
     utmCampaign: utm(params, 'utm_campaign'),
     utmContent: utm(params, 'utm_content'),
+    utmTerm: utm(params, 'utm_term'),
     paidClick: CLICK_IDS.some(id => params.has(id)) || (medium !== undefined && PAID_MEDIA.has(medium.toLowerCase())),
     referrerHost,
   };
@@ -74,9 +99,30 @@ function write(key: string, value: string): void {
 }
 
 /** Keep the first touch, once, on the first page this browser loads. */
-export function captureFirstTouch(now = new Date()): void {
+export function captureFirstTouch(now = new Date(), seenBefore = SEEN_BEFORE_LOAD): void {
   if (read(FIRST_TOUCH_SENT_KEY) || read(FIRST_TOUCH_KEY)) return;
   write(FIRST_TOUCH_KEY, JSON.stringify(readFirstTouch(window.location, document.referrer, now)));
+  // Only a browser new to the site has a first day (see SEEN_BEFORE_LOAD).
+  if (!seenBefore) write(FIRST_DAY_KEY, bucharestDay(now));
+}
+
+/*
+  FIVE PUZZLES ON THE FIRST DAY (2026-11-21): the admin funnel's stage 3b (5+ puzzle attempts on
+  the cohort day, FunnelReport.ts) as a GA4 event. A browser with no first day recorded never counts: a returning
+  player is not a new one. Still not the same set as the funnel's, by what a browser can know:
+  a returning player who cleared their storage, or a signed-in player on a new device who has not
+  signed in there yet, counts here and not in the funnel. Expect GA4 slightly above the Funnel
+  view, never below it (attempts are counted only once the server has stored them).
+  Call once per recorded attempt; true exactly once, on the fifth attempt of the first day.
+*/
+export function countFirstDayAttempt(now = new Date()): boolean {
+  const firstDay = read(FIRST_DAY_KEY);
+  if (!firstDay || firstDay !== bucharestDay(now) || read(FIRST_DAY_FIVE_KEY)) return false;
+  const attempts = (Number(read(FIRST_DAY_ATTEMPTS_KEY)) || 0) + 1;
+  write(FIRST_DAY_ATTEMPTS_KEY, String(attempts));
+  if (attempts < 5) return false;
+  write(FIRST_DAY_FIVE_KEY, '1');
+  return true;
 }
 
 /*

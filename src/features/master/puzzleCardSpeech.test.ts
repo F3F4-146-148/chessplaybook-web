@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest';
 import lines from './puzzleCardLines.json';
 import { PUZZLE_CARD_HEADLINES } from './puzzleCardSpeech';
 
-const source = ['../puzzles/hooks/usePuzzle.ts', '../puzzles/components/PuzzleLiveCard.tsx']
+// the card's headline texts moved to puzzleCardVoice.ts (#401 A1)
+const source = ['../puzzles/hooks/usePuzzle.ts', '../puzzles/components/PuzzleLiveCard.tsx', '../puzzles/components/puzzleCardVoice.ts']
   .map((p) => readFileSync(resolve(__dirname, p), 'utf8')).join('\n');
 
 describe('the puzzles card messages the Master reads aloud', () => {

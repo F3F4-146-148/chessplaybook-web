@@ -20,7 +20,7 @@ export const GameAnalysis = ({ fen, boardTheme, isMobile = false }: GameAnalysis
   /* The engine state lives in `useEngineAnalysis` (D3b), shared with /analysis's Workspace card. */
   const {
     result, isEnabled, isAnalyzing, isWaiting, pvCount,
-    evaluation, isHeldElsewhere, isError, isPositive, isMate,
+    evaluation, isHeldElsewhere, isError, isPositive, isMate, isTerminal, gameResult,
     setPvCount: handlePvCountChange, toggle: handleToggle,
   } = useEngineAnalysis(fen);
 
@@ -77,7 +77,7 @@ export const GameAnalysis = ({ fen, boardTheme, isMobile = false }: GameAnalysis
               Evaluation
             </div>
             <div className={`text-3xl font-bold ${evalTextColor} ${isAnalyzing ? 'opacity-60' : ''}`}>
-              {isError ? '⚠️' : evaluation}
+              {isError ? '⚠️' : isTerminal ? gameResult : evaluation}
             </div>
             {isMate && !isError && (
               <div className={`text-xs mt-1 ${mateTextColor}`}>

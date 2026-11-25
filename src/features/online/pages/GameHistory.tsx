@@ -1,13 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link } from 'react-router-dom';
+import { OpponentName, isFederatedId } from '../components/OpponentName';
 import { GuestBadge } from '@/components/GuestBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/features/auth/AuthContext';
 import { getRequestHeaders } from '@/features/auth/utils/getAuthToken';
 import { getAnonymousId } from '@/hooks/useAnonymousId';
 import env from '@/config/env';
-import { ChevronLeft, ChevronRight, Download, Copy, Check, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Filter } from 'lucide-react';
+import { GamePgnActions } from '@/features/games/GamePgnActions';
+import { gamePgnFileName, type GameMode } from '@/features/games/gamePgn';
+import { fetchStoredGamePgn } from '@/features/games/storedGame';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -15,12 +19,16 @@ import { ChevronLeft, ChevronRight, Download, Copy, Check, Filter } from 'lucide
 
 interface GameSummary {
   id: string;
-  white: { userId: string; username: string; rating: number };
-  black: { userId: string; username: string; rating: number };
+  /** `rating` null: the player had no rating in this time control (#440). */
+  /** `profile`: the page to link to, null for a guest or a deleted account (absent from an older server). */
+  white: { userId: string; username: string; rating: number | null; profile?: string | null };
+  black: { userId: string; username: string; rating: number | null; profile?: string | null };
   result: string;
   endReason: string;
   timeControl: { initial: number; increment: number; category: string };
   rated: boolean;
+  /** #416: who the game was against; absent from an older server (an online game). */
+  mode?: GameMode;
   playedAt: string;
   durationMs: number | null;
   movesUci: string;
@@ -52,6 +60,7 @@ function formatTime(iso: string): string {
 }
 
 function formatTimeControl(tc: { initial: number; increment: number }): string {
+  if (tc.initial <= 0 && tc.increment <= 0) return 'No clock';
   const min = tc.initial / 60;
   return min >= 1 ? `${min}+${tc.increment}` : `${tc.initial}s+${tc.increment}`;
 }
@@ -67,10 +76,6 @@ function formatDuration(ms: number | null): string {
 function moveCount(uci: string): number {
   if (!uci) return 0;
   return Math.ceil(uci.trim().split(/\s+/).length / 2);
-}
-
-function isFederatedId(name: string): boolean {
-  return /^(Google|Facebook|SignInWithApple)_/.test(name);
 }
 
 function displayUsername(name: string): string {
@@ -130,10 +135,9 @@ export default function GameHistory() {
   // Filters
   const [timeControl, setTimeControl] = useState('');
   const [result, setResult] = useState('');
+  /* #416: every game played on the site is here; this narrows it to one kind of opponent */
+  const [mode, setMode] = useState('');
   const [showFilters, setShowFilters] = useState(false);
-
-  // PGN copy state
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const fetchGames = useCallback(async (pageNum: number) => {
     setLoading(true);
@@ -146,6 +150,7 @@ export default function GameHistory() {
       });
       if (timeControl) params.set('timeControl', timeControl);
       if (result) params.set('result', result);
+      if (mode) params.set('mode', mode);
 
       const res = await fetch(`${env.apiBaseUrl}/api/online-games?${params}`, { headers });
       if (!res.ok) throw new Error('Failed to fetch');
@@ -159,37 +164,9 @@ export default function GameHistory() {
     } finally {
       setLoading(false);
     }
-  }, [userId, timeControl, result]);
+  }, [userId, timeControl, result, mode]);
 
   useEffect(() => { fetchGames(1); }, [fetchGames]);
-
-  const handlePgnDownload = async (gameId: string) => {
-    try {
-      const res = await fetch(`${env.apiBaseUrl}/api/online-games/${gameId}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!data.pgn) return;
-      const blob = new Blob([data.pgn], { type: 'application/x-chess-pgn' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `game-${gameId.slice(0, 8)}.pgn`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch { /* ignore */ }
-  };
-
-  const handlePgnCopy = async (gameId: string) => {
-    try {
-      const res = await fetch(`${env.apiBaseUrl}/api/online-games/${gameId}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (!data.pgn) return;
-      await navigator.clipboard.writeText(data.pgn);
-      setCopiedId(gameId);
-      setTimeout(() => setCopiedId(null), 2000);
-    } catch { /* ignore */ }
-  };
 
   const handleBatchExport = async () => {
     if (!userId) return;
@@ -199,6 +176,7 @@ export default function GameHistory() {
       const params = new URLSearchParams({ userId, page: '1', limit: '50' });
       if (timeControl) params.set('timeControl', timeControl);
       if (result) params.set('result', result);
+      if (mode) params.set('mode', mode);
 
       let allPgns: string[] = [];
       let currentPage = 1;
@@ -239,7 +217,7 @@ export default function GameHistory() {
     <>
       <Helmet>
         <title>Game History - Chess Playbook</title>
-        <meta name="description" content="View your past online chess games, filter by result and time control, and download PGN." />
+        <meta name="description" content="Your past games on Chess Playbook, online and against the computer: filter them and download their PGN." />
         <meta name="robots" content="noindex, follow" />
       </Helmet>
 
@@ -257,14 +235,14 @@ export default function GameHistory() {
               <button
                 onClick={() => setShowFilters(f => !f)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm transition-all ${
-                  showFilters || timeControl || result
+                  showFilters || timeControl || result || mode
                     ? 'border-primary bg-primary/10 text-link'
                     : 'border-border hover:bg-accent/50 text-muted-foreground'
                 }`}
               >
                 <Filter className="h-3.5 w-3.5" />
                 Filter
-                {(timeControl || result) && (
+                {(timeControl || result || mode) && (
                   <span className="w-1.5 h-1.5 rounded-full bg-primary" />
                 )}
               </button>
@@ -287,6 +265,19 @@ export default function GameHistory() {
               <CardContent className="pt-4 pb-3">
                 <div className="flex flex-wrap gap-4">
                   <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Opponent</label>
+                    <select
+                      value={mode}
+                      onChange={e => { setMode(e.target.value); setPage(1); }}
+                      className="block w-36 rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                    >
+                      <option value="">All</option>
+                      <option value="online">People online</option>
+                      <option value="master">The Master</option>
+                      <option value="stockfish">Stockfish</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
                     <label className="text-xs font-medium text-muted-foreground">Time Control</label>
                     <select
                       value={timeControl}
@@ -298,6 +289,7 @@ export default function GameHistory() {
                       <option value="blitz">Blitz</option>
                       <option value="rapid">Rapid</option>
                       <option value="classical">Classical</option>
+                      <option value="unlimited">No clock</option>
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -313,10 +305,10 @@ export default function GameHistory() {
                       <option value="draw">Draws</option>
                     </select>
                   </div>
-                  {(timeControl || result) && (
+                  {(timeControl || result || mode) && (
                     <div className="flex items-end">
                       <button
-                        onClick={() => { setTimeControl(''); setResult(''); }}
+                        onClick={() => { setTimeControl(''); setResult(''); setMode(''); }}
                         className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
                       >
                         Clear filters
@@ -332,7 +324,7 @@ export default function GameHistory() {
           {!loading && (
             <p className="text-sm text-muted-foreground mb-4">
               {total === 0 ? 'No games found.' : `${total} game${total !== 1 ? 's' : ''}`}
-              {(timeControl || result) && ' (filtered)'}
+              {(timeControl || result || mode) && ' (filtered)'}
             </p>
           )}
 
@@ -364,27 +356,24 @@ export default function GameHistory() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-medium text-sm">
                               vs{' '}
-                              {isFederatedId(opponent.username) ? (
-                                <span className="text-muted-foreground">Anonymous</span>
-                              ) : (
-                                <Link
-                                  to={`/player/${opponent.username}`}
-                                  className="hover:text-link transition-colors"
-                                >
-                                  {opponent.username}
-                                </Link>
-                              )}
+                              <OpponentName username={opponent.username} profile={opponent.profile} />
                             </span>
-                            <span className="text-xs text-muted-foreground">
-                              ({opponent.rating})
-                            </span>
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground capitalize">
-                              {game.timeControl.category}
-                            </span>
+                            {/* a bot's level is already in its name ("Chess Playbook Master (1500)") */}
+                            {opponent.rating !== null && (game.mode ?? 'online') === 'online' && (
+                              <span className="text-xs text-muted-foreground">
+                                ({opponent.rating})
+                              </span>
+                            )}
+                            {game.timeControl.category !== 'unlimited' && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground capitalize">
+                                {game.timeControl.category}
+                              </span>
+                            )}
                             <span className="text-xs text-muted-foreground">
                               {formatTimeControl(game.timeControl)}
                             </span>
-                            {game.rated && (
+                            {/* `rated` arrives as SQLite's 0 or 1: `0 && …` printed a stray "0" on every unrated game */}
+                            {Boolean(game.rated) && (
                               <span className="text-xs text-muted-foreground">Rated</span>
                             )}
                           </div>
@@ -392,34 +381,23 @@ export default function GameHistory() {
                             <span>{formatDate(game.playedAt)}</span>
                             <span>{formatTime(game.playedAt)}</span>
                             <span>{REASON_LABELS[game.endReason] ?? game.endReason}</span>
-                            <span>{moveCount(game.movesUci)} moves</span>
+                            <span>{moveCount(game.movesUci)} {moveCount(game.movesUci) === 1 ? 'move' : 'moves'}</span>
                             <span>{formatDuration(game.durationMs)}</span>
                             <span className="hidden sm:inline">
-                              Playing as {isWhite ? 'White' : 'Black'} ({playerRating})
+                              Playing as {isWhite ? 'White' : 'Black'}{playerRating !== null && ` (${playerRating})`}
                             </span>
                           </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
-                            onClick={() => handlePgnCopy(game.id)}
-                            title="Copy PGN"
-                            className="p-1.5 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            {copiedId === game.id
-                              ? <Check className="h-3.5 w-3.5 text-success" />
-                              : <Copy className="h-3.5 w-3.5" />
-                            }
-                          </button>
-                          <button
-                            onClick={() => handlePgnDownload(game.id)}
-                            title="Download PGN"
-                            className="p-1.5 rounded hover:bg-accent/50 text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                        {/* Actions: the same Copy and Download as the game pages (#416) */}
+                        <GamePgnActions
+                          className="flex-shrink-0 text-sm"
+                          pgn={() => fetchStoredGamePgn(game.id)}
+                          fileName={gamePgnFileName(game.white.username, game.black.username, new Date(game.playedAt))}
+                          mode={game.mode ?? 'online'}
+                          surface="game_history"
+                          shareId={game.id}
+                        />
                       </div>
                     </CardContent>
                   </Card>

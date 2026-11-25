@@ -28,8 +28,10 @@ describe('puzzleMasterMoment (#186 B1)', () => {
     expect(puzzleMasterMoment({ ...base, status: 'loading' }).line).toBeNull();
   });
 
+  // #401 B1: chosen once per puzzle and kept (the rotation itself is tested in puzzleCardVoice.test.ts)
   it('reads the same for the same puzzle', () => {
     expect(puzzleMasterMoment(base).line).toBe(puzzleMasterMoment(base).line);
+    expect(puzzleMasterMoment({ ...base, status: 'correct' }).line).toBe(puzzleMasterMoment({ ...base, status: 'correct' }).line);
   });
 
   /*
@@ -37,7 +39,17 @@ describe('puzzleMasterMoment (#186 B1)', () => {
     outcome. His lines only encourage, so none may carry a chess word or a number.
   */
   it('never names a motif, a move, a count or an outcome', () => {
-    const banned = /\d|mate|check|fork|pin|skewer|sacrific|win|draw|queen|rook|bishop|knight|pawn|king|move|piece|—/i;
-    for (const line of Object.values(PUZZLE_MASTER_LINES).flat()) expect(line).not.toMatch(banned);
+    // #401 C1: the lines heard BEFORE the solve (the start, a correct move, a wrong move); the ones after it may
+    // say "Good idea to check." or "Three in a row."
+    // whole words: "Keep looking" is not about a king
+    const banned = /\d|—|\b(mate|checkmate|check|fork|pin|skewer|sacrific\w*|win|wins|draw|queen|rook|bishop|knight|pawn|king|move|moves|piece|pieces)\b/i;
+    const L = PUZZLE_MASTER_LINES;
+    for (const line of [...L.start, ...L.going, ...L.welcome, ...L.missed]) expect(line).not.toMatch(banned);
+  });
+
+  it('no line of his uses an em dash, and no text is in two pools', () => {
+    const all = Object.values(PUZZLE_MASTER_LINES).flat();
+    for (const line of all) expect(line).not.toMatch(/—/);
+    expect(new Set(all).size).toBe(all.length);
   });
 });

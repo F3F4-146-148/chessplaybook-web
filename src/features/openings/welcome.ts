@@ -33,7 +33,12 @@ export function welcomeTexts(): string[] {
  */
 export const REPERTOIRE_SUITS: Readonly<Record<string, string>> = {
   london: 'One set-up against almost anything, easy to learn.',
+  // owner-approved 2026-11-20
+  colle: 'Extremely solid and easy to learn.',
   french: 'Solid, with a clear plan against 1.e4.',
+  // drafts, published unreviewed (owner, 2026-11-23); the owner's review is #443
+  'caro-kann': 'Solid and safe against 1.e4.',
+  najdorf: 'Sharp and ambitious against 1.e4.',
   slav: 'Solid and sound against 1.d4.',
 };
 
@@ -43,8 +48,11 @@ export const REPERTOIRE_SUITS: Readonly<Record<string, string>> = {
  * so a new opening appears once it is served; keep these in the server's order and words (`/api/openings/repertoires`).
  */
 export const WRITTEN_STARTERS: ReadonlyArray<{ id: string; name: string; side: 'white' | 'black' }> = [
+  { id: 'colle', name: 'Colle System', side: 'white' },
   { id: 'london', name: 'London System', side: 'white' },
+  { id: 'caro-kann', name: 'Caro-Kann Defense', side: 'black' },
   { id: 'french', name: 'French Defense', side: 'black' },
+  { id: 'najdorf', name: 'Sicilian Najdorf', side: 'black' },
   { id: 'slav', name: 'Slav Defense', side: 'black' },
 ];
 

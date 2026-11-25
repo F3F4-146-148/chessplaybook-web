@@ -4,24 +4,31 @@
  * DESIGN_V2_LIVE off, src/pages/Premium.tsx serves PremiumClassic.
  *
  * Every claim is what the code does. The limits are the server's numbers (FREE_PLAN_ALLOWANCE).
- * The prices are Paddle's own preview once checkout is live; before that, the table Paddle is given,
- * for the visitor's country (premiumPlans / countryPrices), so a visitor anywhere sees their price.
+ * The prices are Paddle's own preview when Paddle sells; with Stripe selling, or before anyone sells,
+ * the table for the visitor's country (premiumPlans / countryPrices), which is also the table the server
+ * charges Stripe buyers from, so a visitor anywhere sees their price.
  * Nothing offers to buy until it is known whether the visitor already has Premium. Buying needs an
  * account; a guest signs in and comes back with the chosen plan still chosen.
  */
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { BarChart3, Check, ChevronDown, Crown, GraduationCap, Lightbulb, ShieldCheck, Sparkles } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { BarChart3, Check, ChevronDown, Crown, GraduationCap, Lightbulb, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import SeoHead from '@/components/SeoHead';
 import { useAuth } from '@/features/auth/AuthContext';
 import { GoldGradientDefs } from '@/features/home/GoldGradientDefs';
 import { FREE_PLAN_ALLOWANCE as A } from '@/services/freePlanLimit';
 import { logGA4Event } from '@/services/analytics';
 import { usePremiumOffer } from './usePremiumOffer';
+import { canAddPassYear, grantBlocksPurchase } from './paddleCheckout';
+import { GrantLine, grantLineText } from './GrantLine';
+import { InvitationBanner } from './InvitationBanner';
 import { useVisitorCountry } from './useVisitorCountry';
-import { defaultPlan, plansForCountry, plansFromPaddle, savingPercent, type PlanKey, type ShownPlan } from './premiumPlans';
+import { PAST_DUE_LINE, STRIPE_PENDING_LINE, STRIPE_UNAVAILABLE_LINE, stripeUnavailableIn } from './stripeCheckout';
+import { PendingLine } from './PendingLine';
+import type { ShownPlan } from './premiumPlans';
+import { PlanCards, planCards, usePlanChoice } from './PlanCards';
+import { LIMITED, perDay } from './premiumFeatures';
 
-const perDay = (n: number) => `${n} a day`;
 /* premium-v2 (2026-11-15): the trainer at 9.Ne5 and the opened explanation; assets/ is immutable, so a
    new folder rather than new pictures under the old names. */
 const img = (name: string) => `/assets/premium-v2/${name}.jpg`;
@@ -30,7 +37,7 @@ const img = (name: string) => `/assets/premium-v2/${name}.jpg`;
   What each feature gives, under its sentence (owner, 2026-11-15: the Game reports row looked orphaned
   beside its tall picture). Every point is what the page does today: the trainer's hint appears by
   itself after a minute and untrained lines come first; the report's summary links "the critical
-  moment" and, when champions played the opening, their games in it with each colour (the report's summary block, ReportSummary; the redesigned report is report-v2, #374); the explanation's
+  moment" and, when champions played the opening, their games in it with each colour (the report's summary block, ReportSummary; the redesigned report is report-v2, #374; report-v3 since #379, Carlsen-Karjakin TB4); the explanation's
   sections; the Challenge's 18 champions and its verdict.
 */
 const BENEFITS = [
@@ -41,7 +48,7 @@ const BENEFITS = [
     free: `Free: ${A.opening_variation} new variation and ${A.opening_session} training session a day.`,
   },
   {
-    icon: BarChart3, title: 'Game reports', img: 'report-v2', line: 'See your accuracy and the moves that changed the game.',
+    icon: BarChart3, title: 'Game reports', img: 'report-v3', line: 'See your accuracy and the moves that changed the game.',
     points: ['Accuracy for both players, and every move rated from Brilliant to Blunder.', 'A link to the critical moment of the game.', "When World Champions played your opening, links to their games in it, with White and with Black."],
     free: `Free: ${perDay(A.game_report)}.`,
   },
@@ -57,13 +64,6 @@ const BENEFITS = [
   },
 ];
 
-const LIMITED = [
-  ['Opening variations to learn', perDay(A.opening_variation)],
-  ['Opening training sessions', perDay(A.opening_session)],
-  ['Game reports', perDay(A.game_report)],
-  ['Position explanations', perDay(A.explain_position)],
-  ['Champion Challenge', perDay(A.challenge_session)],
-] as const;
 
 const ALWAYS_FREE = [
   'Puzzles, as many as you like',
@@ -77,17 +77,15 @@ const ALWAYS_FREE = [
 ];
 
 const FAQ = [
-  ['Can I get my money back?', 'Yes. Any payment is refunded in full within 30 days, for any reason, from your account page. A refund ends Premium.'],
-  ['How do I cancel?', 'From your account page. Premium stays until the end of the period you paid for.'],
-  ['What if a renewal payment fails?', 'Paddle tries again for a short time. If it still fails, the subscription ends.'],
+  ['Can I get my money back?', 'Yes. Any payment is refunded in full within 30 days, for any reason, from your Membership page. A refund ends the Premium that payment paid for.'],
+  ['How do I cancel?', 'From your Membership page. Premium stays until the end of the period you paid for.'],
+  ['What if a renewal payment fails?', 'Link tries again for about two weeks, and you keep Premium meanwhile. If it still fails, the subscription ends.'],
   ['What is the one-year option?', 'One payment for one year of Premium. It does not renew, so there is nothing to cancel.'],
   ["Why is my price different from a friend's?", 'Prices are set for each country and shown in your currency. Tax is included.'],
   ['When do the free limits reset?', 'Once a day. When you reach one, we show you when it is back, in your own time.'],
   ['What happens if I delete my account?', 'Premium ends at once and any subscription is cancelled. If you want a refund, ask for it first.'],
   ['Will the price go up?', 'If it ever changes, we email you at least 30 days before.'],
 ] as const;
-
-const PLAN_KEYS: PlanKey[] = ['yearly', 'monthly', 'one_year'];
 
 function day(sqliteUtc: string | null): string | null {
   if (!sqliteUtc) return null;
@@ -98,52 +96,59 @@ function day(sqliteUtc: string | null): string | null {
 export default function PremiumPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const { checked, settings, plans, state, stateKnown, purchased, message, buy } = usePremiumOffer();
+  const { checked, provider, plans, state, stateKnown, purchased, extendWait, busy, message, buy } = usePremiumOffer();
   const country = useVisitorCountry();
 
-  const live = Boolean(settings);
-  /* The cards: Paddle's preview when checkout is live, else the table for the visitor's country. */
-  const cards: ShownPlan[] | null = useMemo(() => {
-    if (!checked) return null;
-    if (live) return plans ? plansFromPaddle(plans) : null;
-    return country === undefined ? null : plansForCountry(country);
-  }, [checked, live, plans, country]);
-  const save = cards ? savingPercent(cards) : null;
+  const live = provider !== null;
+  /* The cards: Paddle's preview when Paddle sells, else the table for the visitor's country (Stripe's
+     prices, and the prices before launch). */
+  const cards: ShownPlan[] | null = useMemo(() => planCards(checked, provider, plans, country), [checked, provider, plans, country]);
 
-  /* The chosen plan: the one carried through sign-in (?plan=), else the first card. */
-  const [selected, setSelected] = useState<PlanKey | null>(null);
-  useEffect(() => {
-    if (!cards || (selected && cards.some((c) => c.key === selected))) return;
-    const asked = params.get('plan') as PlanKey | null;
-    setSelected(asked && PLAN_KEYS.includes(asked) && cards.some((c) => c.key === asked) ? asked : defaultPlan(cards));
-  }, [cards, params, selected]);
-  const chosen = cards?.find((c) => c.key === selected) ?? null;
+  /* The chosen plan (PlanCards.tsx, shared with /membership, #467 B1): the one carried through sign-in (?plan=),
+     else the first card; locked while a purchase opens or waits (`waiting` below, as an expression here). One
+     choice for the page: the cards, Buy and the phone's bar all read it. */
+  const choice = usePlanChoice(cards, { locked: busy || (purchased && !state?.premium) });
+  const { chosen } = choice;
   const first = cards?.[0] ?? null;
 
   const hasPremium = Boolean(state?.premium);
-  const canBuy = live && stateKnown && !hasPremium && !purchased && chosen !== null && chosen.priceId !== null;
+  /* The holder box instead of the plans: paid Premium, or Premium we gave with no end (nothing to buy; the
+     server refuses it too). A grant WITH an end keeps the plans (premium grants plan B6). */
+  const holder = hasPremium || grantBlocksPurchase(state);
+  /* Stripe refuses buyers in a few countries: no Buy there, the reason said in its place (C2). */
+  const unavailable = provider === 'stripe' && stripeUnavailableIn(country);
+  /* A purchase not settled yet: the server would refuse another, so no Buy, the reason in its place (Codex).
+     Not while this page waits after its own purchase: Stripe sends the subscription before its payment
+     (12 s apart on staging, 2026-11-23), and the buyer saw both lines at once. */
+  const pending = !hasPremium && !purchased && Boolean(state?.purchasePending);
+  /* Waiting for the payment after a purchase on this page (owner, 2026-11-23): the plans freeze, there is no
+     Buy, and the wait is said in Buy's place at its size, not in a small line under it. */
+  const waiting = purchased && !hasPremium;
+  const blockedLine = unavailable ? STRIPE_UNAVAILABLE_LINE : pending ? STRIPE_PENDING_LINE : null;
+  /* Paddle needs its price id; Stripe is asked by plan and country. */
+  const canBuy = live && stateKnown && !holder && !purchased && !blockedLine && chosen !== null
+    && (provider === 'stripe' || chosen.priceId !== null);
   const buyLabel = user ? 'Buy' : 'Sign in to buy';
+  /*
+    ANOTHER YEAR FOR A PASS HOLDER (owner, 2026-11-24, option A). The account card's "Add another year" used to
+    land here on a holder box with nothing to buy, while the server sells a pass on a pass, starting where the
+    first ends (backend/src/routes/stripe.ts). So a one-year-pass holder's box offers the one-year plan: one
+    line and one button, smaller than the plan cards it stands in for, so the first screen holds.
+  */
+  const oneYear = cards?.find((c) => c.key === 'one_year') ?? null;
+  /* canAddPassYear: the state half, an open subscription included (#467 E6), tested in paddleCheckout.test.ts. */
+  const canExtend = live && stateKnown && canAddPassYear(state) && !unavailable && oneYear !== null
+    && (provider === 'stripe' || oneYear.priceId !== null);
+  const onExtend = () => {
+    if (!oneYear || !canExtend || busy || purchased) return;
+    logGA4Event({ name: 'premium_buy_clicked', params: { plan: 'one_year', signed_in: true, control: 'extend' } });
+    void buy({ key: 'one_year', priceId: oneYear.priceId, minor: oneYear.minor, currency: oneYear.currency }, country);
+  };
 
-  const choose = (key: PlanKey) => {
-    if (key === selected) return; // the chosen card clicked again is not a choice (#261 review)
-    setSelected(key);
-    logGA4Event({ name: 'premium_plan_selected', params: { plan: key } });
-  };
-  /* Arrow keys within the plan radio group: move the choice and the focus, wrapping (WAI-ARIA radio group). */
-  const onPlanKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
-    if (!cards) return;
-    const step = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 0;
-    if (!step) return;
-    e.preventDefault();
-    const next = (i + step + cards.length) % cards.length;
-    choose(cards[next].key);
-    (e.currentTarget.parentElement?.children[next] as HTMLElement | undefined)?.focus();
-  };
   const onBuy = (control: 'plans' | 'sticky_bar') => {
-    if (!chosen || !chosen.priceId) return;
+    if (!chosen || !canBuy || busy) return;
     logGA4Event({ name: 'premium_buy_clicked', params: { plan: chosen.key, signed_in: Boolean(user), control } });
-    if (user) void buy(chosen.priceId);
+    if (user) void buy({ key: chosen.key, priceId: chosen.priceId, minor: chosen.minor, currency: chosen.currency }, country);
     else navigate(`/login?returnTo=${encodeURIComponent(`/premium?plan=${chosen.key}`)}`);
   };
 
@@ -166,22 +171,39 @@ export default function PremiumPage() {
      arrow leads to the comparison, which follows the plans as on Notion's, Raycast's and chess.com's pages. */
   const unlocksRef = useRef<HTMLElement>(null);
   const toUnlocks = () => unlocksRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: 'start' });
+  /* "Compare Free and Premium" from /membership (#467 B3) lands here with #premium-compare: an in-app navigation
+     starts at the top (#293), so scroll to the comparison once, after the first paint. */
+  const location = useLocation();
+  useEffect(() => {
+    if (location.hash !== '#premium-compare') return;
+    const id = window.requestAnimationFrame(() => unlocksRef.current?.scrollIntoView({ block: 'start' }));
+    return () => window.cancelAnimationFrame(id);
+  }, [location.hash]);
 
   /* The legal line, rendered in one of two places by window height (B3). */
   const legalText = (
     <>
       {!live && 'Prices are set for each country and shown in your currency. '}
-      {/* The reseller is named here only once checkout is live (owner, 2026-11-14); the Terms always name it. */}
-      {live && 'Our order process is conducted by our online reseller Paddle.com, which is the Merchant of Record for all our orders. '}
+      {/* The reseller is named here only once checkout is live (owner, 2026-11-14); the Terms always name it.
+          With Stripe, Link's own terms are linked before checkout, as Stripe's service terms ask (Fable review). */}
+      {provider === 'stripe' && (
+        <>
+          Premium is sold through Link (Stripe), the Merchant of Record for all our orders.{' '}
+          <a href="https://link.com/terms" target="_blank" rel="noopener noreferrer" className="text-link hover:underline">Link's terms</a> also apply.{' '}
+        </>
+      )}
+      {provider === 'paddle' && 'Our order process is conducted by our online reseller Paddle.com, which is the Merchant of Record for all our orders. '}
       Prices include any sales tax or VAT. See the <Link to="/terms" className="text-link hover:underline">Terms of Service</Link>.
     </>
   );
 
   const ends = day(state?.periodEndsAt ?? null);
   const cancelling = state?.scheduledChange?.startsWith('cancel@') ?? false;
-  const premiumLine = !hasPremium ? null
+  const premiumLine = !holder ? null
+    : !hasPremium ? 'We gave you Premium with no end date.'
     : state?.kind === 'pass' ? `You have Premium${ends ? ` until ${ends}` : ''}.`
-    : `You have Premium.${ends ? (cancelling ? ` It ends on ${ends}.` : ` It renews on ${ends}.`) : ''}`;
+    : state?.status === 'past_due' ? PAST_DUE_LINE
+      : `You have Premium.${ends ? (cancelling ? ` It ends on ${ends}.` : ` It renews on ${ends}.`) : ''}`;
 
   return (
     <div className="premium-page relative bg-background text-foreground">
@@ -189,7 +211,7 @@ export default function PremiumPage() {
       <GoldGradientDefs />
 
       {/* HERO WITH THE PLANS: the choice and the price on the first screen (owner, 2026-11-14) */}
-      <section ref={plansRef} id="plans" data-premium="hero" data-cards={!hasPremium && cards?.length === 2 ? 2 : 3} aria-labelledby="premium-plans" className="premium-hero relative flex scroll-mt-16 flex-col overflow-hidden">
+      <section ref={plansRef} id="plans" data-premium="hero" data-cards={!holder && cards?.length === 2 ? 2 : 3} aria-labelledby="premium-plans" className="premium-hero relative flex scroll-mt-16 flex-col overflow-hidden">
         <div className="pointer-events-none absolute inset-0" style={{
           background: 'radial-gradient(60% 70% at 78% 30%, hsl(var(--gold-bottom) / 0.20), transparent 60%), radial-gradient(40% 50% at 10% 0%, hsl(var(--gold-top) / 0.08), transparent 60%)',
         }} />
@@ -217,66 +239,78 @@ export default function PremiumPage() {
             </h1>
             <p className="mt-1 font-playfair text-[24px] leading-tight md:text-[length:calc(28*var(--pu))]">Train with no daily limits</p>
             <p className="mt-3 max-w-md text-[15px] leading-relaxed text-foreground/85 md:mt-[calc(12*var(--pu))] md:max-w-[calc(448*var(--pu))] md:text-[length:max(13px,calc(16*var(--pu)))]">
-              Learn your openings, review your games and explain positions as often as you want.
+              {/* Premium we gave that ends, and no paid Premium: said in the subtitle's place, about its length, so the
+                  plans and Buy stay on the first screen (a line above the plans pushed Buy off it on short windows:
+                  verify:premium-fold state G, 2026-11-24). Before the account is known, the built page's text. */}
+              {(!holder && grantLineText(state, true)) || 'Learn your openings, review your games and explain positions as often as you want.'}
             </p>
+            {/* An invitation link's banner (grants plan D6): nothing unless this browser holds an invitation. */}
+            <InvitationBanner />
             <h2 id="premium-plans" className="sr-only">Choose your plan</h2>
 
-            {hasPremium ? (
+            {holder ? (
               <div data-premium="holder" className="v2-card-editorial mt-6 p-5 md:mt-[calc(24*var(--pu))]">
                 <p className="text-[16px]">{premiumLine}</p>
-                <Link to="/profile" className="mt-2 inline-block text-[15px] text-link hover:underline">Manage it on your account page</Link>
+                {hasPremium && <GrantLine state={state} className="mt-2 text-[15px] text-muted-foreground" />}
+                {/* Nothing to manage for Premium we gave alone (Fable review). */}
+                {(hasPremium || state?.purchasePending) && <Link to="/membership" className="mt-2 inline-block text-[15px] text-link hover:underline">Manage it on your Membership page</Link>}
+                {/* After a first purchase on this page the holder box just says what was bought (nothing more on this
+                    page, as before); the offer is back on the next visit. While another year is awaited, the wait. */}
+                {canExtend && oneYear && (!purchased || extendWait) && (
+                  <div data-premium="extend" className="mt-4 border-t border-border pt-4">
+                    <p className="text-[15px] text-foreground/85">{ends ? `Add another year. It starts on ${ends}, when this one ends.` : 'Add another year. It starts when this one ends.'}</p>
+                    {purchased ? (
+                      <p role="status" className="mt-3 flex items-center gap-2 text-[15px] font-semibold">
+                        <Loader2 className="h-5 w-5 shrink-0 animate-spin text-link motion-reduce:animate-none" aria-hidden />
+                        {message ?? 'Thank you. We are waiting for your payment to be confirmed…'}
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onExtend}
+                        disabled={busy}
+                        className="v2-btn-gold mt-3 h-12 w-full text-[16px] font-semibold disabled:cursor-wait disabled:opacity-60"
+                      >
+                        {`Add another year: ${oneYear.price} ${oneYear.unit}`}
+                      </button>
+                    )}
+                    {message && !purchased && <p role="status" className="mt-2 text-[13px] text-foreground/85">{message}</p>}
+                    {/* What the Buy area says before any checkout: the refund, the seller and its terms (Stripe's service
+                        terms ask for Link's before checkout, Fable review). */}
+                    <p className="mt-3 text-[13px] text-foreground/80">
+                      <Link to="/refund-policy" className="inline-flex items-center gap-1.5 hover:text-link">
+                        <ShieldCheck className="h-4 w-4 v2-gold-icon" fill="none" aria-hidden /> Full refund within 30 days, for any reason.
+                      </Link>
+                    </p>
+                    <p data-premium="extend-legal" className="mt-2 text-[12px] leading-relaxed text-muted-foreground">{legalText}</p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="mt-6 max-w-lg md:mt-[calc(24*var(--pu))] md:max-w-[calc(512*var(--pu))]">
                 {cards === null ? (
                   <p data-premium="loading" role="status" aria-label={message ? undefined : 'Loading prices'} className="flex min-h-[204px] items-center text-[15px] text-foreground/75 md:min-h-[calc(204*var(--pu))]">{/* The page is built at deploy time (prerender plan F1): no loading words in it, the box keeps the plans' room. */}{message}</p>
                 ) : (
-                  <div data-premium="plans" role="radiogroup" aria-label="Plans" className="flex flex-col gap-2.5 md:gap-[calc(10*var(--pu))]">
-                    {cards.map((plan, i) => {
-                      const on = plan.key === selected;
-                      return (
-                        <button
-                          key={plan.key}
-                          type="button"
-                          role="radio"
-                          aria-checked={on}
-                          /* A radio group is one tab stop; the arrow keys move the choice (#261 review). */
-                          tabIndex={on || (!selected && i === 0) ? 0 : -1}
-                          onKeyDown={(e) => onPlanKey(e, i)}
-                          onClick={() => choose(plan.key)}
-                          data-plan={plan.key}
-                          className="v2-card-glass flex w-full items-center gap-3 px-4 py-3 text-left transition md:gap-[calc(12*var(--pu))] md:px-[calc(16*var(--pu))] md:py-[calc(12*var(--pu))]"
-                          style={on ? { boxShadow: 'inset 0 0 0 2px hsl(var(--primary)), 0 12px 30px hsl(var(--background) / 0.55), 0 0 28px hsl(var(--primary) / 0.16)' } : undefined}
-                        >
-                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full md:h-[calc(20*var(--pu))] md:w-[calc(20*var(--pu))] ${on ? 'bg-primary text-primary-foreground' : 'ring-1 ring-border-strong'}`}>
-                            {on && <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                              <span className="text-[15px] font-semibold md:text-[length:max(13px,calc(15*var(--pu)))]">{plan.title}</span>
-                              {plan.key === 'yearly' && save !== null && (
-                                <span className="v2-btn-gold px-2 py-0.5 text-[11px] font-semibold md:text-[length:max(11px,calc(11*var(--pu)))]">Save {save}% against paying monthly</span>
-                              )}
-                            </span>
-                            <span className="mt-0.5 block text-[13px] text-foreground/70 md:text-[length:max(12px,calc(13*var(--pu)))]">{plan.terms}</span>
-                          </span>
-                          <span className="shrink-0 text-right">
-                            <span className="block font-playfair text-[26px] font-semibold leading-none tabular-nums md:text-[length:calc(26*var(--pu))]">{plan.price}</span>
-                            <span className="text-[13px] text-foreground/70 md:text-[length:max(12px,calc(13*var(--pu)))]">{plan.unit}</span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <PlanCards cards={cards} choice={choice} disabled={busy || waiting} />
                 )}
 
                 <div className="mt-4 flex flex-col gap-2 md:mt-[calc(16*var(--pu))]">
-                  {live ? (
+                  {waiting ? (
+                    <p data-premium="action" role="status" className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-center text-[16px] font-semibold text-foreground ring-2 ring-primary md:py-[calc(12*var(--pu))] md:text-[length:max(14px,calc(16*var(--pu)))]">
+                      <Loader2 className="h-5 w-5 shrink-0 animate-spin text-link motion-reduce:animate-none" aria-hidden />
+                      {message ?? 'Thank you. We are waiting for your payment to be confirmed…'}
+                    </p>
+                  ) : blockedLine ? (
+                    <p data-premium="action" className="w-full rounded-full px-4 py-3 text-center text-[15px] font-semibold text-foreground/85 ring-1 ring-primary/50 md:py-[calc(12*var(--pu))] md:text-[length:max(13px,calc(15*var(--pu)))]">
+                      {/* The pending line's last words link to /membership, where Manage is (#467 B5). */}
+                      {blockedLine === STRIPE_PENDING_LINE ? <PendingLine /> : blockedLine}
+                    </p>
+                  ) : live ? (
                     <button
                       type="button"
                       data-premium="action"
                       onClick={() => onBuy('plans')}
-                      disabled={!canBuy}
+                      disabled={!canBuy || busy}
                       className="v2-btn-gold h-12 w-full text-[16px] font-semibold disabled:cursor-wait disabled:opacity-60 md:h-[calc(48*var(--pu))] md:text-[length:max(14px,calc(16*var(--pu)))]"
                     >
                       {chosen ? `${buyLabel}: ${chosen.price} ${chosen.unit}` : buyLabel}
@@ -286,7 +320,7 @@ export default function PremiumPage() {
                       You can buy Premium here soon.
                     </p>
                   )}
-                  {cards !== null && message && <p role="status" className="text-[13px] text-foreground/85">{message}</p>}
+                  {cards !== null && message && !waiting && <p role="status" className="text-[13px] text-foreground/85">{message}</p>}
                   <p data-premium="refund" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-foreground/80 md:text-[length:max(12px,calc(13*var(--pu)))]">
                     <Link to="/refund-policy" className="inline-flex items-center gap-1.5 hover:text-link">
                       <ShieldCheck className="h-4 w-4 v2-gold-icon" fill="none" aria-hidden /> Full refund within 30 days, for any reason.
@@ -303,7 +337,7 @@ export default function PremiumPage() {
           <div data-premium="collage" className="relative hidden h-[460px] md:block md:h-[calc(460*var(--pu))] wideshort:hidden" aria-hidden>
             <div className="absolute inset-x-6 bottom-2 top-10 rounded-full blur-3xl" style={{ background: 'hsl(var(--gold-bottom) / 0.18)' }} />
             <img src={img('trainer')} alt="" width={1737} height={1191} className="v2-ring-warm absolute left-0 top-0 w-[88%] -rotate-[2deg] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.55)]" />
-            <img src={img('report-v2')} alt="" width={768} height={995} className="v2-ring-warm absolute bottom-0 right-0 h-auto w-[40%] rotate-[3deg] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)]" />
+            <img src={img('report-v3')} alt="" width={768} height={995} className="v2-ring-warm absolute bottom-0 right-0 h-auto w-[40%] rotate-[3deg] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)]" />
           </div>
         </div>
         {/* MORE BELOW (owner): the homepage's arrow, in its own row at the foot of the first screen, to
@@ -330,7 +364,7 @@ export default function PremiumPage() {
 
       {/* The same legal line just after the first screen, on short windows and phones (owner decisions
           1 and 4): the refund line stays by the button. Exactly one of the two renderings shows. */}
-      {!hasPremium && (
+      {!holder && (
         <div className="mx-auto w-full max-w-[1112px] px-4 pt-2 md:max-w-[calc(1112*var(--pu))] md:px-[calc(24*var(--pu))] tall-only:hidden">
           <p data-premium="legal" className="max-w-lg text-[12px] leading-relaxed text-muted-foreground md:max-w-[calc(512*var(--pu))] md:text-[length:max(12px,calc(12*var(--pu)))]">{legalText}</p>
         </div>
@@ -448,7 +482,7 @@ export default function PremiumPage() {
         <div className={`fixed inset-x-0 bottom-0 z-40 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] transition-transform md:hidden ${plansAbove ? 'translate-y-0' : 'translate-y-full'}`}>
           <div className="v2-card-glass flex items-center justify-between gap-3 px-4 py-3">
             <span className="text-[15px]"><span className="font-semibold tabular-nums">{chosen.price}</span> <span className="text-foreground/75">{chosen.unit}</span></span>
-            <button type="button" onClick={() => onBuy('sticky_bar')} className="v2-btn-gold h-10 px-5 text-[14px] font-semibold">{buyLabel}</button>
+            <button type="button" onClick={() => onBuy('sticky_bar')} disabled={busy} className="v2-btn-gold h-10 px-5 text-[14px] font-semibold disabled:cursor-wait disabled:opacity-60">{buyLabel}</button>
           </div>
         </div>
       )}

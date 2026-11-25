@@ -18,15 +18,19 @@ export const REASON_KIND_NAMES: Record<ReasonKind, string> = {
 const FAMILIES: Record<ReasonKind, string> = {
   threat: 'attacks threatens win_threat gains tempo check_threat fork_threat push_threat doubles_threat pins battery '
     + 'battery_open battery_next battery_masked xray discovery uncovers takes_attacker check check_attack retreat_hit '
-    + 'takes_away castle_stop stops_freeing',
+    + 'takes_away castle_stop stops_freeing '
+    // G1 (2026-11-20): a mate threat, and the pawn offer's compensation that hits the other side
+    + 'mate_threat comp_file comp_king comp_piece',
   centre: 'centre broad_centre control space challenge status_quo holds_break outer_pawn tension contests blocks '
-    + 'supports_break flexible opposes in_front noblock',
+    + 'supports_break flexible opposes in_front noblock phalanx',
   development: 'development activity clears diagonal file rooks rook_file rook_room rook_way rook_lift rooks_double '
-    + 'knight_square fianchetto frees prepares slight queen_behind queen_file back_rank unblocks freeing',
+    + 'knight_square fianchetto frees prepares slight queen_behind queen_file back_rank unblocks freeing '
+    + 'rook_play room_knight king_room unblocks_push comp_time',
   king: 'defends also_defends guards_loose piece_back castle king king_cover luft king_flank king_centre king_line '
     + 'king_shelter castle_opens castle_lost check_answer check_choice unpin pin_challenge avoids_fork escapes '
-    + 'blocks_check pawn_unpinned frees_pinned pawn_freed preempt',
-  structure: 'capture trades doubled doubles bad_bishop bishop_pair gambit supports rook_pawn',
+    + 'blocks_check pawn_unpinned frees_pinned pawn_freed preempt '
+    + 'saves saves_push interposes stops_pin king_dark king_tucked king_file retreat_square away_minor comp_ours',
+  structure: 'capture trades doubled doubles bad_bishop bishop_pair gambit supports rook_pawn concedes pawn_offer',
 };
 
 export const REASON_KIND: Record<string, ReasonKind> = Object.fromEntries(

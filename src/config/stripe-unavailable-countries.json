@@ -1,0 +1,4 @@
+{
+  "_note": "Countries whose buyers Stripe Managed Payments refuses (docs.stripe.com/payments/managed-payments/eligibility, read 2026-11-23). The page offers no Buy there when Stripe sells, and the server refuses a checkout (scripts/stripe/country-prices.mjs copies this list into the backend's table). TA and AC are Tristan da Cunha and Ascension Island.",
+  "countries": ["AC", "CN", "CU", "IR", "KP", "RU", "SY", "TA", "XK"]
+}

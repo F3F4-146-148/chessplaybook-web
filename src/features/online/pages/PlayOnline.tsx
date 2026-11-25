@@ -36,6 +36,9 @@ import { positionFromFen, applyMove, isPromotion, toUci } from '@/components/che
 import type { ChessPosition } from '@/components/chess/chessLogic';
 import type { Key } from '@lichess-org/chessground/types';
 import { logGA4Event } from '@/services/analytics';
+import { GamePgnActions } from '@/features/games/GamePgnActions';
+import { gamePgnFileName } from '@/features/games/gamePgn';
+import { fetchStoredGamePgn } from '@/features/games/storedGame';
 import { soundService } from '@/services/SoundService';
 import { MAIA_LIVE, MASTER_LIVE } from '@/design/designFlags';
 import { masterIcon } from '@/components/master/masterAssets';
@@ -1037,6 +1040,21 @@ export function PlayOnline() {
                     <span className="card-row justify-between text-[0.8em] uppercase tracking-wide">
                       <span>Moves</span>
                       {/* No "Move N" label (owner, 2026-10-10): the list marks the move shown. */}
+                      {/* #416: Copy and Download only once the game has ended (owner: never a live game, which could
+                          be pasted into an engine). The server's PGN, the one every stored game is served with. */}
+                      {phase === 'ended' && gameResult?.gameId && (
+                        <GamePgnActions
+                          pgn={() => fetchStoredGamePgn(gameResult.gameId)}
+                          fileName={gamePgnFileName(
+                            playerColor === 'white' ? (user?.username || 'player') : (opponent?.username || 'opponent'),
+                            playerColor === 'white' ? (opponent?.username || 'opponent') : (user?.username || 'player'),
+                            new Date(),
+                          )}
+                          mode="online"
+                          surface="play_online"
+                          shareId={gameResult.gameId}
+                        />
+                      )}
                     </span>
                     <div className="flex min-h-0 flex-1 flex-col">
                       <WorkspaceList label="Moves">
@@ -1097,6 +1115,7 @@ export function PlayOnline() {
                         onGoTo={jumpToMove}
                         metadata={finishedGame.metadata}
                         gameResult={finishedGame.winner}
+                        puzzles={{ perspective: playerColor }}
                       />
                     )}
                     <button type="button" onClick={handleNewGame} className="card-btn card-btn-primary w-full">New game</button>
@@ -1132,7 +1151,7 @@ export function PlayOnline() {
                 icon={<CircleUserRound aria-hidden />}
                 label="Opponent"
                 name={opponent?.username ?? (phase === 'seeking' ? 'Finding opponent…' : 'Waiting for opponent')}
-                detail={opponent ? `Rating ${opponent.rating}` : `${selectedPreset.category} pairing`}
+                detail={opponent ? (opponent.rating !== null ? `Rating ${opponent.rating}` : 'No rating yet') : `${selectedPreset.category} pairing`}
                 clock={<ChessClock timeMs={isInGame ? opponentMs : selectedPreset.initial * 1000} isActive={activeClockSide === opponentColor} isGameOver={!isInGame || isGameOver} className={PLAYER_CLOCK_CLASS} />}
               />
             )),

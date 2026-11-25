@@ -1,0 +1,261 @@
+{
+  "pipelineVersion": "4.9.6",
+  "notes": [
+    {
+      "ply": 108,
+      "san": "Ke5",
+      "fen": "B7/8/4b3/4kp2/5Rp1/6P1/1r6/6K1 w - - 16 55",
+      "action": "Play Ra4.",
+      "structured": {
+        "verdict": {
+          "eval": "Equal position",
+          "phase": "endgame"
+        },
+        "action": "Play Ra4.",
+        "sections": {
+          "threats_and_tactics": {
+            "summary": "Nothing is hanging on either side.",
+            "items": [
+              {
+                "text": "Nothing is hanging on either side.",
+                "side": "neutral",
+                "priority": 10
+              }
+            ]
+          },
+          "king_safety": {
+            "summary": "Two pieces converge on White's king: the rook on b2 and the pawn on g4 are pressing in.",
+            "items": [
+              {
+                "text": "Two pieces converge on White's king: the rook on b2 and the pawn on g4 are pressing in.",
+                "side": "white",
+                "priority": 80
+              },
+              {
+                "text": "White's king is the one in tighter trouble: fewer escape squares, more pieces aimed at its zone than Black's.",
+                "side": "white",
+                "priority": 55
+              },
+              {
+                "text": "Both kings stand without pawn cover in this endgame.",
+                "side": "both",
+                "priority": 60
+              }
+            ]
+          },
+          "material": {
+            "summary": "Black is up a pawn, yet the material edge counts for little here. White stands fine on positional grounds.",
+            "items": [
+              {
+                "text": "Black is up a pawn, yet the material edge counts for little here. White stands fine on positional grounds.",
+                "side": "both",
+                "priority": 80
+              }
+            ]
+          },
+          "pieces": {
+            "summary": "Black's rook has infiltrated to the second rank, a classic positional achievement.",
+            "items": [
+              {
+                "text": "Black's rook has infiltrated to the second rank, a classic positional achievement.",
+                "side": "black",
+                "priority": 65
+              },
+              {
+                "text": "White's rook on f4 eyes the f5 pawn down the half-open f-file.",
+                "side": "white",
+                "priority": 60
+              },
+              {
+                "text": "White's bishop on a8 commands an empty a8-h1.",
+                "side": "white",
+                "priority": 55
+              }
+            ]
+          },
+          "pawn_structure": {
+            "summary": "The balance holds, but barely. The tension in the position means any inaccuracy could prove fatal.",
+            "items": [
+              {
+                "text": "The balance holds, but barely. The tension in the position means any inaccuracy could prove fatal.",
+                "side": "both",
+                "priority": 90
+              },
+              {
+                "text": "With two pawns against one on the kingside, Black can look to create a passer by advancing the majority.",
+                "side": "black",
+                "priority": 55
+              },
+              {
+                "text": "Black's f-pawn on f5 is backward, creating a long-term target for the opponent to pressure.",
+                "side": "black",
+                "priority": 50
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "ply": 109,
+      "san": "Rf2",
+      "fen": "B7/8/4b3/4kp2/6p1/6P1/1r3R2/6K1 b - - 17 55",
+      "action": "Black has a dangerous attack on White's king.",
+      "structured": {
+        "verdict": {
+          "eval": "Black is winning",
+          "phase": "endgame"
+        },
+        "action": "Black has a dangerous attack on White's king.",
+        "sections": {
+          "threats_and_tactics": {
+            "summary": "After Rxf2, Black wins material with interest.",
+            "items": [
+              {
+                "text": "After Rxf2, Black wins material with interest.",
+                "side": "black",
+                "priority": 87,
+                "tag": "asset"
+              }
+            ]
+          },
+          "king_safety": {
+            "summary": "Two pieces converge on White's king: the rook on b2 and the pawn on g4 are pressing in.",
+            "items": [
+              {
+                "text": "Two pieces converge on White's king: the rook on b2 and the pawn on g4 are pressing in.",
+                "side": "white",
+                "priority": 80
+              },
+              {
+                "text": "White's king walks the tighter tightrope. Black's king is exposed too, but has more room to manoeuvre if things get sharp.",
+                "side": "white",
+                "priority": 55
+              },
+              {
+                "text": "Both kings stand without pawn cover in this endgame.",
+                "side": "both",
+                "priority": 60
+              }
+            ]
+          },
+          "material": {
+            "summary": "Black has a pawn extra on the kingside, the wing where the conversion plan will play out.",
+            "items": [
+              {
+                "text": "Black has a pawn extra on the kingside, the wing where the conversion plan will play out.",
+                "side": "black",
+                "priority": 75
+              }
+            ]
+          },
+          "pieces": {
+            "summary": "Black's rook has infiltrated to the second rank, a classic positional achievement.",
+            "items": [
+              {
+                "text": "Black's rook has infiltrated to the second rank, a classic positional achievement.",
+                "side": "black",
+                "priority": 65
+              }
+            ]
+          },
+          "pawn_structure": {
+            "summary": "Black's outside passed pawn on g4 is a king-deflection theme: the opposing king must consider chasing it.",
+            "items": [
+              {
+                "text": "Black's outside passed pawn on g4 is a king-deflection theme: the opposing king must consider chasing it.",
+                "side": "black",
+                "priority": 75
+              },
+              {
+                "text": "With two pawns against one on the kingside, Black can look to create a passer by advancing the majority.",
+                "side": "black",
+                "priority": 55
+              },
+              {
+                "text": "White's pawn on g3 stands alone on the g-file, an isolani that must be defended by pieces.",
+                "side": "white",
+                "priority": 50
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "ply": 116,
+      "san": "Ke5",
+      "fen": "8/8/8/4kp2/6p1/4K1P1/8/8 w - - 2 59",
+      "action": "Black breaks through with f2, and the g-pawn queens. Play Kd3.",
+      "structured": {
+        "verdict": {
+          "eval": "Black is winning",
+          "phase": "endgame"
+        },
+        "action": "Black breaks through with f2, and the g-pawn queens. Play Kd3.",
+        "sections": {
+          "threats_and_tactics": {
+            "summary": "Nothing is hanging on either side.",
+            "items": [
+              {
+                "text": "Nothing is hanging on either side.",
+                "side": "neutral",
+                "priority": 10
+              }
+            ]
+          },
+          "king_safety": {
+            "summary": "Kings on active squares: in the endgame the king must do its share of the work.",
+            "items": [
+              {
+                "text": "Kings on active squares: in the endgame the king must do its share of the work.",
+                "side": "both",
+                "priority": 35
+              }
+            ]
+          },
+          "material": {
+            "summary": "With a pawn extra on the kingside, Black holds a concrete material asset.",
+            "items": [
+              {
+                "text": "With a pawn extra on the kingside, Black holds a concrete material asset.",
+                "side": "black",
+                "priority": 75
+              }
+            ]
+          },
+          "pieces": {
+            "summary": "The pieces are about equally well placed.",
+            "items": [
+              {
+                "text": "The pieces are about equally well placed.",
+                "side": "neutral",
+                "priority": 10
+              }
+            ]
+          },
+          "pawn_structure": {
+            "summary": "Black's outside passed pawn on g4 is a king-deflection theme: the opposing king must consider chasing it.",
+            "items": [
+              {
+                "text": "Black's outside passed pawn on g4 is a king-deflection theme: the opposing king must consider chasing it.",
+                "side": "black",
+                "priority": 75
+              },
+              {
+                "text": "Black's two-vs-one pawn majority on the kingside gives them the potential to create a passed pawn.",
+                "side": "black",
+                "priority": 55
+              },
+              {
+                "text": "White's isolated g-pawn on g3 is a long-term target. No friendly pawn can ever come to its defense.",
+                "side": "white",
+                "priority": 50
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

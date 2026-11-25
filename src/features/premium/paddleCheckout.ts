@@ -13,6 +13,7 @@
 import env from '@/config/env';
 import fullPriceCountries from '@/config/premium-full-price-countries.json';
 import { supported as paddleSupported } from '@/config/paddle-supported-countries.json';
+import { STRIPE_ZERO_DECIMAL } from './stripeLocalPrices';
 
 export interface CheckoutSettings {
   environment: 'sandbox' | 'production';
@@ -23,12 +24,16 @@ export interface CheckoutSettings {
 
 /** A full refund within 30 days of a payment (owner, 2026-11-13). */
 export interface RefundInfo {
-  available: { kind: 'pass' | 'subscription'; until: string; totalMinor: string | null; currency: string | null } | null;
+  /* `premiumUntilAfter` (#467 E3): when paid Premium would end if this payment were refunded now (another
+     pass runs on), null when at once. Optional: a backend from before E3 does not send it. */
+  available: { kind: 'pass' | 'subscription'; until: string; totalMinor: string | null; currency: string | null; premiumUntilAfter?: string | null } | null;
   pending: boolean;
+  /** While a refund waits: when paid Premium ends once it is confirmed (another pass runs on), else null (E4). */
+  pendingPremiumUntilAfter?: string | null;
 }
 
-/* Paddle's currencies with no minor unit. */
-const ZERO_DECIMAL = new Set(['JPY', 'KRW', 'CLP', 'VND']);
+/* Currencies with no minor unit: Stripe's list, which holds Paddle's too (a refund amount can be either's). */
+const ZERO_DECIMAL = STRIPE_ZERO_DECIMAL;
 
 /** "€22.49", from Paddle's minor units; null when the amount is not known. */
 export function formatMinor(totalMinor: string | null, currency: string | null): string | null {
@@ -46,8 +51,52 @@ export interface PremiumState {
   premium: boolean;
   kind: 'subscription' | 'pass' | null;
   status: string | null;
+  /** A Stripe purchase not settled yet (a pending UPI payment, a renewal past due): no Buy (Codex review). */
+  purchasePending?: boolean;
+  /** A Stripe subscription not cancelled, with or without Premium (#467 E6): the checkout refuses a pass then.
+      Optional: a backend from before E6 does not send it. */
+  openSubscription?: boolean;
   periodEndsAt: string | null;
   scheduledChange: string | null;
+  /*
+    ADDED 2026-11-24 (Premium grants plan, B1): every field above stays PAID Premium. `entitled` is paid
+    OR given by Chess Playbook (a grant), what the free-plan limits read; `grant` is the given Premium
+    with its end (null = no end). Optional, because a backend from before this change sends neither:
+    read them through hasPremium() and premiumGrant(), never directly.
+  */
+  entitled?: boolean;
+  grant?: { endsAt: string | null } | null;
+}
+
+/** Whether the account has Premium, paid or given (an older backend: paid only). Offer Buy and Manage on `premium`. */
+export function hasPremium(state: PremiumState | null | undefined): boolean {
+  return Boolean(state && (state.entitled ?? state.premium));
+}
+
+/** The Premium given by Chess Playbook, if any; `endsAt` null means no end date. */
+export function premiumGrant(state: PremiumState | null | undefined): { endsAt: string | null } | null {
+  return state?.grant ?? null;
+}
+
+/**
+ * Given Premium with NO end: nothing to buy (the server refuses every purchase, 409 already_premium, reason
+ * grant). Every page offering Buy checks this beside `premium` (premium grants plan B4, B6). A grant WITH an
+ * end does not block: its holder may buy before it ends.
+ */
+export function grantBlocksPurchase(state: PremiumState | null | undefined): boolean {
+  const grant = premiumGrant(state);
+  return grant !== null && grant.endsAt === null;
+}
+
+/**
+ * A one-year-pass holder the server would sell another year to (#467 Phase E): holding a pass, no given
+ * Premium without an end, no purchase or refund waiting, and the server SAYS no subscription is open
+ * (E6; a backend from before E6 does not say, so no offer). The page adds its own conditions (a seller,
+ * the plan's price).
+ */
+export function canAddPassYear(state: PremiumState | null | undefined): boolean {
+  return Boolean(state?.premium) && state?.kind === 'pass' && !grantBlocksPurchase(state)
+    && !state?.purchasePending && !state?.refund?.pending && state?.openSubscription === false;
 }
 
 interface PaddleGlobal {
@@ -69,14 +118,29 @@ declare global {
 
 const SCRIPT = 'https://cdn.paddle.com/paddle/v2/paddle.js';
 
-export async function fetchCheckoutSettings(fetchImpl: typeof fetch = fetch): Promise<CheckoutSettings | null> {
+/** Who sells (STRIPE plan B6): one provider at a time, or none (production before launch). */
+export type PaymentsProvider = 'paddle' | 'stripe';
+
+export interface CheckoutAnswer {
+  provider: PaymentsProvider | null;
+  /** Paddle's settings; set only when Paddle sells. */
+  settings: CheckoutSettings | null;
+}
+
+const NOBODY: CheckoutAnswer = { provider: null, settings: null };
+
+export async function fetchCheckoutSettings(fetchImpl: typeof fetch = fetch): Promise<CheckoutAnswer> {
   try {
     const response = await fetchImpl(`${env.apiBaseUrl}/api/premium/checkout`);
-    if (!response.ok) return null;
-    const body = await response.json() as { checkout?: CheckoutSettings | null };
-    return body.checkout ?? null;
+    if (!response.ok) return NOBODY;
+    const body = await response.json() as { provider?: unknown; checkout?: CheckoutSettings | null };
+    /* Stripe when the server says so, whatever else is sent (Fable review); Paddle only with its settings;
+       an API from before B6 sends no provider, and its settings mean Paddle. */
+    if (body.provider === 'stripe') return { provider: 'stripe', settings: null };
+    if (body.checkout) return { provider: 'paddle', settings: body.checkout };
+    return NOBODY;
   } catch {
-    return null;
+    return NOBODY;
   }
 }
 

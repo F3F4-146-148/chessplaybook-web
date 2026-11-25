@@ -14,6 +14,7 @@ import { logEvent } from '@/services/analytics';
 import { dailyLimitMessage, readDailyLimit, reportDailyLimit } from '@/services/freePlanLimit';
 import { analysisService } from '@/services/AnalysisService';
 import { analyzeFullGame, type FullGameAnalysis } from '@/services/GameAnalysisService';
+import { detectBrilliantMovesInBrowser, type Detection } from '@/services/brilliantDetection';
 import type { ChessGame } from '@/types/chess';
 import type { StructuredExplanation } from '@/types/positionExplanation';
 
@@ -54,11 +55,18 @@ export interface UseGameReviewOptions {
   moveIndex: number;
 }
 
+/*
+  THE SAVED REPORT CARRIES THE REPORT RULES' REVISION (#379): a report saved in this tab before the brilliant-move
+  rule changed has the old brilliant moves and button, so it is not restored; the report is run again (and is
+  usually a server cache hit). Raise it with the server's SUMMARY_RULES_REVISION.
+*/
+const REPORT_REVISION = 5;
+
 export function useGameReview({
   currentFen, moves, gameResult, metadata, moveIndex,
 }: UseGameReviewOptions) {
   // Game identity — used to invalidate cached analysis when game changes
-  const gameKey = moves.length > 0 ? moves.slice(0, 5).join(',') + ':' + moves.length : '';
+  const gameKey = moves.length > 0 ? `r${REPORT_REVISION}:` + moves.slice(0, 5).join(',') + ':' + moves.length : '';
 
   // Game Analysis state — restore from sessionStorage only if same game
   const [gameAnalysis, setGameAnalysis] = useState<FullGameAnalysis | null>(() => {
@@ -120,14 +128,25 @@ export function useGameReview({
     } catch { return null; }
   });
   const [showSummary, setShowSummary] = useState(false);
+  /* #510: the report's per-position arrays, for puzzles made from this game (its first pass). Not
+     kept across a reload: a restored report has none, and the generator then searches itself. */
+  const [reportArrays, setReportArrays] = useState<{ evals: number[]; bestMoves: string[]; mateIn: (number | null)[] } | null>(null);
   // Progress shown inside the "Analyzing..." button during client-side
   // Stockfish batch analysis. `null` when not running.
   const [reportProgress, setReportProgress] = useState<{ current: number; total: number } | null>(null);
+  /** The step after the batch (#379): the button reads "Checking brilliant moves" while it runs. */
+  const [reportStage, setReportStage] = useState<'engine' | 'brilliant' | null>(null);
+  /*
+    ONLY A REPORT WITH A COMPLETE DETECTION IS SAVED (#379 B3): a report whose brilliant-move detection failed is
+    shown without brilliant moves or a button, and is run again the next time it is opened. A restored report was
+    saved complete.
+  */
+  const [reportComplete, setReportComplete] = useState(() => gameAnalysis !== null);
 
   // Persist game analysis to sessionStorage (with game key for invalidation)
   useEffect(() => {
     try {
-      if (gameAnalysis) {
+      if (gameAnalysis && reportComplete) {
         sessionStorage.setItem('analysis_gameReport', JSON.stringify(gameAnalysis));
         sessionStorage.setItem('analysis_gameKey', gameKey);
       } else {
@@ -135,15 +154,15 @@ export function useGameReview({
         sessionStorage.removeItem('analysis_gameKey');
       }
     } catch { /* storage full — ignore */ }
-  }, [gameAnalysis, gameKey]);
+  }, [gameAnalysis, gameKey, reportComplete]);
 
   // The summary goes with the analysis, under the same game key.
   useEffect(() => {
     try {
-      if (gameSummary && gameAnalysis) sessionStorage.setItem('analysis_gameSummary', JSON.stringify(gameSummary));
-      else if (!gameAnalysis) sessionStorage.removeItem('analysis_gameSummary');
+      if (gameSummary && gameAnalysis && reportComplete) sessionStorage.setItem('analysis_gameSummary', JSON.stringify(gameSummary));
+      else sessionStorage.removeItem('analysis_gameSummary');
     } catch { /* storage full — ignore */ }
-  }, [gameSummary, gameAnalysis]);
+  }, [gameSummary, gameAnalysis, reportComplete]);
 
   // Clear stale analysis when game changes
   useEffect(() => {
@@ -151,6 +170,7 @@ export function useGameReview({
     if (storedKey && storedKey !== gameKey) {
       setGameAnalysis(null);
       setGameSummary(null);
+      setReportArrays(null);
       setReportButtonState('initial');
       sessionStorage.removeItem('analysis_gameReport');
       sessionStorage.removeItem('analysis_gameKey');
@@ -179,23 +199,26 @@ export function useGameReview({
   //   1. GET /api/game-summary/cache-check → empty
   //   2. analysisService.analyzeFullGameClientSide(moves, onProgress)
   //      runs `go depth 16` on every position in the browser
-  //   3. analyzeFullGame(..., null) produces preliminary classification
-  //   4. POST /api/game-summary with the whole preliminary payload; the
-  //      server runs LC0 + generates the natural-language summary and
-  //      caches the full bundle keyed by (moves, result)
-  //   5. analyzeFullGame(..., policyData) reruns classification with
-  //      brilliant-move detection once policy lands
+  //   3. analyzeFullGame(..., null) classifies the moves
+  //   4. detectBrilliantMovesInBrowser (#379): the board facts, Maia 1900
+  //      and a two-line search where needed; `complete` or `failed`
+  //   5. analyzeFullGame(..., detection), then POST /api/game-summary with
+  //      those classes and the detection; the server applies it, writes the
+  //      summary, and stores the bundle only when the detection is complete
+  //   6. Render the bundle the server returns (another tab may have stored
+  //      the same game since step 1: then that one, never a mix)
   //
   // Flow (cache hit):
-  //   1. GET /api/game-summary/cache-check → cached bundle
-  //   2. analyzeFullGame on cached evals/bestMoves/mateIn + policyData
+  //   1. GET /api/game-summary/cache-check → cached bundle, with its detection
+  //   2. analyzeFullGame on cached evals/bestMoves/mateIn + the detection
   //   3. Render summary from the cached bundle
-  //   No Stockfish run, no LC0 run — all purely client-side reconstruction.
+  //   No Stockfish run, no Maia — all purely client-side reconstruction.
   const handleGameReport = useCallback(async () => {
     if (moves.length === 0) return;
     setReportButtonState('analyzing');
     setReportError(null);
     setReportProgress(null);
+    setReportStage('engine');
 
     const resultStr =
       gameResult === 'white' ? '1-0' : gameResult === 'black' ? '0-1' : '1/2-1/2';
@@ -218,6 +241,7 @@ export function useGameReview({
         evals: number[];
         bestMoves: string[];
         mateIn: (number | null)[];
+        detection: Detection | null;
       } | null = null;
       try {
         const cacheCheckUrl =
@@ -232,6 +256,7 @@ export function useGameReview({
             evals: number[];
             bestMoves: string[];
             mateIn: (number | null)[];
+            detection?: Detection | null;
           };
         }>(cacheCheckUrl, { identified: true });
         if (cacheResp.cached && cacheResp.result) {
@@ -246,6 +271,7 @@ export function useGameReview({
             evals: r.evals,
             bestMoves: r.bestMoves,
             mateIn: r.mateIn,
+            detection: r.detection ?? null,
           };
         }
       } catch (cacheErr) {
@@ -271,8 +297,10 @@ export function useGameReview({
           cached.mateIn,
           moves,
           gameResult,
-          cached.policyData,
+          cached.detection,
         );
+        setReportComplete(cached.detection?.status === 'complete');
+        setReportArrays({ evals: cached.evals, bestMoves: cached.bestMoves, mateIn: cached.mateIn });
         setGameAnalysis(analysis);
         setGameSummary({
           summary: cached.summary,
@@ -297,10 +325,7 @@ export function useGameReview({
         ({ current, total }) => setReportProgress({ current, total }),
       );
 
-      // ── Step 3: preliminary analysis (no policy yet) ─────────────────
-      // The server only needs classifiedMoves/accuracy/counts/phases/
-      // gameRating for summary generation — brilliance can be layered
-      // on top later when policyData arrives.
+      // ── Step 3: the classes, no brilliant move yet ───────────────────
       const preliminary = analyzeFullGame(
         batch.evals,
         batch.bestMoves,
@@ -310,18 +335,27 @@ export function useGameReview({
         null,
       );
 
-      // ── Step 4: POST /api/game-summary ───────────────────────────────
-      // Server runs LC0 + generates summary in parallel, stores the
-      // full bundle in the game-report cache.
+      // ── Step 4: brilliant moves and the critical move (#379) ─────────
+      // Never throws: a failure is `failed`, shown without brilliant moves or a button and not saved.
+      setReportStage('brilliant');
+      const detection = await detectBrilliantMovesInBrowser({
+        moves,
+        evals: batch.evals,
+        bestMoves: batch.bestMoves,
+        classified: preliminary.classifiedMoves,
+      }).catch((): Detection => ({ status: 'failed', moves: [], critical: null, reason: 'detection threw' }));
+      const final = analyzeFullGame(batch.evals, batch.bestMoves, batch.mateIn, moves, gameResult, detection);
+
+      // ── Step 5: POST /api/game-summary ───────────────────────────────
       const summaryBody: Record<string, unknown> = {
-        evalGraph: preliminary.evalGraph,
-        classifiedMoves: preliminary.classifiedMoves,
-        whiteAccuracy: preliminary.whiteAccuracy,
-        blackAccuracy: preliminary.blackAccuracy,
-        whiteCounts: preliminary.whiteCounts,
-        blackCounts: preliminary.blackCounts,
-        phases: preliminary.phases,
-        gameRating: preliminary.gameRating,
+        evalGraph: final.evalGraph,
+        classifiedMoves: final.classifiedMoves,
+        whiteAccuracy: final.whiteAccuracy,
+        blackAccuracy: final.blackAccuracy,
+        whiteCounts: final.whiteCounts,
+        blackCounts: final.blackCounts,
+        phases: final.phases,
+        gameRating: final.gameRating,
         white: metadata?.white || 'White',
         black: metadata?.black || 'Black',
         result: resultStr,
@@ -331,6 +365,7 @@ export function useGameReview({
         moveHistory: moves,
         bestMoves: batch.bestMoves,
         mateIn: batch.mateIn,
+        detection: { status: detection.status, moves: detection.moves, critical: detection.critical },
       };
 
       let policyData: Array<{
@@ -338,6 +373,8 @@ export function useGameReview({
         wdl: { win: number; draw: number; loss: number };
       }> | null = null;
       let summaryPayload: GameSummaryResult | null = null;
+      // What the server answers with: its own stored bundle when another tab stored this game since the cache check.
+      let served: { evals: number[]; bestMoves: string[]; mateIn: (number | null)[]; detection: Detection | null } | null = null;
 
       try {
         const summaryResp = (await backendAPIClient.post(
@@ -354,6 +391,14 @@ export function useGameReview({
             criticalMoveIndex: summaryResp.criticalMoveIndex as number | null,
           };
           policyData = (summaryResp.policyData as typeof policyData) ?? null;
+          if (Array.isArray(summaryResp.evals) && Array.isArray(summaryResp.bestMoves) && Array.isArray(summaryResp.mateIn)) {
+            served = {
+              evals: summaryResp.evals as number[],
+              bestMoves: summaryResp.bestMoves as string[],
+              mateIn: summaryResp.mateIn as (number | null)[],
+              detection: (summaryResp.detection as Detection | null | undefined) ?? null,
+            };
+          }
         }
       } catch (summaryErr) {
         // Refused at the end (a second tab took the last report meanwhile): say so, show nothing.
@@ -371,16 +416,14 @@ export function useGameReview({
         // still renders with classifications (just no brilliant tagging).
       }
 
-      // ── Step 5: final analysis with policyData ──────────────────────
+      // ── Step 6: render the bundle the server returned (or ours, if the request failed) ──
       policyDataRef.current = policyData;
-      const analysis = analyzeFullGame(
-        batch.evals,
-        batch.bestMoves,
-        batch.mateIn,
-        moves,
-        gameResult,
-        policyData,
-      );
+      const bundle = served ?? { evals: batch.evals, bestMoves: batch.bestMoves, mateIn: batch.mateIn, detection };
+      const analysis = analyzeFullGame(bundle.evals, bundle.bestMoves, bundle.mateIn, moves, gameResult, bundle.detection);
+      const complete = bundle.detection?.status === 'complete';
+      setReportComplete(complete);
+      if (!complete && summaryPayload) summaryPayload = { ...summaryPayload, criticalMoveIndex: null };
+      setReportArrays({ evals: bundle.evals, bestMoves: bundle.bestMoves, mateIn: bundle.mateIn });
       setGameAnalysis(analysis);
       if (summaryPayload) {
         setGameSummary(summaryPayload);
@@ -394,6 +437,7 @@ export function useGameReview({
       setReportButtonState('initial');
     } finally {
       setReportProgress(null);
+      setReportStage(null);
     }
   }, [moves, gameResult, metadata]);
 
@@ -644,9 +688,9 @@ export function useGameReview({
   }, [currentFen, moves, currentMoveIndex, gameAnalysis]);
 
   return {
-    gameAnalysis, reportButtonState, reportProgress, reportError, gameSummary,
+    gameAnalysis, reportButtonState, reportProgress, reportStage, reportError, gameSummary,
     showSummary, setShowSummary, currentMoveIndex, setCurrentMoveIndex,
     positionExplanation, setPositionExplanation, explanationLoading, explanationError,
-    setExplanationError, handleGameReport, handleExplainPosition,
+    setExplanationError, handleGameReport, handleExplainPosition, reportArrays,
   };
 }

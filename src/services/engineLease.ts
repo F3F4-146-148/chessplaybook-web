@@ -41,7 +41,8 @@
  */
 
 /** One name for the whole site; the resource being leased is "an engine worker". */
-const LEASE_NAME = 'chessplaybook-stockfish';
+export const ENGINE_LEASE_NAME = 'chessplaybook-stockfish';
+const LEASE_NAME = ENGINE_LEASE_NAME;
 
 interface LeaseState {
   /** Resolves the held lock's promise, which is how we release it. */

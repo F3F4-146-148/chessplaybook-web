@@ -18,6 +18,11 @@ describe('position deep links', () => {
     expect(result.value?.fen).toBe(FEN);
   });
 
+  it('completes a FEN of only the pieces, so the board can read it', () => {
+    const result = readPositionDeepLink('?fen=' + encodeURIComponent('r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R'));
+    expect(result.value?.fen).toBe('r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w - - 0 1');
+  });
+
   it('rejects invalid positions without returning a board value', () => {
     const result = readPositionDeepLink('?fen=not-a-position');
     expect(result.value).toBeNull();

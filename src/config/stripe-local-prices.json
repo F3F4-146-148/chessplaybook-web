@@ -1,0 +1,1234 @@
+{
+  "_computed": {
+    "date": "2026-11-23",
+    "source": "open.er-api.com/v6/latest/USD, Mon, 23 Nov 2026 00:02:32 +0000 (per USD)",
+    "rule": "converted from $25 / $5 (full) or $6.50 (reduced), then rounded down to a good-looking price; amounts already approved in premium-local-prices.json kept",
+    "skipped": {
+      "sameCurrency": [
+        "AD",
+        "AR",
+        "AS",
+        "AT",
+        "AU",
+        "AX",
+        "BE",
+        "BG",
+        "BL",
+        "BQ",
+        "BR",
+        "CA",
+        "CH",
+        "CL",
+        "CN",
+        "CO",
+        "CY",
+        "CZ",
+        "DE",
+        "DK",
+        "EC",
+        "EE",
+        "ES",
+        "FI",
+        "FM",
+        "FO",
+        "FR",
+        "GB",
+        "GF",
+        "GG",
+        "GL",
+        "GP",
+        "GR",
+        "GU",
+        "HK",
+        "HR",
+        "HU",
+        "IE",
+        "IL",
+        "IM",
+        "IN",
+        "IO",
+        "IT",
+        "JE",
+        "JP",
+        "KH",
+        "KR",
+        "LB",
+        "LI",
+        "LR",
+        "LT",
+        "LU",
+        "LV",
+        "MC",
+        "ME",
+        "MF",
+        "MH",
+        "MP",
+        "MQ",
+        "MT",
+        "MX",
+        "NL",
+        "NO",
+        "NZ",
+        "PA",
+        "PE",
+        "PL",
+        "PM",
+        "PR",
+        "PT",
+        "PW",
+        "RE",
+        "SE",
+        "SG",
+        "SI",
+        "SJ",
+        "SK",
+        "SM",
+        "SV",
+        "TC",
+        "TH",
+        "TL",
+        "TR",
+        "TW",
+        "UA",
+        "UM",
+        "US",
+        "VA",
+        "VG",
+        "VI",
+        "VN",
+        "XK",
+        "YT",
+        "ZA"
+      ],
+      "notAccepted": [
+        "BH:BHD",
+        "ER:ERN",
+        "GH:GHS",
+        "IQ:IQD",
+        "JO:JOD",
+        "KW:KWD",
+        "MR:MRU",
+        "OM:OMR",
+        "ST:STN",
+        "TM:TMT",
+        "TN:TND"
+      ],
+      "noRate": []
+    }
+  },
+  "prices": {
+    "AED": {
+      "currency": "AED",
+      "countries": [
+        "AE"
+      ],
+      "monthly": {
+        "amount": 17.99,
+        "minor": "1799",
+        "usdEquivalent": 4.9
+      },
+      "yearly": {
+        "amount": 91.49,
+        "minor": "9149",
+        "usdEquivalent": 24.91
+      }
+    },
+    "XCD-reduced": {
+      "currency": "XCD",
+      "countries": [
+        "AG",
+        "AI",
+        "DM",
+        "GD",
+        "KN",
+        "LC",
+        "MS",
+        "VC"
+      ],
+      "reduced": {
+        "amount": 17.49,
+        "minor": "1749",
+        "usdEquivalent": 6.48
+      }
+    },
+    "ALL-reduced": {
+      "currency": "ALL",
+      "countries": [
+        "AL"
+      ],
+      "reduced": {
+        "amount": 529,
+        "minor": "52900",
+        "usdEquivalent": 6.46
+      }
+    },
+    "AMD-reduced": {
+      "currency": "AMD",
+      "countries": [
+        "AM"
+      ],
+      "reduced": {
+        "amount": 2290,
+        "minor": "229000",
+        "usdEquivalent": 6.35
+      }
+    },
+    "AOA-reduced": {
+      "currency": "AOA",
+      "countries": [
+        "AO"
+      ],
+      "reduced": {
+        "amount": 5990,
+        "minor": "599000",
+        "usdEquivalent": 6.5
+      }
+    },
+    "AWG-reduced": {
+      "currency": "AWG",
+      "countries": [
+        "AW"
+      ],
+      "reduced": {
+        "amount": 11.49,
+        "minor": "1149",
+        "usdEquivalent": 6.42
+      }
+    },
+    "AZN-reduced": {
+      "currency": "AZN",
+      "countries": [
+        "AZ"
+      ],
+      "reduced": {
+        "amount": 10.99,
+        "minor": "1099",
+        "usdEquivalent": 6.47
+      }
+    },
+    "BAM-reduced": {
+      "currency": "BAM",
+      "countries": [
+        "BA"
+      ],
+      "reduced": {
+        "amount": 11.49,
+        "minor": "1149",
+        "usdEquivalent": 6.45
+      }
+    },
+    "BBD-reduced": {
+      "currency": "BBD",
+      "countries": [
+        "BB"
+      ],
+      "reduced": {
+        "amount": 12.99,
+        "minor": "1299",
+        "usdEquivalent": 6.5
+      }
+    },
+    "BDT-reduced": {
+      "currency": "BDT",
+      "countries": [
+        "BD"
+      ],
+      "reduced": {
+        "amount": 799,
+        "minor": "79900",
+        "usdEquivalent": 6.42
+      }
+    },
+    "XOF-reduced": {
+      "currency": "XOF",
+      "countries": [
+        "BF",
+        "BJ",
+        "CI",
+        "GW",
+        "NE",
+        "SN",
+        "TG"
+      ],
+      "reduced": {
+        "amount": 3790,
+        "minor": "3790",
+        "usdEquivalent": 6.34
+      }
+    },
+    "BIF-reduced": {
+      "currency": "BIF",
+      "countries": [
+        "BI"
+      ],
+      "reduced": {
+        "amount": 18900,
+        "minor": "18900",
+        "usdEquivalent": 6.3
+      }
+    },
+    "BMD": {
+      "currency": "BMD",
+      "countries": [
+        "BM"
+      ],
+      "monthly": {
+        "amount": 5,
+        "minor": "500",
+        "usdEquivalent": 5,
+        "pegged": "USD"
+      },
+      "yearly": {
+        "amount": 25,
+        "minor": "2500",
+        "usdEquivalent": 25,
+        "pegged": "USD"
+      }
+    },
+    "BND": {
+      "currency": "BND",
+      "countries": [
+        "BN"
+      ],
+      "monthly": {
+        "amount": 5.99,
+        "minor": "599",
+        "usdEquivalent": 4.65
+      },
+      "yearly": {
+        "amount": 31.99,
+        "minor": "3199",
+        "usdEquivalent": 24.82
+      }
+    },
+    "BOB-reduced": {
+      "currency": "BOB",
+      "countries": [
+        "BO"
+      ],
+      "reduced": {
+        "amount": 75.99,
+        "minor": "7599",
+        "usdEquivalent": 6.48
+      }
+    },
+    "BSD-reduced": {
+      "currency": "BSD",
+      "countries": [
+        "BS"
+      ],
+      "reduced": {
+        "amount": 6.5,
+        "minor": "650",
+        "usdEquivalent": 6.5,
+        "pegged": "USD"
+      }
+    },
+    "INR-reduced": {
+      "currency": "INR",
+      "countries": [
+        "BT"
+      ],
+      "reduced": {
+        "amount": 549,
+        "minor": "54900",
+        "usdEquivalent": 5.84,
+        "kept": true
+      }
+    },
+    "NOK-reduced": {
+      "currency": "NOK",
+      "countries": [
+        "BV"
+      ],
+      "reduced": {
+        "amount": 62.99,
+        "minor": "6299",
+        "usdEquivalent": 6.46
+      }
+    },
+    "BWP-reduced": {
+      "currency": "BWP",
+      "countries": [
+        "BW"
+      ],
+      "reduced": {
+        "amount": 92.99,
+        "minor": "9299",
+        "usdEquivalent": 6.49
+      }
+    },
+    "BZD-reduced": {
+      "currency": "BZD",
+      "countries": [
+        "BZ"
+      ],
+      "reduced": {
+        "amount": 12.99,
+        "minor": "1299",
+        "usdEquivalent": 6.5
+      }
+    },
+    "AUD-reduced": {
+      "currency": "AUD",
+      "countries": [
+        "CC",
+        "CX",
+        "HM",
+        "KI",
+        "NF",
+        "NR",
+        "TV"
+      ],
+      "reduced": {
+        "amount": 9.49,
+        "minor": "949",
+        "usdEquivalent": 6.3
+      }
+    },
+    "XAF-reduced": {
+      "currency": "XAF",
+      "countries": [
+        "CG",
+        "CM",
+        "GA",
+        "GQ",
+        "TD"
+      ],
+      "reduced": {
+        "amount": 3790,
+        "minor": "3790",
+        "usdEquivalent": 6.34
+      }
+    },
+    "NZD-reduced": {
+      "currency": "NZD",
+      "countries": [
+        "CK",
+        "NU",
+        "PN",
+        "TK"
+      ],
+      "reduced": {
+        "amount": 11.49,
+        "minor": "1149",
+        "usdEquivalent": 6.29
+      }
+    },
+    "CRC-reduced": {
+      "currency": "CRC",
+      "countries": [
+        "CR"
+      ],
+      "reduced": {
+        "amount": 2890,
+        "minor": "289000",
+        "usdEquivalent": 6.46
+      }
+    },
+    "CVE-reduced": {
+      "currency": "CVE",
+      "countries": [
+        "CV"
+      ],
+      "reduced": {
+        "amount": 649,
+        "minor": "64900",
+        "usdEquivalent": 6.46
+      }
+    },
+    "XCG-reduced": {
+      "currency": "XCG",
+      "countries": [
+        "CW",
+        "SX"
+      ],
+      "reduced": {
+        "amount": 11.49,
+        "minor": "1149",
+        "usdEquivalent": 6.42
+      }
+    },
+    "DJF-reduced": {
+      "currency": "DJF",
+      "countries": [
+        "DJ"
+      ],
+      "reduced": {
+        "amount": 1090,
+        "minor": "1090",
+        "usdEquivalent": 6.13
+      }
+    },
+    "DOP-reduced": {
+      "currency": "DOP",
+      "countries": [
+        "DO"
+      ],
+      "reduced": {
+        "amount": 389,
+        "minor": "38900",
+        "usdEquivalent": 6.48
+      }
+    },
+    "DZD-reduced": {
+      "currency": "DZD",
+      "countries": [
+        "DZ"
+      ],
+      "reduced": {
+        "amount": 889,
+        "minor": "88900",
+        "usdEquivalent": 6.49
+      }
+    },
+    "EGP-reduced": {
+      "currency": "EGP",
+      "countries": [
+        "EG"
+      ],
+      "reduced": {
+        "amount": 349,
+        "minor": "34900",
+        "usdEquivalent": 6.44
+      }
+    },
+    "MAD-reduced": {
+      "currency": "MAD",
+      "countries": [
+        "EH",
+        "MA"
+      ],
+      "reduced": {
+        "amount": 64.49,
+        "minor": "6449",
+        "usdEquivalent": 6.47
+      }
+    },
+    "ETB-reduced": {
+      "currency": "ETB",
+      "countries": [
+        "ET"
+      ],
+      "reduced": {
+        "amount": 990,
+        "minor": "99000",
+        "usdEquivalent": 6.12
+      }
+    },
+    "FJD-reduced": {
+      "currency": "FJD",
+      "countries": [
+        "FJ"
+      ],
+      "reduced": {
+        "amount": 14.49,
+        "minor": "1449",
+        "usdEquivalent": 6.33
+      }
+    },
+    "FKP-reduced": {
+      "currency": "FKP",
+      "countries": [
+        "FK"
+      ],
+      "reduced": {
+        "amount": 4.49,
+        "minor": "449",
+        "usdEquivalent": 5.88
+      }
+    },
+    "GEL-reduced": {
+      "currency": "GEL",
+      "countries": [
+        "GE"
+      ],
+      "reduced": {
+        "amount": 16.49,
+        "minor": "1649",
+        "usdEquivalent": 6.36
+      }
+    },
+    "GIP": {
+      "currency": "GIP",
+      "countries": [
+        "GI"
+      ],
+      "monthly": {
+        "amount": 3.49,
+        "minor": "349",
+        "usdEquivalent": 4.63,
+        "pegged": "GBP"
+      },
+      "yearly": {
+        "amount": 18.49,
+        "minor": "1849",
+        "usdEquivalent": 24.51,
+        "pegged": "GBP"
+      }
+    },
+    "GMD-reduced": {
+      "currency": "GMD",
+      "countries": [
+        "GM"
+      ],
+      "reduced": {
+        "amount": 479,
+        "minor": "47900",
+        "usdEquivalent": 6.4
+      }
+    },
+    "GNF-reduced": {
+      "currency": "GNF",
+      "countries": [
+        "GN"
+      ],
+      "reduced": {
+        "amount": 56900,
+        "minor": "56900",
+        "usdEquivalent": 6.44
+      }
+    },
+    "GBP-reduced": {
+      "currency": "GBP",
+      "countries": [
+        "GS"
+      ],
+      "reduced": {
+        "amount": 4.49,
+        "minor": "449",
+        "usdEquivalent": 5.88
+      }
+    },
+    "GTQ-reduced": {
+      "currency": "GTQ",
+      "countries": [
+        "GT"
+      ],
+      "reduced": {
+        "amount": 49.49,
+        "minor": "4949",
+        "usdEquivalent": 6.48
+      }
+    },
+    "GYD-reduced": {
+      "currency": "GYD",
+      "countries": [
+        "GY"
+      ],
+      "reduced": {
+        "amount": 1290,
+        "minor": "129000",
+        "usdEquivalent": 6.17
+      }
+    },
+    "HNL-reduced": {
+      "currency": "HNL",
+      "countries": [
+        "HN"
+      ],
+      "reduced": {
+        "amount": 169,
+        "minor": "16900",
+        "usdEquivalent": 6.29
+      }
+    },
+    "IDR-reduced": {
+      "currency": "IDR",
+      "countries": [
+        "ID"
+      ],
+      "reduced": {
+        "amount": 109000,
+        "minor": "10900000",
+        "usdEquivalent": 5.96
+      }
+    },
+    "ISK": {
+      "currency": "ISK",
+      "countries": [
+        "IS"
+      ],
+      "monthly": {
+        "amount": 619,
+        "minor": "61900",
+        "usdEquivalent": 4.96
+      },
+      "yearly": {
+        "amount": 3090,
+        "minor": "309000",
+        "usdEquivalent": 24.75
+      }
+    },
+    "JMD-reduced": {
+      "currency": "JMD",
+      "countries": [
+        "JM"
+      ],
+      "reduced": {
+        "amount": 990,
+        "minor": "99000",
+        "usdEquivalent": 6.25
+      }
+    },
+    "KES-reduced": {
+      "currency": "KES",
+      "countries": [
+        "KE"
+      ],
+      "reduced": {
+        "amount": 839,
+        "minor": "83900",
+        "usdEquivalent": 6.46
+      }
+    },
+    "KGS-reduced": {
+      "currency": "KGS",
+      "countries": [
+        "KG"
+      ],
+      "reduced": {
+        "amount": 559,
+        "minor": "55900",
+        "usdEquivalent": 6.39
+      }
+    },
+    "KMF-reduced": {
+      "currency": "KMF",
+      "countries": [
+        "KM"
+      ],
+      "reduced": {
+        "amount": 2890,
+        "minor": "2890",
+        "usdEquivalent": 6.45
+      }
+    },
+    "KYD": {
+      "currency": "KYD",
+      "countries": [
+        "KY"
+      ],
+      "monthly": {
+        "amount": 3.99,
+        "minor": "399",
+        "usdEquivalent": 4.79
+      },
+      "yearly": {
+        "amount": 20.49,
+        "minor": "2049",
+        "usdEquivalent": 24.59
+      }
+    },
+    "KZT-reduced": {
+      "currency": "KZT",
+      "countries": [
+        "KZ"
+      ],
+      "reduced": {
+        "amount": 2890,
+        "minor": "289000",
+        "usdEquivalent": 6.34
+      }
+    },
+    "LAK-reduced": {
+      "currency": "LAK",
+      "countries": [
+        "LA"
+      ],
+      "reduced": {
+        "amount": 139000,
+        "minor": "13900000",
+        "usdEquivalent": 6.21
+      }
+    },
+    "LKR-reduced": {
+      "currency": "LKR",
+      "countries": [
+        "LK"
+      ],
+      "reduced": {
+        "amount": 2090,
+        "minor": "209000",
+        "usdEquivalent": 6.29
+      }
+    },
+    "ZAR-reduced": {
+      "currency": "ZAR",
+      "countries": [
+        "LS",
+        "NA"
+      ],
+      "reduced": {
+        "amount": 99,
+        "minor": "9900",
+        "usdEquivalent": 5.92,
+        "kept": true
+      }
+    },
+    "MDL-reduced": {
+      "currency": "MDL",
+      "countries": [
+        "MD"
+      ],
+      "reduced": {
+        "amount": 119,
+        "minor": "11900",
+        "usdEquivalent": 6.5
+      }
+    },
+    "MGA-reduced": {
+      "currency": "MGA",
+      "countries": [
+        "MG"
+      ],
+      "reduced": {
+        "amount": 28900,
+        "minor": "28900",
+        "usdEquivalent": 6.28
+      }
+    },
+    "MKD-reduced": {
+      "currency": "MKD",
+      "countries": [
+        "MK"
+      ],
+      "reduced": {
+        "amount": 359,
+        "minor": "35900",
+        "usdEquivalent": 6.42
+      }
+    },
+    "MNT-reduced": {
+      "currency": "MNT",
+      "countries": [
+        "MN"
+      ],
+      "reduced": {
+        "amount": 22900,
+        "minor": "2290000",
+        "usdEquivalent": 6.32
+      }
+    },
+    "MOP": {
+      "currency": "MOP",
+      "countries": [
+        "MO"
+      ],
+      "monthly": {
+        "amount": 39,
+        "minor": "3900",
+        "usdEquivalent": 4.83
+      },
+      "yearly": {
+        "amount": 199,
+        "minor": "19900",
+        "usdEquivalent": 24.65
+      }
+    },
+    "MUR-reduced": {
+      "currency": "MUR",
+      "countries": [
+        "MU"
+      ],
+      "reduced": {
+        "amount": 299,
+        "minor": "29900",
+        "usdEquivalent": 6.35
+      }
+    },
+    "MVR-reduced": {
+      "currency": "MVR",
+      "countries": [
+        "MV"
+      ],
+      "reduced": {
+        "amount": 99,
+        "minor": "9900",
+        "usdEquivalent": 6.42
+      }
+    },
+    "MWK-reduced": {
+      "currency": "MWK",
+      "countries": [
+        "MW"
+      ],
+      "reduced": {
+        "amount": 10900,
+        "minor": "1090000",
+        "usdEquivalent": 6.27
+      }
+    },
+    "MYR-reduced": {
+      "currency": "MYR",
+      "countries": [
+        "MY"
+      ],
+      "reduced": {
+        "amount": 26.49,
+        "minor": "2649",
+        "usdEquivalent": 6.44
+      }
+    },
+    "MZN-reduced": {
+      "currency": "MZN",
+      "countries": [
+        "MZ"
+      ],
+      "reduced": {
+        "amount": 409,
+        "minor": "40900",
+        "usdEquivalent": 6.43
+      }
+    },
+    "XPF-reduced": {
+      "currency": "XPF",
+      "countries": [
+        "NC",
+        "PF",
+        "WF"
+      ],
+      "reduced": {
+        "amount": 699,
+        "minor": "699",
+        "usdEquivalent": 6.43
+      }
+    },
+    "NGN-reduced": {
+      "currency": "NGN",
+      "countries": [
+        "NG"
+      ],
+      "reduced": {
+        "amount": 8790,
+        "minor": "879000",
+        "usdEquivalent": 6.43
+      }
+    },
+    "NPR-reduced": {
+      "currency": "NPR",
+      "countries": [
+        "NP"
+      ],
+      "reduced": {
+        "amount": 959,
+        "minor": "95900",
+        "usdEquivalent": 6.46
+      }
+    },
+    "PGK-reduced": {
+      "currency": "PGK",
+      "countries": [
+        "PG"
+      ],
+      "reduced": {
+        "amount": 28.99,
+        "minor": "2899",
+        "usdEquivalent": 6.44
+      }
+    },
+    "PHP-reduced": {
+      "currency": "PHP",
+      "countries": [
+        "PH"
+      ],
+      "reduced": {
+        "amount": 409,
+        "minor": "40900",
+        "usdEquivalent": 6.4
+      }
+    },
+    "PKR-reduced": {
+      "currency": "PKR",
+      "countries": [
+        "PK"
+      ],
+      "reduced": {
+        "amount": 1790,
+        "minor": "179000",
+        "usdEquivalent": 6.47
+      }
+    },
+    "ILS-reduced": {
+      "currency": "ILS",
+      "countries": [
+        "PS"
+      ],
+      "reduced": {
+        "amount": 21.49,
+        "minor": "2149",
+        "usdEquivalent": 6.41
+      }
+    },
+    "PYG-reduced": {
+      "currency": "PYG",
+      "countries": [
+        "PY"
+      ],
+      "reduced": {
+        "amount": 40900,
+        "minor": "40900",
+        "usdEquivalent": 6.46
+      }
+    },
+    "QAR": {
+      "currency": "QAR",
+      "countries": [
+        "QA"
+      ],
+      "monthly": {
+        "amount": 17.99,
+        "minor": "1799",
+        "usdEquivalent": 4.94
+      },
+      "yearly": {
+        "amount": 90.99,
+        "minor": "9099",
+        "usdEquivalent": 25
+      }
+    },
+    "RON": {
+      "currency": "RON",
+      "countries": [
+        "RO"
+      ],
+      "monthly": {
+        "amount": 24,
+        "minor": "2400",
+        "usdEquivalent": 4.93
+      },
+      "yearly": {
+        "amount": 119,
+        "minor": "11900",
+        "usdEquivalent": 24.43
+      }
+    },
+    "RSD-reduced": {
+      "currency": "RSD",
+      "countries": [
+        "RS"
+      ],
+      "reduced": {
+        "amount": 689,
+        "minor": "68900",
+        "usdEquivalent": 6.43
+      }
+    },
+    "RWF-reduced": {
+      "currency": "RWF",
+      "countries": [
+        "RW"
+      ],
+      "reduced": {
+        "amount": 9590,
+        "minor": "9590",
+        "usdEquivalent": 6.48
+      }
+    },
+    "SAR": {
+      "currency": "SAR",
+      "countries": [
+        "SA"
+      ],
+      "monthly": {
+        "amount": 18.49,
+        "minor": "1849",
+        "usdEquivalent": 4.93
+      },
+      "yearly": {
+        "amount": 93.49,
+        "minor": "9349",
+        "usdEquivalent": 24.93
+      }
+    },
+    "SBD-reduced": {
+      "currency": "SBD",
+      "countries": [
+        "SB"
+      ],
+      "reduced": {
+        "amount": 52.49,
+        "minor": "5249",
+        "usdEquivalent": 6.49
+      }
+    },
+    "SCR-reduced": {
+      "currency": "SCR",
+      "countries": [
+        "SC"
+      ],
+      "reduced": {
+        "amount": 93.49,
+        "minor": "9349",
+        "usdEquivalent": 6.47
+      }
+    },
+    "SHP-reduced": {
+      "currency": "SHP",
+      "countries": [
+        "SH"
+      ],
+      "reduced": {
+        "amount": 4.49,
+        "minor": "449",
+        "usdEquivalent": 5.88
+      }
+    },
+    "SLE-reduced": {
+      "currency": "SLE",
+      "countries": [
+        "SL"
+      ],
+      "reduced": {
+        "amount": 149,
+        "minor": "14900",
+        "usdEquivalent": 6.5
+      }
+    },
+    "SRD-reduced": {
+      "currency": "SRD",
+      "countries": [
+        "SR"
+      ],
+      "reduced": {
+        "amount": 239,
+        "minor": "23900",
+        "usdEquivalent": 6.41
+      }
+    },
+    "SZL-reduced": {
+      "currency": "SZL",
+      "countries": [
+        "SZ"
+      ],
+      "reduced": {
+        "amount": 99,
+        "minor": "9900",
+        "usdEquivalent": 5.92,
+        "pegged": "ZAR"
+      }
+    },
+    "EUR-reduced": {
+      "currency": "EUR",
+      "countries": [
+        "TF"
+      ],
+      "reduced": {
+        "amount": 5.49,
+        "minor": "549",
+        "usdEquivalent": 6.08,
+        "kept": true
+      }
+    },
+    "TJS-reduced": {
+      "currency": "TJS",
+      "countries": [
+        "TJ"
+      ],
+      "reduced": {
+        "amount": 59.49,
+        "minor": "5949",
+        "usdEquivalent": 6.46
+      }
+    },
+    "TOP-reduced": {
+      "currency": "TOP",
+      "countries": [
+        "TO"
+      ],
+      "reduced": {
+        "amount": 15.49,
+        "minor": "1549",
+        "usdEquivalent": 6.47
+      }
+    },
+    "TTD-reduced": {
+      "currency": "TTD",
+      "countries": [
+        "TT"
+      ],
+      "reduced": {
+        "amount": 43.99,
+        "minor": "4399",
+        "usdEquivalent": 6.49
+      }
+    },
+    "TZS-reduced": {
+      "currency": "TZS",
+      "countries": [
+        "TZ"
+      ],
+      "reduced": {
+        "amount": 16900,
+        "minor": "1690000",
+        "usdEquivalent": 6.36
+      }
+    },
+    "UGX-reduced": {
+      "currency": "UGX",
+      "countries": [
+        "UG"
+      ],
+      "reduced": {
+        "amount": 26900,
+        "minor": "2690000",
+        "usdEquivalent": 6.46
+      }
+    },
+    "UYU-reduced": {
+      "currency": "UYU",
+      "countries": [
+        "UY"
+      ],
+      "reduced": {
+        "amount": 259,
+        "minor": "25900",
+        "usdEquivalent": 6.38
+      }
+    },
+    "UZS-reduced": {
+      "currency": "UZS",
+      "countries": [
+        "UZ"
+      ],
+      "reduced": {
+        "amount": 76900,
+        "minor": "7690000",
+        "usdEquivalent": 6.45
+      }
+    },
+    "VUV-reduced": {
+      "currency": "VUV",
+      "countries": [
+        "VU"
+      ],
+      "reduced": {
+        "amount": 779,
+        "minor": "779",
+        "usdEquivalent": 6.44
+      }
+    },
+    "WST-reduced": {
+      "currency": "WST",
+      "countries": [
+        "WS"
+      ],
+      "reduced": {
+        "amount": 17.99,
+        "minor": "1799",
+        "usdEquivalent": 6.45
+      }
+    },
+    "ZMW-reduced": {
+      "currency": "ZMW",
+      "countries": [
+        "ZM"
+      ],
+      "reduced": {
+        "amount": 129,
+        "minor": "12900",
+        "usdEquivalent": 6.28
+      }
+    }
+  }
+}

@@ -57,10 +57,24 @@ export const PLAYERS: Record<PlayerKey, MatchPlayer> = {
 export const PLAYER_ORDER: PlayerKey[] = ['gukesh', 'sindarov'];
 
 /**
- * Who has White in game 1: drawn by lot, usually at the opening ceremony (22 Nov). Set it then;
- * until it is set, and until the broadcast shows a game, the colours are unknown.
+ * Who has White in game 1: drawn by lot at the opening ceremony. Sindarov, as the Lichess
+ * broadcast's game 1 pairing reads (round xLgOJ6cb, read 2026-11-23). The broadcast's games
+ * still win over this if they ever disagree; this is what the built HTML shows before them.
  */
-export const GAME_1_WHITE: PlayerKey | null = null;
+export const GAME_1_WHITE: PlayerKey | null = 'sindarov';
+
+/**
+ * FIDE's YouTube broadcast of each game, the one with commentary, by game number (owner, 2026-11-23: shown while the
+ * game is on, and as the replay after it). FIDE schedules each game's stream about a day ahead on its channel
+ * (UC9B47GnzCRFHTT1BIBWvStQ, the Streams tab, titled "... | Game N | ..."; a second "No Commentary" stream runs
+ * beside it, not this one). Add the next game's id in the deploy after each game. A finished live stream keeps its
+ * id, which is what makes the replay. Embedding was checked with YouTube's oEmbed (it refuses a video whose owner
+ * turned embedding off). A game without an id here shows the match trailer.
+ */
+export const GAME_STREAMS: Partial<Record<number, string>> = {
+  1: '7dyXiy2kWsw',
+  2: 'i_0ELvDXYQc',
+};
 
 /**
  * Who has White in game `n`. The colours alternate every game (2024: Gukesh had
@@ -210,9 +224,24 @@ export interface BroadcastGameTags {
   result: string;
   /** https://lichess.org/broadcast/<slug>/<round-slug>/<roundId>/<gameId> */
   gameUrl?: string;
+  /**
+   * Whether the movetext holds a move. Lichess pairs every round ahead of time with Result "*" and no moves
+   * (all 14 games were listed so on 2026-11-23, a day before game 1), so "*" alone does not mean the game is on.
+   * Missing (older callers, tests) counts as moved.
+   */
+  hasMoves?: boolean;
 }
 
-export type GameResult = 'white' | 'black' | 'draw' | 'playing';
+/**
+ * 'pending': paired on the broadcast, no move yet. 'playing': "*" with at least one move. The calendar
+ * (`calendarState().liveNow`) covers the minutes between a game's start and its first move.
+ */
+export type GameResult = 'white' | 'black' | 'draw' | 'playing' | 'pending';
+
+/** A game with a result in. */
+export function isFinished(r: GameResult): boolean {
+  return r === 'white' || r === 'black' || r === 'draw';
+}
 
 export interface ScoredGame {
   game: number;
@@ -238,11 +267,11 @@ function playerFor(name: string, players: MatchPlayer[]): PlayerKey | null {
   return hit ? hit.key : null;
 }
 
-function resultOf(tag: string): GameResult {
+function resultOf(tag: string, hasMoves = true): GameResult {
   if (tag === '1-0') return 'white';
   if (tag === '0-1') return 'black';
   if (tag === '1/2-1/2' || tag === '½-½') return 'draw';
-  return 'playing';
+  return hasMoves ? 'playing' : 'pending';
 }
 
 /** Round id from a Lichess GameURL (the second-last path segment). */
@@ -286,7 +315,7 @@ export function scoreMatch(
     const white = playerFor(t.white, players);
     const black = playerFor(t.black, players);
     if (!white || !black || white === black) continue;
-    games.set(game, { game, white, black, result: resultOf(t.result), roundId: roundIdFromGameUrl(t.gameUrl) });
+    games.set(game, { game, white, black, result: resultOf(t.result, t.hasMoves), roundId: roundIdFromGameUrl(t.gameUrl) });
   }
 
   let winner: MatchScore['winner'] = null;
@@ -295,13 +324,13 @@ export function scoreMatch(
     if (g.result === 'white') points[g.white] += 1;
     else if (g.result === 'black') points[g.black] += 1;
     else if (g.result === 'draw') { points[g.white] += 0.5; points[g.black] += 0.5; }
-    if (!winner && g.result !== 'playing') {
+    if (!winner && isFinished(g.result)) {
       const leader = players.find((p) => points[p.key] >= POINTS_TO_WIN);
       if (leader) winner = { player: leader.key, afterGame: g.game };
     }
   }
 
-  const finished = ordered.filter((g) => g.result !== 'playing').length;
+  const finished = ordered.filter((g) => isFinished(g.result)).length;
   const [a, b] = players;
   const tiebreak = !winner && finished === CLASSICAL_GAMES && points[a.key] === points[b.key];
 
@@ -324,7 +353,10 @@ export function readBroadcastTags(pgn: string): BroadcastGameTags[] {
     const white = tag('White');
     const black = tag('Black');
     if (!white || !black) continue;
-    out.push({ round: tag('Round') ?? '', white, black, result: tag('Result') ?? '*', gameUrl: tag('GameURL') });
+    // The movetext: the block after its last tag line, without comments, move numbers and the result.
+    const movetext = block.replace(/^\[.*\]\s*$/gm, '').replace(/\{[^}]*\}/g, ' ').replace(/\d+\.(\.\.)?/g, ' ').replace(/(1-0|0-1|1\/2-1\/2|\*)/g, ' ');
+    const hasMoves = /[a-hNBRQKO]/.test(movetext);
+    out.push({ round: tag('Round') ?? '', white, black, result: tag('Result') ?? '*', gameUrl: tag('GameURL'), hasMoves });
   }
   return out;
 }

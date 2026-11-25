@@ -24,7 +24,7 @@ export interface SavedEndedGame {
   fen: string;
   sanMoves: string[];
   playerColor: 'white' | 'black';
-  opponent: { username: string; rating: number };
+  opponent: { username: string; rating: number | null };
   whiteMs: number;
   blackMs: number;
   gameResult: GameEndPayload;
@@ -51,7 +51,7 @@ export interface OnlineGameState {
   sanMoves: string[];
   playerColor: Color;
   // Players
-  opponent: { username: string; rating: number } | null;
+  opponent: { username: string; rating: number | null } | null;
   // Clocks (server-authoritative snapshots updated on each move)
   whiteMs: number;
   blackMs: number;
@@ -116,7 +116,7 @@ export function useOnlineGame(savedGame?: SavedEndedGame | null): [OnlineGameSta
   const [sanMoves, setSanMoves] = useState<string[]>(() => savedGame?.sanMoves ?? []);
   const [lastMove, setLastMove] = useState<Key[] | undefined>(undefined);
   const [playerColor, setPlayerColor] = useState<Color>(() => savedGame?.playerColor ?? 'white');
-  const [opponent, setOpponent] = useState<{ username: string; rating: number } | null>(() =>
+  const [opponent, setOpponent] = useState<{ username: string; rating: number | null } | null>(() =>
     savedGame?.opponent ?? null
   );
   const [whiteMs, setWhiteMs] = useState(() => savedGame?.whiteMs ?? 0);

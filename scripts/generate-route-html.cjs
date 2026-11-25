@@ -204,7 +204,13 @@ function stripWebsiteJsonLd(html, routeKey) {
  * the original bug, pointing the other way.
  */
 // `reminders` (2026-11-12): one person's email setting, reached from their own emails.
-const NOINDEX_ROUTES = new Set(['puzzles/plan', 'puzzles/progress', 'reminders']);
+/** #416: the shared game page's shell (/game/<id>): the preview every shared link shows (owner, 2026-11-25). */
+const GAME_SHELL = {
+  title: 'A game played on Chess Playbook',
+  description: 'Replay it move by move, copy or download the PGN.',
+};
+
+const NOINDEX_ROUTES = new Set(['puzzles/plan', 'puzzles/progress', 'puzzles/from-games', 'reminders', 'membership']);
 
 /*
   A NON-PRODUCTION SITE IS noindex IN FULL (#34).
@@ -605,6 +611,24 @@ async function generate() {
     }
     fs.writeFileSync(INDEX_PATH, shell, 'utf-8');
     console.log('  Homepage meta applied to dist/index.html (shell: no canonical, no og:url)');
+
+    /*
+      #416 (owner, 2026-11-25): A SHARED GAME (/game/<id>) HAS A SHELL OF ITS OWN. Its id is unknown at build time,
+      so it cannot have a prerendered file; through index.html a shared link's preview would read the homepage's text
+      and carry no robots tag. The CloudFront function serves /game/<id> from /game-shell.html instead: one preview
+      text for every game (the owner chose it over a per-game preview, which needs a request-time origin), and
+      `noindex` in the served HTML (a personal page; the 2026-07-28 rule: a robots tag must be in what is served).
+    */
+    let gameShell = stripWebsiteJsonLd(shell, 'game/:id');
+    gameShell = setTitle(gameShell, GAME_SHELL.title);
+    gameShell = setMeta(gameShell, 'name', 'description', GAME_SHELL.description);
+    gameShell = setMeta(gameShell, 'property', 'og:title', GAME_SHELL.title);
+    gameShell = setMeta(gameShell, 'property', 'og:description', GAME_SHELL.description);
+    gameShell = setMeta(gameShell, 'name', 'twitter:title', GAME_SHELL.title);
+    gameShell = setMeta(gameShell, 'name', 'twitter:description', GAME_SHELL.description);
+    gameShell = setRobotsNoindex(gameShell);
+    fs.writeFileSync(path.join(DIST_DIR, 'game-shell.html'), gameShell, 'utf-8');
+    console.log('  Shared game shell written to dist/game-shell.html (noindex, one preview for every game)');
 
     // P2 (2026-11-14): the homepage's own prerendered object, with the noscript <h1> and text every other route
     // has. It cannot go into index.html, which is also the shell for every route without its own file (game,

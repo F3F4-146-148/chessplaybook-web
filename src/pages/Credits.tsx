@@ -90,7 +90,7 @@ const Credits = () => {
                   </p>
                   <div className="pt-2">
                     <a
-                      href="https://github.com/mihaikondort/chessplaybook-web"
+                      href="https://github.com/F3F4-146-148/chessplaybook-web"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 text-link hover:underline"

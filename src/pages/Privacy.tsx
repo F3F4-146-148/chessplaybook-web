@@ -66,7 +66,7 @@ const Privacy = () => {
                 <p className="text-muted-foreground mb-4">
                   To see which of our ads and links bring players who stay, we keep, with the random identifier
                   your browser gets on its first visit: the first page you opened, the campaign tags in that link
-                  (such as utm_campaign), whether it was a paid ad click, and the name of the site that sent you
+                  (such as utm_campaign, or the ad keyword that matched your search), whether it was a paid ad click, and the name of the site that sent you
                   (for example google.com). We do not keep the full address you came from, your IP address, your
                   browser details or the ad click's own code. We also keep the days on which you visited. If you
                   create an account, these move to your account, and they are deleted when you delete it.
@@ -92,22 +92,28 @@ const Privacy = () => {
 
                 <h3 className="text-xl font-semibold text-link mb-3">Premium Purchases</h3>
                 <p className="text-muted-foreground mb-4">
-                  If you buy Premium, Paddle takes the payment as our reseller and Merchant of Record. When you
-                  are signed in, your account page loads Paddle's checkout to show prices in your currency, so
-                  Paddle sees your IP address. When you buy, we send Paddle your account's email address and our
-                  number for your account, so the purchase is linked to it. Paddle is responsible for the payment
-                  and billing details it collects, under its own{' '}
-                  <a href="https://www.paddle.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-link hover:underline">
-                    privacy notice
-                  </a>
+                  If you buy Premium, Link takes the payment as our Merchant of Record (Sold through Link, LLC,
+                  an affiliate of Stripe). When you choose Buy, we send Stripe your account's email address and
+                  our number for your account, so the purchase is linked to it, and you go to Link's checkout
+                  page, which sees your IP address and the details you enter there. Stripe is responsible for the
+                  payment and billing details it collects, under Link's{' '}
+                  <a href="https://link.com/privacy" target="_blank" rel="noopener noreferrer" className="text-link hover:underline">privacy policy</a>
                   . We never see your card number.
                 </p>
                 <p className="text-muted-foreground mb-4">
-                  We keep your Paddle customer and subscription numbers, your plan, its status and renewal date,
+                  We keep your Stripe customer and subscription numbers, your plan, its status and renewal date,
                   and for each payment its date, amount, currency and whether it was refunded. We use them to give
                   you Premium and to handle refunds. They are deleted when you delete your account. We also keep
-                  a log of the notifications Paddle sends us, with Paddle's numbers and nothing that names you.
-                  Paddle keeps its own records of the sale, as the law requires of a seller.
+                  a log of the notifications Stripe sends us, with Stripe's numbers and nothing that names you.
+                  Stripe keeps its own records of the sale, as the law requires.
+                </p>
+
+                {/* Owner-approved 2026-11-24 (premium grants plan D8). */}
+                <h3 className="text-xl font-semibold text-link mb-3">Premium Invitations</h3>
+                <p className="text-muted-foreground mb-4">
+                  If we invite you to Premium, we keep the email address we sent the invitation to, when we sent
+                  it and whether it was used. An invitation that is never used is deleted 30 days after it
+                  expires. Premium we give an account is deleted with the account.
                 </p>
 
                 <h3 className="text-xl font-semibold text-link mb-3">Reminder Emails</h3>
@@ -117,6 +123,16 @@ const Privacy = () => {
                   few days. We keep when you turned them on, the wording you agreed to, your time zone, and which
                   emails we sent and whether you clicked their link. Every email has a link to stop them, and they
                   are deleted when you delete your account.
+                </p>
+
+                <h3 className="text-xl font-semibold text-link mb-3">Puzzles From Your Games</h3>
+                <p className="text-muted-foreground mb-4">
+                  When you make puzzles from your own games, the games are analysed in your browser. We keep the
+                  puzzles: each position, its solution, the move played in the game and which side you played. For
+                  each game we keep a code worked out from it, whether it came from a file or was played here, and
+                  when it was analysed, so it is not analysed twice. We do not keep a copy of a game you upload, or
+                  the players' names. Only you can see these puzzles. If you create an account, they move to your account, and
+                  they are deleted when you delete it.
                 </p>
               </section>
 
@@ -229,7 +245,7 @@ const Privacy = () => {
                   <li><strong>Google Ads:</strong> For advertising, conversion tracking, and Customer Match (subject to Google's advertising policies)</li>
                   <li><strong>Meta Platforms (Facebook / Instagram):</strong> For advertising measurement and audience building via Meta Pixel (subject to Meta's privacy policy)</li>
                   <li><strong>AWS (Amazon Web Services):</strong> For content delivery, hosting, authentication, and sending the emails you ask for</li>
-                  <li><strong>Paddle:</strong> Our reseller and Merchant of Record for Premium, responsible for the payment data it collects (subject to Paddle's privacy notice)</li>
+                  <li><strong>Stripe and Link (Sold through Link, LLC):</strong> Our payment provider and Merchant of Record for Premium, responsible for the payment data it collects (subject to Link's privacy policy)</li>
                 </ul>
               </section>
 

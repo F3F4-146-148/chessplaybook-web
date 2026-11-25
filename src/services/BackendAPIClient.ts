@@ -506,21 +506,6 @@ class BackendAPIClient {
   }
 
   /**
-   * Get featured games
-   */
-  async getFeaturedGames(limit?: number): Promise<PgnGame[]> {
-    try {
-      const endpoint = limit ? `/api/games/featured?limit=${limit}` : '/api/games/featured';
-      const games = await this.fetch<BackendGame[]>(endpoint);
-
-      return games.map((game) => this.transformGame(game, game.white_player));
-    } catch (error) {
-      console.error('Failed to load featured games:', error);
-      throw new Error('Failed to load featured games. Please try again.');
-    }
-  }
-
-  /**
    * Get player's best games with pagination and sorting
    */
   async getPlayerBestGames(

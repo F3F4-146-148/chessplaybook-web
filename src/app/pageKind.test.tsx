@@ -361,6 +361,8 @@ describe('the real route table', () => {
     'src/pages/live-game/LiveGameViewer.tsx': 'src/components/game-viewer/GameViewerWorkspace.tsx',
     /* 2026-11-11: both through LiveRoundGame, which renders the same shared component. */
     'src/pages/WorldChampionship2026Game.tsx': 'src/components/game-viewer/GameViewerWorkspace.tsx',
+    /* #416: a shared game loads the stored game and renders the same shared component. */
+    'src/pages/SharedGame.tsx': 'src/components/game-viewer/GameViewerWorkspace.tsx',
   };
   const rendersWorkspace = (file: string) =>
     /<Workspace[\s>]/.test(readFileSync(WORKSPACE_VIA[file] ?? file, 'utf8'));

@@ -194,3 +194,41 @@ describe('colours', () => {
     expect(whiteIn(3, [{ game: 2, white: 'gukesh' }], 'gukesh')).toBe('sindarov');
   });
 });
+
+describe('a paired game with no move yet', () => {
+  // The real broadcast on 2026-11-23, a day before game 1: every round paired, Result "*", no moves.
+  const pairedOnly = `[Event "Salesforce FIDE World Championship 2026"]
+[Round "1.1"]
+[White "Sindarov, Javokhir"]
+[Black "Gukesh D"]
+[Result "*"]
+[GameURL "https://lichess.org/broadcast/fide-world-chess-championship-2026/game-1/xLgOJ6cb/j7pdr7s2"]
+
+ *
+
+
+[Event "Salesforce FIDE World Championship 2026"]
+[Round "2.1"]
+[White "Gukesh D"]
+[Black "Sindarov, Javokhir"]
+[Result "*"]
+[GameURL "https://lichess.org/broadcast/fide-world-chess-championship-2026/game-2/L3j03TZq/abcdefgh"]
+
+ *
+`;
+
+  it('is pending, not live, and still gives the colours', () => {
+    const s = scoreMatch(readBroadcastTags(pairedOnly));
+    expect(s.games.get(1)?.result).toBe('pending');
+    expect(s.games.get(2)?.result).toBe('pending');
+    expect(s.games.get(1)?.white).toBe('sindarov');
+    expect(s.points).toEqual({ gukesh: 0, sindarov: 0 });
+  });
+
+  it('is playing once a move is in, with clock comments', () => {
+    const moved = pairedOnly.replace('\n\n *\n\n\n[Event', '\n\n1. d4 { [%clk 1:59:58] } *\n\n\n[Event');
+    const s = scoreMatch(readBroadcastTags(moved));
+    expect(s.games.get(1)?.result).toBe('playing');
+    expect(s.games.get(2)?.result).toBe('pending');
+  });
+});

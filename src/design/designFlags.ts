@@ -32,3 +32,14 @@ export const HOME_V2_LIVE: boolean = true;
  */
 export const MASTER_LIVE: boolean = true;
 export const MAIA_LIVE: boolean = true;
+
+/**
+ * THE PUZZLE PROGRESS MOMENT (#418): after a few clean solves the card under the live card shows the sitting's graph
+ * and the Master says what he saw. On in development, and in a build made with `VITE_PROGRESS_MOMENT_LIVE=on` (the
+ * staging environment's variable, read by deploy.yml); off on production until the launch (plan D2). The server's
+ * own switch (`PROGRESS_MOMENT_LIVE=on`) must be on too, or no moment is ever sent.
+ */
+// `?.`: this file is also read by vite.config.ts and the build scripts in Node, where `import.meta.env` is undefined
+// (found starting the dev server: the config failed to load); there it reads as off.
+const BUILD_ENV = (import.meta as { env?: { DEV?: boolean; VITE_PROGRESS_MOMENT_LIVE?: string } }).env;
+export const PROGRESS_MOMENT_LIVE: boolean = BUILD_ENV?.DEV === true || BUILD_ENV?.VITE_PROGRESS_MOMENT_LIVE === 'on';

@@ -116,10 +116,27 @@ const manifestKeys = fs.existsSync(MANIFEST)
   : null;
 const prerendered = new Set(manifestKeys ?? []);
 
-function expectedUri(url) {
+/* A route pattern some prerendered file matches is not in SHELL, so an UNKNOWN value of it keeps its URI and takes the
+   error path (the function's own rule: /champions/nobody/games "is not a real page"). Until game 1's recap
+   (2026-11-24) every such pattern's sample happened to be prerendered; /news/world-championship-2026/round-5 is not. */
+function patternOf(routePath) {
+  return routePath.replace(/^\//, '').replace(/:[A-Za-z0-9_]+/g, ':').split('/');
+}
+function hasPrerenderedPage(routePath) {
+  const a = patternOf(routePath);
+  return [...prerendered].some((key) => {
+    const b = key.replace(/^\//, '').split('/');
+    return a.length === b.length && a.every((seg, i) => seg === ':' || seg === b[i]);
+  });
+}
+
+function expectedUri(url, routePath) {
   // The homepage is served from its own prerendered object (P2, generate-route-html.cjs), not index.html.
   if (url === '/') return '/home.html';
-  return prerendered.has(url) ? url : '/index.html';
+  if (prerendered.has(url)) return url;
+  // #416: a shared game is served its own shell (its preview text and noindex), not index.html.
+  if (routePath === '/game/:id') return '/game-shell.html';
+  return hasPrerenderedPage(routePath) ? url : '/index.html';
 }
 
 for (const routePath of routePaths) {
@@ -127,7 +144,7 @@ for (const routePath of routePaths) {
   const { kind, request } = call(concrete);
   check(`route ${routePath} -> ${concrete}`, kind === 'pass', `got ${kind}, expected pass-through`);
   if (kind === 'pass' && manifestKeys) {
-    const want = expectedUri(concrete);
+    const want = expectedUri(concrete, routePath);
     check(`route ${concrete} reaches S3 as ${want}`, request.uri === want, `got ${request.uri}`);
   }
 }
@@ -149,7 +166,6 @@ if (manifestKeys) {
 const ASSETS = [
   '/assets/index-CJ7abc12.js',
   '/assets/index-CJ7abc12.css',
-  '/assets/pgn/Kasparov.pgn',
   '/assets/players/players_list.json',
   '/stockfish/stockfish-17.1-lite-single.wasm',
   '/fonts/fonts.css',
@@ -172,6 +188,11 @@ for (const asset of ASSETS) {
   check('root is served from its prerendered object', root.request?.uri === '/home.html', `got ${root.request?.uri}`);
   const homeFile = call('/home.html');
   check('/home.html asked for directly is a 404, not a duplicate homepage', homeFile.kind === '404', `got ${homeFile.kind}`);
+  // #416: a shared game is served game-shell.html; the shell asked for directly is a 404, and /game alone is no page.
+  const shared = call('/game/4c394303-d5b2-4b21-8e64-7091651f0f9c');
+  check('a shared game is served its own shell', shared.request?.uri === '/game-shell.html', `got ${shared.kind} ${shared.request?.uri}`);
+  check('/game-shell.html asked for directly is a 404', call('/game-shell.html').kind === '404');
+  check('/game with no id is a 404', call('/game').kind === '404');
   const qs = call('/player/someplayer', { querystring: { tab: { value: 'games' } } });
   check(
     'a shell page keeps its query string',

@@ -1,4 +1,5 @@
 import { positionFromFen } from '@/components/chess/chessLogic';
+import { makeFen } from 'chessops/fen';
 
 export type BoardOrientation = 'white' | 'black';
 
@@ -17,10 +18,13 @@ export function readPositionDeepLink(search: string): PositionDeepLinkResult {
   const rawFen = params.get('fen');
   if (!rawFen) return { value: null, error: '' };
 
-  const fen = rawFen.replace(/_/g, ' ').trim();
-  if (!positionFromFen(fen)) {
+  const position = positionFromFen(rawFen.replace(/_/g, ' ').trim());
+  if (!position) {
     return { value: null, error: 'That position link is invalid. The standard starting position is shown instead.' };
   }
+  // Completed by chessops (a FEN of only the pieces gets White to move): the boards read it with chess.js, which
+  // refuses a partial FEN, and /analysis went blank on one (2026-11-22).
+  const fen = makeFen(position.chess.toSetup());
 
   const orientation: BoardOrientation = params.get('orientation') === 'black' ? 'black' : 'white';
   return {

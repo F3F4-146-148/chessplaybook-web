@@ -40,12 +40,16 @@ const News = () => {
                     <div className="flex flex-col sm:flex-row">
                       {article.image && (
                         <div className="w-full aspect-video sm:aspect-auto sm:w-48 flex-shrink-0 sm:self-stretch">
-                          <img
-                            src={article.image}
-                            alt={article.title}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
+                          <picture>
+                            {/* The card's image column is narrow and tall from `sm` up: a tall version there, if any. */}
+                            {article.cardImage && <source media="(min-width: 640px)" srcSet={article.cardImage} />}
+                            <img
+                              src={article.image}
+                              alt={article.title}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </picture>
                         </div>
                       )}
                       <CardContent className="p-6 flex-grow">

@@ -4,7 +4,7 @@ import {
 } from '../services/openingsApi';
 import type { TrainingReport } from './useTrainingWalk';
 import { logGA4Event } from '@/services/analytics';
-import { dailyLimitMessage, readDailyLimit, reportDailyLimit } from '@/services/freePlanLimit';
+import { type DailyLimit, readDailyLimit, reportDailyLimit } from '@/services/freePlanLimit';
 
 const NO_LINE: string[] = [];
 const UNSAVED = 'Your progress is not being saved right now. You can keep training.';
@@ -39,6 +39,11 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
   const [busy, setBusy] = useState(false);
   /** A save that failed: said once on the card, never blocking the board. */
   const [saveError, setSaveError] = useState<string | null>(null);
+  /**
+   * #472: the free plan's refusal, by what was refused. The dialog says it in full; the card only turns the refused
+   * button into "Back tomorrow" (a line in the card cut its buttons off at most window sizes).
+   */
+  const [refused, setRefused] = useState<{ limit: DailyLimit; resume: boolean } | null>(null);
   /** The session just ended by Pause or Stop: the moment to offer sign-in to a guest (soft accounts). */
   const [justEnded, setJustEnded] = useState<'paused' | 'stopped' | null>(null);
   const sessionRef = useRef<TrainingSession | null>(null);
@@ -68,6 +73,7 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
     setState(null);
     setJustEnded(null);
     setSaveError(null);
+    setRefused(null);
     setRecap(null);
     sessionMisses.current = new Map();
     if (!active) return;
@@ -104,7 +110,7 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
       const limit = e instanceof OpeningsApiError ? readDailyLimit(e.status, e.body) : null;
       if (limit) {
         reportDailyLimit(limit);
-        setSaveError(dailyLimitMessage(limit));
+        setRefused((r) => ({ limit, resume: resume || (r?.resume ?? false) }));
       } else {
         /*
           Owner, 2026-11-17: "saving progress should not stop training". Any other failure (no connection, a server
@@ -249,6 +255,8 @@ export function useTrainingSession(repertoireId: string, active: boolean, from: 
     recap,
     busy,
     saveError,
+    /** #472: the daily limit that refused a new session (`resume`: and a Resume too), or null. */
+    refused,
     justEnded,
     start: () => begin(false),
     /** #338: "Train them now", a session of only the mistakes. */

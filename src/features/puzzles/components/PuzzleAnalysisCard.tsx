@@ -108,7 +108,7 @@ export interface PuzzleAnalysisCardProps {
   linkFen?: string;
   orientation: 'white' | 'black';
   /** Feature semantics for inactive copy, accessibility text, and analytics. */
-  surface?: 'puzzles' | 'play_online' | 'play_computer' | 'champion_game' | 'live_game' | 'analysis' | 'opening_trainer';
+  surface?: 'puzzles' | 'play_online' | 'play_computer' | 'champion_game' | 'live_game' | 'analysis' | 'opening_trainer' | 'shared_game';
 }
 
 /**

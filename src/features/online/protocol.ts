@@ -9,9 +9,11 @@ export interface TimeControl {
 }
 
 export interface PlayerInfo {
-  userId: string;
+  /** Only on your own side: the server never sends another person's id (#445). */
+  userId?: string;
   username: string;
-  rating: number;
+  /** Null when the player has no rating in this time control (#440). */
+  rating: number | null;
 }
 
 export type TimeControlCategory = 'bullet' | 'blitz' | 'rapid' | 'classical';
@@ -59,7 +61,7 @@ export type ServerMessage =
       type: 'match_offer';
       payload: {
         offerId: string;
-        opponent: { username: string; rating: number };
+        opponent: { username: string; rating: number | null };
         timeControl: { initial: number; increment: number };
         rated: boolean;
         expiresAt: number;
@@ -69,7 +71,7 @@ export type ServerMessage =
   | { type: 'game_move'; payload: GameMovePayload }
   | { type: 'game_end'; payload: GameEndPayload }
   | { type: 'game_state'; payload: GameStatePayload }
-  | { type: 'draw_offered'; payload: { gameId: string; byUserId: string } }
+  | { type: 'draw_offered'; payload: { gameId: string } }
   | { type: 'draw_offer_ack'; payload: { gameId: string } }
   | { type: 'draw_declined'; payload: { gameId: string } }
   | { type: 'rating_update'; payload: RatingUpdatePayload }

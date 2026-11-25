@@ -97,10 +97,15 @@ describe('every article (E2b)', () => {
   for (const key of articles) {
     it(`/${key} is in the registry (add it to src/app/prerenderRoutes.tsx) and its route renders the registry's page`, () => {
       const route = prerenderRouteFor(`/${key}`);
-      expect(route?.path, `/${key} needs an entry in PRERENDER_ROUTES`).toBe(`/${key}`);
+      /* An article has its own route, or is one value of a parametric one: the match recaps share
+         /news/world-championship-2026/:slug (2026-11-24, game 1), and the slug picks the recap. */
+      const own = route?.path === `/${key}`;
+      const parametric = !!route?.path.includes(':') && key.startsWith('news/world-championship-2026/');
+      expect(own || parametric, `/${key} needs an entry in PRERENDER_ROUTES`).toBe(true);
       const name = Object.entries(registry).find(([, v]) => v === route?.Component)?.[0];
-      const element = routesFile.match(new RegExp(`<Route path="/${key}" element={<(\\w+) />}`))?.[1];
-      expect(element, `routes.tsx renders /${key}`).toBe(name);
+      const routePath = route!.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const element = routesFile.match(new RegExp(`<Route path="${routePath}" element={<(\\w+) />}`))?.[1];
+      expect(element, `routes.tsx renders ${route!.path}`).toBe(name);
       expect(routesFile, `${name} comes from prerenderRoutes in routes.tsx, not a lazy of its own`)
         .not.toMatch(new RegExp(`const ${name} = lazy\\(`));
     });

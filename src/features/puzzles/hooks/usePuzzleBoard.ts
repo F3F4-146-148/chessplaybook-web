@@ -2,9 +2,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { positionFromFen, applyMove, toUci, isPromotion, type ChessPosition } from '@/components/chess/chessLogic';
 import type { Key } from '@lichess-org/chessground/types';
 import { useBoardStepInput } from '@/components/chess/useBoardStepInput';
-import { usePuzzle, type Puzzle } from './usePuzzle';
+import { usePuzzle, WRONG_MOVE_LINE, type Puzzle } from './usePuzzle';
 import { fetchPuzzles, fetchDailyPuzzle, fetchPuzzleById, isApiReachable } from '../services/PuzzleService';
 import { loadResumeState, saveResumeState, clearResumeState } from '../services/puzzleResume';
+import { analysisService } from '@/services/AnalysisService';
+
+const REFUTATION_BRUSH = 'refutation';
+
+/** The arrow's brush, its colour the `board-mark-idea` role (an SVG arrow needs a colour value). */
+function refutationBrushes(): Record<string, { color: string; opacity: number; lineWidth: number }> {
+  const css = typeof document === 'undefined' ? null : getComputedStyle(document.documentElement);
+  const v = css?.getPropertyValue('--board-mark-idea').trim();
+  return { [REFUTATION_BRUSH]: { color: v ? `hsl(${v.split(/\s+/).join(', ')})` : 'orange', opacity: 0.9, lineWidth: 11 } };
+}
+
+/* The wrong move's badge: a red disc with a white cross on the top right corner of the square, over the piece, a
+   little past the square's edge as on Chess.com. Drawn by chessground in a 100x100 box per square; its colours are
+   in chessboard.css with the board's other marks. */
+const WRONG_MOVE_BADGE_SVG =
+  '<circle class="wrong-move-badge" cx="84" cy="16" r="17" stroke-width="4"/>'
+  + '<path class="wrong-move-cross" d="M77 9 L91 23 M91 9 L77 23" stroke-width="5" stroke-linecap="round"/>';
 
 /**
  * EVERYTHING THE BOARD NEEDS, and nothing else.
@@ -90,6 +107,21 @@ export function usePuzzleBoard(
   const drawTokenRef = useRef(0);
 
   const isResolved = puzzleState.status === 'correct' || puzzleState.status === 'solution';
+
+  /*
+    THE ENGINE STARTS IN THE BACKGROUND WHEN IT IS ALREADY IN THE BROWSER'S CACHE (#417), so a returning visitor's
+    first wrong move gets its arrow without waiting for the engine to start. Once the page is idle, so it never
+    competes with the first render; a new visitor downloads nothing here (`prewarmIfCached`).
+  */
+  useEffect(() => {
+    const start = () => { void analysisService.prewarmIfCached(); };
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(start, { timeout: 5000 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(start, 3000);
+    return () => window.clearTimeout(id);
+  }, []);
 
   /* The solved line, replayed once per puzzle. */
   const linePly = useMemo(() => {
@@ -205,6 +237,34 @@ export function usePuzzleBoard(
       : puzzleState.isCheck;
   const displayedCheck = displayedIsCheck ? displayedTurnColor : undefined;
 
+  /*
+    THE WRONG MOVE'S MARKS (2026-11-22): both squares soft red and a small cross on the corner of the square it landed
+    on, the badge Lichess and Chess.com both put there. Only while the move is held on the live board. The map is
+    always passed, empty when there is nothing to mark, because an absent map leaves the old tint in place.
+  */
+  const wrongMove = !exploreAt && !reviewAt ? puzzleState.wrongMove : undefined;
+  const wrongFrom = wrongMove?.[0];
+  const wrongTo = wrongMove?.[1];
+  const wrongSquares = useMemo(() => new Map<Key, string>(
+    wrongFrom && wrongTo ? [[wrongFrom, 'wrong-move'], [wrongTo, 'wrong-move']] : [],
+  ), [wrongFrom, wrongTo]);
+  /*
+    THE REFUTATION'S ARROW (#417): the opponent's reply that refutes the held wrong move, in the `board-mark-idea`
+    orange so it does not read as part of the wrong move's red. Drawn only on the live board, with the wrong move.
+  */
+  const refutation = wrongMove ? puzzleState.refutation : undefined;
+  const replyFrom = refutation?.[0];
+  const replyTo = refutation?.[1];
+  const wrongShapes = useMemo(
+    // No brush on the badge: a brush would draw chessground's circle around the square as well.
+    () => [
+      ...(wrongTo ? [{ orig: wrongTo, brush: '', customSvg: { html: WRONG_MOVE_BADGE_SVG } }] : []),
+      ...(replyFrom && replyTo ? [{ orig: replyFrom, dest: replyTo, brush: REFUTATION_BRUSH }] : []),
+    ],
+    [wrongTo, replyFrom, replyTo],
+  );
+  const boardBrushes = useMemo(() => refutationBrushes(), []);
+
   const boardDests = useMemo(
     () => (isResolved ? positionFromFen(displayedFen)?.dests : puzzleState.dests),
     [isResolved, displayedFen, puzzleState.dests],
@@ -305,8 +365,8 @@ export function usePuzzleBoard(
   const announcement =
     isMidSolve ? 'Correct so far. Keep going.'
       : puzzleState.status === 'correct' ? 'Correct. Puzzle solved.'
-        : puzzleState.status === 'failed'
-          ? `Incorrect.${puzzleState.firstFailure ? ' This attempt is scored.' : ''}`
+        : puzzleState.status === 'failed' || puzzleState.lastMoveWrong
+          ? WRONG_MOVE_LINE
           : puzzleState.status === 'solution' ? 'Showing the solution.'
             : '';
 
@@ -682,6 +742,11 @@ export function usePuzzleBoard(
     navCeiling,
     isMidSolve,
     announcement,
+    wrongSquares,
+    wrongShapes,
+    boardBrushes,
+    /** A press on the board while a wrong move is held ends the hold (#417). */
+    onBoardPointerDown: puzzleActions.dismissWrongMove,
     canReview,
     exploreAt,
     reviewIndex,

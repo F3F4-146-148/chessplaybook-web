@@ -153,7 +153,7 @@ export default function LoginPage() {
 
               <p className="text-center text-sm text-muted-foreground">
                 Don't have an account?{' '}
-                <Link to="/signup" className="text-link hover:underline">
+                <Link to={returnToFrom(location.search) ? `/signup?returnTo=${encodeURIComponent(returnToFrom(location.search)!)}` : '/signup'} className="text-link hover:underline">
                   Create a free account
                 </Link>
               </p>

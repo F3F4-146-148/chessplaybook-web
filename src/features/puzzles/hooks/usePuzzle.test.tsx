@@ -13,8 +13,16 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { usePuzzle } from './usePuzzle';
+import { usePuzzle, WRONG_MOVE_HOLD_MS, REFUTATION_WAIT_MS, REFUTATION_READ_MS } from './usePuzzle';
 import * as analytics from '@/services/analytics';
+
+// The engine's reply to a wrong move (#417). By default there is none, so a wrong move goes back after the usual
+// hold; the refutation tests below give it an answer, a late one, or none at all.
+const engine = vi.hoisted(() => ({ findBestReply: vi.fn<(fen: string) => Promise<string | null>>(() => Promise.resolve(null)) }));
+vi.mock('@/services/AnalysisService', () => ({ analysisService: engine }));
+
+/** Let the engine's answer (a resolved promise) reach the hook. */
+const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
 
 // Two real Lichess-format puzzles. moves[0] is the opponent's setup move.
 const PUZZLE_A = {
@@ -35,6 +43,8 @@ describe('usePuzzle — presentation generation guard', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     logSpy = vi.spyOn(analytics, 'logGA4Event').mockImplementation(() => {});
+    engine.findBestReply.mockClear();
+    engine.findBestReply.mockImplementation(() => Promise.resolve(null));
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -129,7 +139,7 @@ describe('usePuzzle — presentation generation guard', () => {
     expect(moves[0].params.ms_from_ready).toBeGreaterThanOrEqual(0);
   });
 
-  it('does not reveal the correct move after a wrong one (B1)', () => {
+  it('does not reveal the correct move after a wrong one (B1)', async () => {
     const { result } = renderHook(() => usePuzzle());
 
     act(() => {
@@ -143,6 +153,7 @@ describe('usePuzzle — presentation generation guard', () => {
     expect(result.current[0].lastMove).toEqual(['c6', 'd4']);
 
     act(() => { result.current[1].onMove('a7' as any, 'a6' as any); });
+    await flush();
     expect(result.current[0].status).toBe('failed');
 
     // The old behaviour lit f3->f7 (the solution) 300ms in and held it until
@@ -158,7 +169,7 @@ describe('usePuzzle — presentation generation guard', () => {
     expect(result.current[0].lastMove).toBeUndefined();
   });
 
-  it('takes the failure branch, and stays on it after the revert (B2)', () => {
+  it('takes the failure branch, and stays on it after the revert (B2)', async () => {
     const { result } = renderHook(() => usePuzzle());
 
     act(() => {
@@ -168,6 +179,7 @@ describe('usePuzzle — presentation generation guard', () => {
       vi.advanceTimersByTime(1000);
     });
     act(() => { result.current[1].onMove('a7' as any, 'a6' as any); });
+    await flush();
     /*
       THE BRANCH, NOT THE WORDS - the same rule the assertion below already
       states and this line did not follow. It pinned `/scored/i`, so it failed
@@ -179,19 +191,27 @@ describe('usePuzzle — presentation generation guard', () => {
     expect(result.current[0].firstFailure).toBe(true);
 
     /*
-      The flash lasts 700ms and the post-failure state has to outlive it, or the
-      page spends the rest of the puzzle implying the result is still open.
-
-      Asserted as "different from the clean line", not as the exact wording.
-      The words changed once already (the owner dropped "already scored" on
-      2026-08-06, since the flash has just said it), and a test pinned to copy
-      fails for a rewrite while passing for the regression that matters. What
-      must hold is that the branch is TAKEN — that is what stops "Correct so
-      far — keep going" reappearing over a failed attempt.
+      THE WRONG MOVE IS ON THE BOARD WHILE IT IS HELD (2026-11-22): the board's fen is the position after it, its
+      squares are named for the marks, and the board takes no move meanwhile. Until then the old fen came back in
+      the same render and a first-time visitor took the bounce for a broken mouse.
     */
-    act(() => { vi.advanceTimersByTime(800); });
+    const held = result.current[0];
+    expect(held.wrongMove).toEqual(['a7', 'a6']);
+    expect(held.fen).not.toBe(held.position?.fen);
+    expect(held.dests).toBeUndefined();
+
+    /*
+      After the hold the move is taken back and the board takes moves at once, while the card keeps saying a
+      wrong move was played until the next move. Asserted as "not the clean line", not as the exact wording: what
+      must hold is that the failure branch is TAKEN, which is what stops "Correct so far" coming back over a failed
+      attempt.
+    */
+    act(() => { vi.advanceTimersByTime(WRONG_MOVE_HOLD_MS); });
     expect(result.current[0].status).toBe('playing');
-    expect(result.current[0].message).toMatch(/to move/i);
+    expect(result.current[0].wrongMove).toBeUndefined();
+    expect(result.current[0].fen).toBe(result.current[0].position?.fen);
+    expect(result.current[0].dests).toBeDefined();
+    expect(result.current[0].lastMoveWrong).toBe(true);
     expect(result.current[0].message).not.toBe('Black to move');
     expect(result.current[0].message).not.toBe('White to move');
   });
@@ -211,6 +231,117 @@ describe('usePuzzle — presentation generation guard', () => {
 
     expect(events('puzzle_first_move')).toHaveLength(1);
   });
+
+  /*
+    THE REFUTATION (#417): the engine's reply to a wrong move is drawn as an arrow while the move is held; the hold
+    waits for it (up to REFUTATION_WAIT_MS) and then leaves it REFUTATION_READ_MS to be read. A press on the board
+    ends the hold at once, and an answer that comes after the hold is dropped.
+  */
+  const loadAndMiss = async () => {
+    const hook = renderHook(() => usePuzzle());
+    act(() => {
+      hook.result.current[1].loadPuzzle(PUZZLE_A as any, { source: 'network', index: 1, isDaily: false });
+      vi.advanceTimersByTime(1000);
+    });
+    act(() => { hook.result.current[1].onMove('a7' as any, 'a6' as any); });
+    return hook;
+  };
+
+  it('asks the engine about the position the wrong move made, not the one before it', async () => {
+    const { result } = await loadAndMiss();
+    expect(engine.findBestReply).toHaveBeenCalledTimes(1);
+    const asked = engine.findBestReply.mock.calls[0][0];
+    expect(asked).toBe(result.current[0].fen);
+    expect(asked).not.toBe(result.current[0].position?.fen);
+  });
+
+  it('shows the reply as an arrow and holds the wrong move while it is read', async () => {
+    engine.findBestReply.mockImplementation(() => Promise.resolve('e8e7'));
+    const { result } = await loadAndMiss();
+    await flush();
+    expect(result.current[0].refutation).toEqual(['e8', 'e7']);
+    expect(result.current[0].wrongMove).toEqual(['a7', 'a6']);
+
+    act(() => { vi.advanceTimersByTime(REFUTATION_READ_MS - 1); });
+    expect(result.current[0].status).toBe('failed');
+    expect(result.current[0].refutation).toEqual(['e8', 'e7']);
+
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(result.current[0].status).toBe('playing');
+    expect(result.current[0].refutation).toBeUndefined();
+    expect(events('puzzle_refutation').map(e => e.params.reason)).toEqual(['shown']);
+  });
+
+  it('waits for a slow engine up to the cap, then takes the move back with no arrow', async () => {
+    engine.findBestReply.mockImplementation(() => new Promise(() => {}));
+    const { result } = await loadAndMiss();
+    act(() => { vi.advanceTimersByTime(REFUTATION_WAIT_MS - 1); });
+    expect(result.current[0].status).toBe('failed');
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(result.current[0].status).toBe('playing');
+    expect(result.current[0].refutation).toBeUndefined();
+    expect(events('puzzle_refutation').map(e => e.params.reason)).toEqual(['timeout']);
+  });
+
+  it('with no reply, takes the move back after the usual hold', async () => {
+    const { result } = await loadAndMiss();
+    await flush();
+    act(() => { vi.advanceTimersByTime(WRONG_MOVE_HOLD_MS - 1); });
+    expect(result.current[0].status).toBe('failed');
+    act(() => { vi.advanceTimersByTime(1); });
+    expect(result.current[0].status).toBe('playing');
+    expect(events('puzzle_refutation').map(e => e.params.reason)).toEqual(['no_reply']);
+  });
+
+  it('a press on the board ends the hold at once, and a late answer draws nothing', async () => {
+    let answer!: (uci: string | null) => void;
+    engine.findBestReply.mockImplementation(() => new Promise(r => { answer = r; }));
+    const { result } = await loadAndMiss();
+    act(() => { result.current[1].dismissWrongMove(); });
+    expect(result.current[0].status).toBe('playing');
+    expect(result.current[0].wrongMove).toBeUndefined();
+    expect(result.current[0].dests).toBeDefined();
+
+    answer('e8e7');
+    await flush();
+    expect(result.current[0].refutation).toBeUndefined();
+    expect(result.current[0].status).toBe('playing');
+  });
+
+  it('a late answer for an earlier wrong move never draws on the next one', async () => {
+    const answers: Array<(uci: string | null) => void> = [];
+    engine.findBestReply.mockImplementation(() => new Promise(r => { answers.push(r); }));
+    const { result } = await loadAndMiss();
+    act(() => { result.current[1].dismissWrongMove(); });
+    act(() => { result.current[1].onMove('b7' as any, 'b6' as any); });
+    expect(result.current[0].wrongMove).toEqual(['b7', 'b6']);
+    expect(answers).toHaveLength(2);
+
+    answers[0]('e8e7');
+    await flush();
+    expect(result.current[0].refutation).toBeUndefined();
+    // Nor does it shorten the second move's hold: still waiting for its own answer.
+    act(() => { vi.advanceTimersByTime(REFUTATION_READ_MS); });
+    expect(result.current[0].status).toBe('failed');
+
+    answers[1]('d8d7');
+    await flush();
+    expect(result.current[0].refutation).toEqual(['d8', 'd7']);
+  });
+
+  it('a new puzzle drops a pending answer', async () => {
+    let answer!: (uci: string | null) => void;
+    engine.findBestReply.mockImplementation(() => new Promise(r => { answer = r; }));
+    const { result } = await loadAndMiss();
+    act(() => {
+      result.current[1].loadPuzzle(PUZZLE_B as any, { source: 'network', index: 2, isDaily: false });
+      vi.advanceTimersByTime(1000);
+    });
+    answer('e8e7');
+    await flush();
+    expect(result.current[0].refutation).toBeUndefined();
+    expect(result.current[0].wrongMove).toBeUndefined();
+  });
 });
 
 /**
@@ -227,6 +358,8 @@ describe('usePuzzle — resuming after a refresh', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     logSpy = vi.spyOn(analytics, 'logGA4Event').mockImplementation(() => {});
+    engine.findBestReply.mockClear();
+    engine.findBestReply.mockImplementation(() => Promise.resolve(null));
   });
   afterEach(() => {
     vi.useRealTimers();

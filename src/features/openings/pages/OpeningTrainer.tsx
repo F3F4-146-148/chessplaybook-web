@@ -33,6 +33,7 @@ import { REPERTOIRE_SUITS, WRITTEN_STARTERS, WELCOME_END, WELCOME_GOALS, WELCOME
 /** What the Master says on the welcome (#337), one stable list. */
 const WELCOME_TEXTS = welcomeTexts();
 import { logGA4Event } from '@/services/analytics';
+import { backLabel, dailyLimitMessage, limitApplies } from '@/services/freePlanLimit';
 import SeoHead from '@/components/SeoHead';
 import RouteHeading from '@/components/RouteHeading';
 
@@ -147,6 +148,13 @@ export default function OpeningTrainer() {
   const mistakesHere = sess.mistakes;
   /** #339: the positions due for review now. */
   const dueNow = sess.due;
+  /*
+    #472: after the free plan refuses a new session, Start says when it is back ("Back tomorrow") and is disabled; with
+    a paused session, Start new leaves the row and Resume (free for today's session) takes it. The dialog has said it in
+    full: a line in the card cut its buttons off at most window sizes (measured, scripts/verify-session-card-limit.mjs).
+  */
+  const refusedLimit = limitApplies(sess.refused?.limit ?? null) ? sess.refused!.limit : null;
+  const refusedResume = !!refusedLimit && !!sess.refused?.resume;
   const focusKeys = useMemo(
     () => (sess.focus === 'mistakes' ? mistakesHere.map((m) => m.key) : sess.focus === 'review' ? dueNow.map((d) => d.key) : null),
     [sess.focus, mistakesHere, dueNow],
@@ -1141,9 +1149,11 @@ export default function OpeningTrainer() {
                                button, so the chosen name printed muted on gold (owner, 2026-11-10). */
                             className={`flex w-full flex-col rounded px-[0.5em] py-[0.3em] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${on ? 'bg-primary' : 'hover:bg-muted'}`}
                           >
-                            <span className="card-row w-full justify-between">
+                            {/* The name wraps rather than ending in "..." (G1, 2026-11-23: "Caro-Kann Def..." beside "Black"
+                                at 1920x947); the side stays on the first line. */}
+                            <span className="card-row w-full items-start justify-between gap-[0.5em]" style={{ whiteSpace: 'normal' }}>
                               <span className={on ? 'font-medium text-primary-foreground' : 'text-foreground'}>{s.name}</span>
-                              <span className={`text-[0.86em] ${on ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{s.side === 'white' ? 'White' : 'Black'}</span>
+                              <span className={`shrink-0 text-[0.86em] leading-[1.6] ${on ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{s.side === 'white' ? 'White' : 'Black'}</span>
                             </span>
                             {/* who it suits (#337), the one line under its name */}
                             {suits && <span className={`text-[0.8em] leading-snug ${on ? 'text-primary-foreground' : 'text-muted-foreground'}`}>{suits}</span>}
@@ -1336,7 +1346,23 @@ export default function OpeningTrainer() {
                         )}
                         {sess.saveError && <p className="text-[0.86em] text-destructive">{sess.saveError}</p>}
                         <div className="mt-auto flex flex-col gap-[0.4em]">
-                          {sess.resumable ? (
+                          {sess.resumable && refusedLimit ? (
+                            /*
+                              #472 (owner, 2026-11-25): after a refusal the refused "Start new" leaves the row (a half-width
+                              "Back tomorrow" wrapped at most window sizes) and Resume, still free, takes it whole. A Resume
+                              refused too (a session paused on an earlier day) leaves one disabled "Back tomorrow".
+                            */
+                            <button
+                              type="button"
+                              onClick={sess.resume}
+                              disabled={sess.busy || refusedResume}
+                              aria-label={refusedResume ? dailyLimitMessage(refusedLimit) : undefined}
+                              title={refusedResume ? dailyLimitMessage(refusedLimit) : undefined}
+                              className="card-btn card-btn-primary w-full disabled:opacity-50"
+                            >
+                              {refusedResume ? backLabel(refusedLimit) : <><Play aria-hidden />Resume</>}
+                            </button>
+                          ) : sess.resumable ? (
                             <div className="grid grid-cols-2 gap-[0.4em]">
                               <button type="button" onClick={sess.resume} disabled={sess.busy} className="card-btn card-btn-primary w-full disabled:opacity-50">
                                 <Play aria-hidden />
@@ -1350,11 +1376,12 @@ export default function OpeningTrainer() {
                             <button
                               type="button"
                               onClick={sess.start}
-                              disabled={sess.busy || (sess.focus === 'mistakes' ? mistakesHere.length === 0 : sess.focus === 'review' ? dueNow.length === 0 : !!(fromLines ? fromLines[sess.scope] === 0 : scopeProgress && scopeProgress[sess.scope].total === 0))}
+                              aria-label={refusedLimit ? dailyLimitMessage(refusedLimit) : undefined}
+                              title={refusedLimit ? dailyLimitMessage(refusedLimit) : undefined}
+                              disabled={sess.busy || !!refusedLimit || (sess.focus === 'mistakes' ? mistakesHere.length === 0 : sess.focus === 'review' ? dueNow.length === 0 : !!(fromLines ? fromLines[sess.scope] === 0 : scopeProgress && scopeProgress[sess.scope].total === 0))}
                               className="card-btn card-btn-primary w-full disabled:opacity-50"
                             >
-                              <Play aria-hidden />
-                              Start
+                              {refusedLimit ? backLabel(refusedLimit) : <><Play aria-hidden />Start</>}
                             </button>
                           )}
                           {confirmReset ? (

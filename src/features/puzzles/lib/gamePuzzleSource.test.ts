@@ -42,6 +42,22 @@ describe('the game line on a puzzle made from a game (#245 B4)', () => {
     expect(gameCardLines(puzzle(source({ game: null })))).toBeNull();
   });
 
+  it('a puzzle from your own game is worded by who "you" are, with no names and no link (#245 C4)', () => {
+    const own = (over: Partial<PuzzleGameSource>) => puzzle(source({ game: null, gameId: null, ...over }));
+    expect(gameCardLines(own({ perspective: 'white' }))).toEqual({
+      game: 'From your game', played: 'In your game you played 5.Qd1.', href: null,
+    });
+    expect(gameCardLines(own({ perspective: 'white', kind: 'punish', foundInGame: true }))?.played).toBe('You found it in the game.');
+    expect(gameCardLines(own({ perspective: 'black' }))?.played).toBe('Your opponent played 5.Qd1.');
+  });
+
+  it('a puzzle from your own game with no side is worded by colour (#510)', () => {
+    const own = (over: Partial<PuzzleGameSource>) => puzzle(source({ game: null, gameId: null, perspective: null, own: true, ...over }));
+    expect(gameCardLines(own({}))).toEqual({ game: 'From your game', played: 'In the game White played 5.Qd1.', href: null });
+    expect(gameCardLines(own({ kind: 'punish', foundInGame: true }))?.played).toBe('White found it in the game.');
+    expect(gameCardLines(own({ own: false }))).toBeNull();
+  });
+
   it('a name without a comma is kept whole', () => {
     expect(surname('Gukesh D')).toBe('Gukesh D');
     expect(surname('Carlsen, Magnus')).toBe('Carlsen');

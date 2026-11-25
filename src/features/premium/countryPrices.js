@@ -14,6 +14,8 @@
  * in, and a visitor whose country is unknown is shown the full price and all three plans, like the US.
  */
 
+import { STRIPE_ZERO_DECIMAL } from './stripeLocalPrices.js';
+
 /** The full-price country codes, from the lists file (keys starting with "_" are notes). */
 export function fullPriceCountries(lists) {
   return [...new Set(Object.entries(lists).filter(([k]) => !k.startsWith('_')).flatMap(([, v]) => v))].sort();
@@ -65,7 +67,9 @@ export function catalogPrices(local, lists, supported) {
   };
 }
 
-const ZERO_DECIMAL = new Set(['JPY', 'KRW', 'CLP', 'VND']);
+/* Stripe's list: Paddle's zero-decimal currencies (JPY, KRW, CLP, VND) are in it, and the Stripe local
+   prices (stripe-local-prices.json) add others (XAF, PYG...). */
+const ZERO_DECIMAL = STRIPE_ZERO_DECIMAL;
 
 /**
  * What a buyer in `country` (ISO 3166 alpha-2) pays for `plan`, from the uploaded structure:

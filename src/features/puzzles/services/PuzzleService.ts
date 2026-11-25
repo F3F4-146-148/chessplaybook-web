@@ -49,6 +49,7 @@ export function isGeneratedPuzzleId(id: string | null | undefined): boolean {
   return typeof id === 'string' && /^g_[1-9]\d*$/.test(id);
 }
 import { getRequestHeaders } from '@/features/auth/utils/getAuthToken';
+import { readDailyLimit, reportDailyLimit } from '@/services/freePlanLimit';
 
 const API_URL = env.apiBaseUrl;
 
@@ -299,6 +300,8 @@ export async function fetchPuzzleById(id: string): Promise<PuzzleData | null> {
 export type PuzzleExplanation =
   | { status: 'ready'; structured: unknown; action: string | null }
   | { status: 'pending' }
+  /* The free plan's 3 puzzle explanations a day are used (2026-11-21); the limit dialog has opened. */
+  | { status: 'limited' }
   | { status: 'unavailable' };
 
 export interface PuzzleHintRung {
@@ -336,8 +339,19 @@ export async function fetchPuzzleExplanation(id: string): Promise<PuzzleExplanat
   if (isGeneratedPuzzleId(id)) return { status: 'unavailable' };
   try {
     // Who asked: the funnel counts a puzzle explanation opened (#46).
-    const headers = await getRequestHeaders().catch(() => ({}));
+    const headers: Record<string, string> = await getRequestHeaders().catch(() => ({}));
     const res = await fetch(`${API_URL}/api/puzzles/${encodeURIComponent(id)}/explanation`, { headers });
+    /* With no identity (a signed-in player whose token is briefly unavailable sends none, by
+       design) the server refuses like a used-up allowance. That is not this player's limit: it
+       reads as a failed load, and opening it again tries again. */
+    const identified = Boolean(headers.Authorization || headers['X-Anonymous-Id']);
+    if (res.status === 402 && identified) {
+      const limit = readDailyLimit(res.status, await res.json().catch(() => null));
+      if (limit) {
+        reportDailyLimit(limit);
+        return { status: 'limited' };
+      }
+    }
     if (!res.ok) return { status: 'unavailable' };
     const json = await res.json();
     return json?.data ?? { status: 'unavailable' };

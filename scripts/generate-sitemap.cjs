@@ -160,7 +160,7 @@ const LASTMOD = {
   articleWch2026Geneva: '2026-11-11',
   articleSindarovGukesh: '2026-07-27',
   articleVaishaliJu: '2026-07-27',
-  legal: '2026-11-20',
+  legal: '2026-11-24',
 };
 
 /*
@@ -308,6 +308,16 @@ function generateSitemap() {
   // The announcement page. Highest priority of any news URL: it is the one that
   // answers "when is the match" and "where is the match", and that lookup demand
   // spikes now and decays. Indexing takes days to weeks, so it cannot wait.
+  // The match's game recaps (2026-11-23): one per published game, read from route-meta.json, so a recap
+  // needs no line here. Its lastmod is its own dateModified; the same priority as the hub's news.
+  {
+    const routeMeta = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'src', 'config', 'route-meta.json'), 'utf-8'));
+    for (const [key, meta] of Object.entries(routeMeta)) {
+      if (!key.startsWith('news/world-championship-2026/')) continue;
+      urls.push(createUrlEntry(DOMAIN + '/' + key, meta.dateModified || meta.datePublished, 'weekly', '0.9'));
+    }
+  }
+
   urls.push(createUrlEntry(
     DOMAIN + '/news/world-championship-2026-geneva',
     LASTMOD.articleWch2026Geneva,

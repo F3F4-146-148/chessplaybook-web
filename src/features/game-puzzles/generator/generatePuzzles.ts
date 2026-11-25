@@ -27,6 +27,16 @@ import type {
   Phase, PieceRole, PositionEval, PuzzleEngine, PuzzleGoal, PuzzleKind, Side, SkipReason, Thresholds,
 } from './types';
 
+/**
+ * The rules' version, stored with every puzzle (`game_puzzles.rules_version`): "V6" is the rule set
+ * the owner chose after the 200-game measurement (spec 13.7); "V7" (#510, owner: "all the way down")
+ * plays a forced mate of up to 5 moves to the mate, and any other line on while the solver's next
+ * move is again the one clear answer, up to 5 solver moves (V6: mates of up to 2, other lines at
+ * most 2 moves, a material puzzle 1). Change it with any change to the rules
+ * or DEFAULT_THRESHOLDS, so puzzles made by different rules can be told apart.
+ */
+export const RULES_VERSION = 'V7';
+
 export const DEFAULT_THRESHOLDS: Thresholds = {
   minFullMoves: 4,
   excludeBullet: true,
@@ -38,13 +48,13 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   winningWin: 75,
   lostWin: 25,
   savingWin: 45,
-  maxMateMoves: 2,
+  maxMateMoves: 5,
   minGap: 10,
   clearGapFromBest: 20,
   materialGap: 250,
   materialAccept: 100,
   maxAccepted: 3,
-  maxSolverMoves: 2,
+  maxSolverMoves: 5,
   lowClockSeconds: 20,
   checkMinLegalMoves: 4,
   maxPuzzlesPerGame: 0,
@@ -263,6 +273,17 @@ function qualify(game: ParsedGame, t: Thresholds): SkipReason | null {
 
 // ─── Level 2 ──────────────────────────────────────────────────────────────
 
+/**
+ * Why a game would be skipped, before any engine work (own-game puzzles C1: the page lists it greyed
+ * with the reason). The same two checks `generateForGame` makes first, so the list and the run agree.
+ */
+export async function skipReasonOf(game: ParsedGame, thresholds: Partial<Thresholds> = {}): Promise<SkipReason | null> {
+  const t: Thresholds = { ...DEFAULT_THRESHOLDS, ...thresholds };
+  const skip = qualify(game, t);
+  if (skip) return skip;
+  return replay(await loadChessops(), game.sans) ? null : 'unparseable';
+}
+
 interface Candidate {
   /** Index of the puzzle position: the position before ply `p`. */
   p: number;
@@ -365,8 +386,8 @@ export async function generateForGame(
     }
     const after = i + 1;
     const terminal = after === n && rp.finalTerminalWin !== null;
-    if (!terminal) {
-      const solver = other(mover);
+    const solver = other(mover);
+    if (!terminal && !(settings.perspective && solver !== settings.perspective)) {
       byPosition.set(after, {
         p: after, solver, kind: 'punish',
         preErrorWin: winFor(i, solver),
@@ -491,10 +512,17 @@ export async function generateForGame(
     let solverMoves = 1;
     let mateIn: number | null = goal === 'mate' ? best.mate : null;
     const walk = positionFromFen(co, fen);
-    while (goal !== 'material' && solverMoves < t.maxSolverMoves) {
+    // A position seen before ends the line (a perpetual or a piece shuffling back is no lesson).
+    const posKey = () => co.makeFen(walk.toSetup()).split(' ').slice(0, 4).join(' ');
+    const seen = new Set([posKey()]);
+    // A mate is played to the mate; any other line goes on while the solver's next move is again
+    // the one clear answer, up to maxSolverMoves (owner, #510 testing: "all the way down").
+    while (goal === 'mate' || solverMoves < t.maxSolverMoves) {
       if (goal === 'mate' && line.mate === 1) break;
       const reply = line.pv[1];
       if (!reply || !applyUci(co, walk, line.uci) || !applyUci(co, walk, reply) || walk.isEnd()) break;
+      if (seen.has(posKey())) break;
+      seen.add(posKey());
       const next = await search(co.makeFen(walk.toSetup()), t.confirmMultiPv, t.confirmDepth);
       // A timed-out continuation is not used: the line stops at the last searched move.
       if (!next || !next.length) break;
@@ -503,6 +531,12 @@ export async function generateForGame(
       if (goal === 'mate') {
         if (next[0].mate === null || next[0].mate <= 0) break;
         nextAccepted = next.filter((l) => l.mate === next[0].mate).map((l) => l.uci);
+      } else if (goal === 'material') {
+        // The same test as the first move: a clear centipawn gap to the next move.
+        const nextCps = next.map(lineCp);
+        nextAccepted = next.filter((_, k) => nextCps[k] >= nextCps[0] - t.materialAccept).map((l) => l.uci);
+        const rej = next.findIndex((l) => !nextAccepted.includes(l.uci));
+        if (rej < 0 || nextAccepted.length > t.maxAccepted || nextCps[0] - nextCps[rej] < t.materialGap) break;
       } else {
         nextAccepted = next.filter((_, k) => nextWins[k] >= threshold).map((l) => l.uci);
         const all = nextAccepted.length === next.length && next.length === t.confirmMultiPv;
@@ -539,6 +573,7 @@ export async function generateForGame(
         depth: t.confirmDepth,
         multiPv: t.confirmMultiPv,
       },
+      reply: line.pv[1] ?? null,
       game: { index: game.index, hash: game.hash },
     };
   }

@@ -34,7 +34,8 @@ const BACKOFF_MS = [250, 1_000];
 
 export interface PuzzleResultOutcome {
   /** The parsed body when the server scored (or replayed) the result. */
-  data?: { newRating: number; ratingChange: number; frozen?: boolean };
+  /** `moment`: the progress moment a clean solve brought (#418), checked by `asProgressMoment` before use. */
+  data?: { newRating: number; ratingChange: number; frozen?: boolean; moment?: unknown };
   ok: boolean;
   /** True when every attempt came back retryable — the solve was NOT recorded. */
   unrecorded: boolean;

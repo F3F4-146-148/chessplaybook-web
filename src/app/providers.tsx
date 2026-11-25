@@ -8,6 +8,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/design/theme/ThemeProvider";
 import { AuthContext, type AuthContextType as AuthValue } from "@/features/auth/authContextValue";
+import { AccountPremiumProvider } from "@/features/premium/AccountPremium";
 
 // ---------- Deferred Auth Provider ----------
 // aws-amplify (125KB) is NOT imported here. Instead we dynamically load the
@@ -76,7 +77,10 @@ function DeferredAuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <>
       {RealProvider && <RealProvider onValue={handUp} />}
-      <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>
+      <AuthContext.Provider value={authValue}>
+        {/* One account-premium state for the site (#467 plan A1a), under the auth value from the first render. */}
+        <AccountPremiumProvider>{children}</AccountPremiumProvider>
+      </AuthContext.Provider>
     </>
   );
 }

@@ -145,6 +145,12 @@
   box-shadow: inset 0 0 0 2px hsl(var(--board-mark-them-edge) / 0.75);
 }
 
+/* A puzzle's wrong move while it is held on the board (2026-11-22): both squares soft red, as Chess.com marks it,
+   softer than its salmon (owner: gentle). The cross on the landing square is a shape (usePuzzleBoard). */
+.chess-board-wrapper cg-board square.wrong-move { background-color: hsl(var(--board-mark) / 0.35); }
+.chess-board-wrapper .cg-custom-svgs .wrong-move-badge { fill: hsl(var(--board-mark)); stroke: #fff; }
+.chess-board-wrapper .cg-custom-svgs .wrong-move-cross { stroke: #fff; }
+
 /* The squares a centralised knight now sees (owner, 2026-11-18): the same colour, light and without an edge. */
 .chess-board-wrapper cg-board square.reason-mark-soft-black { background-color: hsl(var(--board-mark) / 0.2); }
 .chess-board-wrapper cg-board square.reason-mark-soft-white { background-color: hsl(var(--board-mark-them) / 0.2); }

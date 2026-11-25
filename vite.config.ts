@@ -185,7 +185,22 @@ export default defineConfig(({ mode, command, isSsrBuild }) => ({
         a time while it took them in, measured. The site has them all, read-only.
       */
       // every voice folder (master-v2, master-v3, ...): naming one left the dev server silent after the move to v3
-      '/audio': { target: 'https://www.chessplaybook.com', changeOrigin: true, secure: true },
+      '/audio': {
+        target: 'https://www.chessplaybook.com', changeOrigin: true, secure: true,
+        /*
+          A RECORDING IN `public/` IS SERVED FROM THERE (#418, found by the owner 2026-11-22): new recordings exist only
+          locally until they are uploaded, and the site answers a file it does not have with its HTML page, so the
+          moment's lines were proxied to a page and he said nothing. A file that exists locally skips the proxy.
+        */
+        bypass: (req) => {
+          const url = (req.url ?? '').split('?')[0];
+          try {
+            return fs.existsSync(path.join(__dirname, 'public', decodeURIComponent(url))) ? url : undefined;
+          } catch {
+            return undefined;
+          }
+        },
+      },
     },
   },
   plugins: [react(), devApiWriteGuard, previewAssets, boardThemePrePaint, appThemePrePaint, mode === "development" && componentTagger()].filter(Boolean),

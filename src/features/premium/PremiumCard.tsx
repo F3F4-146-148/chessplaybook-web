@@ -1,22 +1,20 @@
 /**
- * Premium on the account page: where a player MANAGES Premium they have (when it renews or ends,
- * Paddle's customer portal, the 30-day refund). Renders nothing unless the API has checkout settings,
- * so it is invisible in production until launch and live on staging (sandbox).
+ * Premium on /profile, IN ONE LINE (#467 plan B4; owner M1, 2026-11-24). Managing Premium (Manage, the refund,
+ * every state's full wording) moved to /membership (PremiumStatus.tsx); here the account sees its plan and the
+ * way there. The words are the owner-approved ones of the full card (2026-11-24), its first sentence per state.
  *
- * IT DOES NOT SELL (owner, 2026-11-15). It once showed its own prices and buy buttons, a second copy
- * of the offer that drifted from /premium (it offered Buy to a holder whose account lookup failed
- * after /premium had been fixed). Selling lives only on /premium; here a player without Premium gets
- * a link to it. The account's state comes from usePremiumOffer, shared with /premium.
+ * Title by plan (owner, 2026-11-24): "Free plan" for a known free account, "Premium" otherwise; until the account
+ * is known nothing is claimed about it. Renders nothing for a guest, or when nobody sells and the account holds
+ * nothing, as before.
  */
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import env from '@/config/env';
-import { getAuthHeader } from '@/features/auth/utils/getAuthToken';
 import { useAuth } from '@/features/auth/AuthContext';
-import { formatMinor } from './paddleCheckout';
-import { fetchPremium, usePremiumOffer } from './usePremiumOffer';
+import { logGA4Event } from '@/services/analytics';
+import { hasPremium, premiumGrant } from './paddleCheckout';
+import { grantLineText } from './GrantLine';
+import { usePremiumOffer } from './usePremiumOffer';
+import { PAST_DUE_LINE } from './stripeCheckout';
 
 function day(sqliteUtc: string | null): string | null {
   if (!sqliteUtc) return null;
@@ -26,97 +24,48 @@ function day(sqliteUtc: string | null): string | null {
 
 export function PremiumCard() {
   const { user } = useAuth();
-  const { settings, state, stateKnown, setState, message, setMessage } = usePremiumOffer({ prices: false });
-  const [busy, setBusy] = useState(false);
-  const [confirmRefund, setConfirmRefund] = useState(false);
+  const { provider, state, stateKnown } = usePremiumOffer({ prices: false });
 
-  if (!settings || !user) return null;
-
-  const manage = async () => {
-    setBusy(true);
-    try {
-      const response = await fetch(`${env.apiBaseUrl}/api/premium/portal`, { method: 'POST', headers: await getAuthHeader() });
-      const body = await response.json().catch(() => null) as { url?: string } | null;
-      if (body?.url) window.location.assign(body.url);
-      else setMessage('The subscription page could not be opened. Please try again later.');
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  /* A full refund within 30 days of a payment (owner, 2026-11-13). Two steps, because it ends Premium. */
-  const refund = async () => {
-    setBusy(true);
-    try {
-      const response = await fetch(`${env.apiBaseUrl}/api/premium/refund`, { method: 'POST', headers: await getAuthHeader() });
-      if (response.ok) {
-        setConfirmRefund(false);
-        setMessage(null);
-        /* A failed re-read is not "no Premium" (#261 review): keep the state we have. */
-        const next = await fetchPremium();
-        if (next) setState(next);
-      } else {
-        setMessage('The refund could not be requested. Please try again, or write to support@chessplaybook.com.');
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
+  const holds = Boolean(state?.premium || state?.kind || state?.purchasePending || state?.refund?.available || state?.refund?.pending || premiumGrant(state));
+  if (!user || (!provider && !holds)) return null;
 
   const ends = day(state?.periodEndsAt ?? null);
   const cancelling = state?.scheduledChange?.startsWith('cancel@') ?? false;
-  const refundable = state?.refund?.available ?? null;
-  const refundAmount = refundable ? formatMinor(refundable.totalMinor, refundable.currency) : null;
-  const refundUntil = refundable ? day(refundable.until) : null;
+  const granted = premiumGrant(state) !== null;
+
+  /* The first sentence of the full card's wording for this state (PremiumStatus.tsx). */
+  let line: string | null = null;
+  if (stateKnown && state) {
+    if (state.premium) {
+      line = state.kind === 'pass' ? `You have Premium until ${ends ?? 'the end of your year'}. It does not renew.`
+        : state.status === 'past_due' ? PAST_DUE_LINE
+          : `You have Premium.${ends ? (cancelling ? ` It ends on ${ends}.` : ` It renews on ${ends}.`) : ''}`;
+    } else if (state.purchasePending) {
+      line = granted ? "Your subscription's payment has not gone through yet." : "Your payment has not gone through yet, so you don't have Premium.";
+    } else if (granted) {
+      line = grantLineText(state);
+    } else {
+      line = 'Some features have a daily limit. Premium has none.';
+    }
+  }
+  const linkText = stateKnown && state && !hasPremium(state) && !state.purchasePending ? 'See the plans' : 'Manage it on your Membership page';
 
   return (
     <Card data-testid="premium-card">
-      <CardHeader><CardTitle>Premium</CardTitle></CardHeader>
+      <CardHeader><CardTitle>{stateKnown && !hasPremium(state) ? 'Free plan' : 'Premium'}</CardTitle></CardHeader>
       <CardContent className="space-y-3 text-sm">
-        {state?.premium ? (
-          <>
-            {state.kind === 'pass' ? (
-              <p>
-                You have Premium until {ends ?? 'the end of your year'}. It does not renew;{' '}
-                <Link to="/premium" className="text-link hover:underline">another year</Link> can be added whenever you like.
-              </p>
-            ) : (
-              <>
-                <p>You have Premium.{ends && (cancelling ? ` It ends on ${ends}.` : ` It renews on ${ends}.`)}</p>
-                <Button variant="outline" onClick={manage} disabled={busy}>Manage your subscription</Button>
-              </>
-            )}
-            {state.refund?.pending && (
-              <p className="text-muted-foreground">Your refund has been requested. Premium ends when Paddle confirms it.</p>
-            )}
-            {refundable && !state.refund?.pending && (
-              confirmRefund ? (
-                <div className="space-y-2">
-                  <p>
-                    Refund {refundAmount ?? 'your payment'} in full? Premium ends once the refund is confirmed
-                    {refundable.kind === 'subscription' ? ', and your subscription is cancelled.' : '.'}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="destructive" onClick={refund} disabled={busy}>Yes, refund me</Button>
-                    <Button variant="outline" onClick={() => setConfirmRefund(false)} disabled={busy}>Keep Premium</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <Button variant="outline" onClick={() => setConfirmRefund(true)} disabled={busy}>Cancel and get a full refund</Button>
-                  {refundUntil && <p className="text-muted-foreground">A full refund is possible until {refundUntil}.</p>}
-                </div>
-              )
-            )}
-          </>
-        ) : stateKnown ? (
-          /* Known to have no Premium (a failed lookup is not "no Premium": the hook says so instead). */
-          <p className="text-muted-foreground">
-            Unlimited game reports and explanations, and the full opening trainer.{' '}
-            <Link to="/premium" className="text-link hover:underline">See the plans</Link>
+        {line && (
+          <p className={state?.premium || granted || state?.purchasePending ? undefined : 'text-muted-foreground'}>
+            {line}{' '}
+            <Link
+              to={linkText === 'See the plans' ? '/membership#plans' : '/membership'}
+              onClick={() => logGA4Event({ name: 'premium_link_clicked', params: { from: 'profile' } })}
+              className="text-link hover:underline"
+            >
+              {linkText}
+            </Link>
           </p>
-        ) : null}
-        {message && <p role="status" className="text-muted-foreground">{message}</p>}
+        )}
       </CardContent>
     </Card>
   );

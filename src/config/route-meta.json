@@ -73,6 +73,15 @@
     "heading": "Contact Us",
     "body": "Get in touch with the Chess Playbook team."
   },
+  "membership": {
+    "title": "Membership | Chess Playbook",
+    "description": "Your Chess Playbook membership: your plan, and Premium.",
+    "ogTitle": "Membership",
+    "ogDescription": "Your Chess Playbook membership: your plan, and Premium.",
+    "keywords": "chess playbook membership, premium",
+    "heading": "Membership",
+    "body": "Your Chess Playbook membership: your plan, and Premium."
+  },
   "reminders": {
     "title": "Reminder Emails | Chess Playbook",
     "description": "Stop or change the reminder emails Chess Playbook sends you.",
@@ -192,6 +201,32 @@
     "datePublished": "2026-03-29",
     "dateModified": "2026-03-29"
   },
+  "news/world-championship-2026/game-1": {
+    "title": "World Championship Game 1: Gukesh Stands Firm vs Sindarov",
+    "description": "Gukesh held Sindarov to a 38-move draw in game 1 of the 2026 World Chess Championship, finding the only move with under six minutes left on his clock.",
+    "ogTitle": "World Championship Game 1: Gukesh Stands Firm vs Sindarov",
+    "ogDescription": "Sindarov chose an older Berlin line and put Gukesh under pressure on the clock. Gukesh answered boldly, found the one move that held, and drew in 38 moves.",
+    "ogImage": "https://www.chessplaybook.com/assets/share/wch-2026-game-1-v2.jpg",
+    "keywords": "World Chess Championship 2026 game 1, Sindarov vs Gukesh, Gukesh Sindarov game 1, Berlin Defence, world championship recap",
+    "heading": "Game 1: Gukesh stands firm and looks like himself again",
+    "body": "Game 1 of the 2026 World Chess Championship in Geneva ended in a draw after 38 moves. Gukesh chose the Berlin Defence, Sindarov answered with an older line, and the game became a battle on the clock. With under six minutes left, Gukesh found the one move that held, 32...Kg8.",
+    "articleType": "NewsArticle",
+    "datePublished": "2026-11-24",
+    "dateModified": "2026-11-24"
+  },
+  "news/world-championship-2026/game-2": {
+    "title": "World Championship Game 2: Sindarov Neutralises Gukesh",
+    "description": "Gukesh chose the London System with White in game 2 of the 2026 World Chess Championship. Sindarov met it with ease and the game was drawn in 20 moves.",
+    "ogTitle": "World Championship Game 2: Sindarov Neutralises Gukesh",
+    "ogDescription": "Gukesh opened with the London System. Sindarov answered almost at once, used under 40 minutes, and drew by repetition after 20 moves.",
+    "ogImage": "https://www.chessplaybook.com/assets/share/wch-2026-game-2.jpg",
+    "keywords": "World Chess Championship 2026 game 2, Gukesh vs Sindarov, Gukesh Sindarov game 2, London System, world championship recap",
+    "heading": "Game 2: Sindarov meets Gukesh’s London without breaking a sweat",
+    "body": "Game 2 of the 2026 World Chess Championship in Geneva ended in a draw by repetition after 20 moves. Gukesh chose the London System with White, Sindarov answered quickly with a solid set-up, used less than 40 minutes for the game, and was never in danger.",
+    "articleType": "NewsArticle",
+    "datePublished": "2026-11-25",
+    "dateModified": "2026-11-25"
+  },
   "news/sindarov-gukesh-head-to-head": {
     "title": "Sindarov vs Gukesh: The Champion Is Ranked 26th",
     "description": "Sindarov is the world number 4. Gukesh, the champion he must beat, is ranked 26th and 91 points below his peak. Their head-to-head record, and what it hides.",
@@ -285,6 +320,15 @@
     "heading": "Your Training Plan",
     "body": "Tell us how often you can train and for how long. We work out what to train and when, weighted towards what your results say you need."
   },
+  "puzzles/from-games": {
+    "title": "From My Games | Chess Playbook",
+    "description": "Turn the key moments of your own chess games into puzzles. Upload your games as PGN and find the move that made the difference.",
+    "ogTitle": "From My Games",
+    "ogDescription": "Turn the key moments of your own chess games into puzzles.",
+    "keywords": "chess puzzles from my games, chess game analysis, learn from your chess mistakes",
+    "heading": "From My Games",
+    "body": "Upload your games as PGN. We find the positions where one move made the difference, and you solve them as puzzles."
+  },
   "terms": {
     "title": "Terms of Service | Chess Playbook",
     "description": "Terms of Service for Chess Playbook. Read our terms and conditions.",
@@ -332,11 +376,11 @@
   },
   "openings": {
     "title": "Chess Opening Trainer | Chess Playbook",
-    "description": "Learn the London, the French or the Slav move by move, with the reason for each move. Then train each line until you play it right first time.",
+    "description": "Learn the London, Colle, French, Caro-Kann, Slav or Najdorf move by move, with each move's reason. Then train each line until you play it right first time.",
     "ogTitle": "Chess Opening Trainer",
-    "ogDescription": "Learn the London, the French or the Slav move by move, with the reason for each move.",
-    "keywords": "chess opening trainer, chess repertoire, london system, french defense, slav defense, learn chess openings",
+    "ogDescription": "Learn the London, Colle, French, Caro-Kann, Slav or Najdorf move by move, with the reason for each move.",
+    "keywords": "chess opening trainer, chess repertoire, london system, colle system, french defense, caro-kann defense, slav defense, najdorf sicilian, learn chess openings",
     "heading": "Chess Opening Trainer",
-    "body": "Learn the London, the French or the Slav move by move, then train each line until you play it right first time."
+    "body": "Learn the London, Colle, French, Caro-Kann, Slav or Najdorf move by move, then train each line until you play it right first time."
   }
 }

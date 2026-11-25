@@ -8,7 +8,7 @@ const headers = vi.hoisted(() => ({ value: { 'X-Anonymous-Id': 'anon-1' } as Rec
 vi.mock('@/features/auth/utils/getAuthToken', () => ({ getRequestHeaders: async () => headers.value }));
 
 import {
-  readFirstTouch, bucharestDay, captureFirstTouch, recordVisit,
+  readFirstTouch, bucharestDay, captureFirstTouch, recordVisit, countFirstDayAttempt, seenBeforeThisLoad,
   onFirstInteraction, hasInteracted, resetInteractionForTests,
 } from './funnel';
 
@@ -27,6 +27,11 @@ describe('readFirstTouch', () => {
     });
     expect(JSON.stringify(t)).not.toContain('ABC123');
     expect(JSON.stringify(t)).not.toContain('q=chess');
+  });
+
+  it('keeps the ad keyword Google Ads fills into utm_term', () => {
+    const t = readFirstTouch(loc('/puzzles?utm_source=google&utm_medium=cpc&utm_campaign=example&utm_term=chess+puzzles&gad_source=1'), '', at);
+    expect(t.utmTerm).toBe('chess puzzles');
   });
 
   it('a click id alone marks a paid click', () => {
@@ -137,5 +142,43 @@ describe('onFirstInteraction', () => {
     const callback = vi.fn();
     onFirstInteraction(callback, fakeTarget() as unknown as Window);
     expect(callback).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('countFirstDayAttempt (funnel stage 3b)', () => {
+  beforeEach(() => localStorage.clear());
+  const later = new Date('2026-11-12T15:00:00Z');
+
+  it('is true once, on the fifth attempt of the first day', () => {
+    captureFirstTouch(at, false);
+    const results = Array.from({ length: 7 }, () => countFirstDayAttempt(later));
+    expect(results).toEqual([false, false, false, false, true, false, false]);
+  });
+
+  it('counts nothing on a later day', () => {
+    captureFirstTouch(at, false);
+    for (let i = 0; i < 4; i++) countFirstDayAttempt(later);
+    expect(countFirstDayAttempt(new Date('2026-11-13T10:00:00Z'))).toBe(false);
+  });
+
+  it('never counts a browser with no first day: a returning player is not a new one', () => {
+    localStorage.setItem('cp_first_touch_sent', '1');
+    captureFirstTouch(at, false);
+    expect(Array.from({ length: 6 }, () => countFirstDayAttempt(later))).not.toContain(true);
+  });
+
+  it('never counts a browser that was here before this load, even with no first-touch keys', () => {
+    captureFirstTouch(at, true);
+    expect(localStorage.getItem('cp_first_touch')).not.toBeNull();
+    expect(Array.from({ length: 6 }, () => countFirstDayAttempt(later))).not.toContain(true);
+  });
+
+  it('a guest id or a stored sign-in means the browser was here before', () => {
+    expect(seenBeforeThisLoad()).toBe(false);
+    localStorage.setItem('cp_anonymous_id', 'x');
+    expect(seenBeforeThisLoad()).toBe(true);
+    localStorage.clear();
+    localStorage.setItem('CognitoIdentityServiceProvider.abc.LastAuthUser', 'sub');
+    expect(seenBeforeThisLoad()).toBe(true);
   });
 });

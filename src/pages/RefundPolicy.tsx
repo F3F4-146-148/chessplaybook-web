@@ -2,9 +2,9 @@
  * Refund Policy Page
  *
  * The owner's rule (2026-11-13): a full refund within 30 days of a payment, for any reason, then
- * none, for subscriptions and the one-year pass alike. Paddle's review wants a refund policy of its
- * own, reachable from the navigation, unconditional, 14-90 days (PREMIUM_OFFER_ANALYSIS section 7).
- * Every step described here is what /profile and the refund route actually do
+ * none from us, for subscriptions and the one-year pass alike. Link (Stripe Managed Payments) may also
+ * refund under its own policy within 60 days, and its policy controls where ours is stricter (Stripe's
+ * service terms 3.3). Every step described here is what /profile and the refund route actually do
  * (backend/src/routes/paddle.ts, PremiumCard).
  */
 
@@ -41,15 +41,20 @@ const RefundPolicy = () => {
                 </p>
                 <ul className={UL}>
                   <li>It applies to every subscription payment, renewals included, and to the one-year pass.</li>
-                  <li>After 30 days, that payment is not refunded.</li>
+                  <li>After 30 days, we do not refund that payment.</li>
                   <li>
-                    You can still cancel a subscription at any time in Paddle's billing portal, which you open
-                    from your account page, so you are not charged again.
+                    You can still cancel a subscription at any time from your Membership page, so you are not
+                    charged again.
                   </li>
                 </ul>
                 <p className={P}>
                   If you live in the EU or the UK, this gives you more time than your 14-day legal right to
                   withdraw.
+                </p>
+                <p className={P}>
+                  Link, which takes the payment, may also refund it under its own{' '}
+                  <a href="https://support.link.com/questions/sold-through-link-refunds" target="_blank" rel="noopener noreferrer" className={A}>refund policy</a>, within 60 days, for
+                  example if the payment was not authorised.
                 </p>
               </section>
 
@@ -57,7 +62,7 @@ const RefundPolicy = () => {
                 <h2 className={H2}>How to Ask</h2>
                 <ul className={UL}>
                   <li>
-                    On your <Link to="/profile" className={A}>account page</Link>, choose "Cancel and get a full
+                    On your <Link to="/membership" className={A}>Membership page</Link>, choose "Cancel and get a full
                     refund". It refunds your latest payment, and the page shows the last day you can do it.
                   </li>
                   <li>
@@ -71,11 +76,11 @@ const RefundPolicy = () => {
               <section className="mb-8">
                 <h2 className={H2}>What Happens Next</h2>
                 <p className={P}>
-                  Paddle, our reseller and the Merchant of Record for all our orders, returns the full amount to
-                  the payment method you used. Your bank may take a few business days to show it.
+                  Link, the Merchant of Record for all our orders, returns the full amount to the payment method
+                  you used. Your bank may take a few business days to show it.
                 </p>
                 <p className={P}>
-                  The Premium that payment paid for ends once Paddle confirms the refund. If it was your
+                  The Premium that payment paid for ends once the refund is confirmed. If it was your
                   subscription's latest payment, the subscription is cancelled too. A refund you asked for goes
                   ahead even if you delete your account before it is confirmed.
                 </p>

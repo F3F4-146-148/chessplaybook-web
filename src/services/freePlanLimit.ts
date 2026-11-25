@@ -10,7 +10,7 @@
  */
 import { logGA4Event } from '@/services/analytics';
 
-export type LimitedFeature = 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation';
+export type LimitedFeature = 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' | 'game_puzzles' | 'puzzle_explanation';
 
 export interface DailyLimit {
   feature: LimitedFeature;
@@ -19,7 +19,7 @@ export interface DailyLimit {
   resetsAt: string;
 }
 
-const FEATURES: readonly LimitedFeature[] = ['game_report', 'explain_position', 'challenge_session', 'opening_session', 'opening_variation'];
+const FEATURES: readonly LimitedFeature[] = ['game_report', 'explain_position', 'challenge_session', 'opening_session', 'opening_variation', 'game_puzzles', 'puzzle_explanation'];
 
 /** The free plan's daily allowances: backend FREE_PLAN_LIMITS (a test reads it, so the two cannot drift). */
 export const FREE_PLAN_ALLOWANCE: Readonly<Record<LimitedFeature, number>> = {
@@ -28,6 +28,8 @@ export const FREE_PLAN_ALLOWANCE: Readonly<Record<LimitedFeature, number>> = {
   challenge_session: 1,
   opening_session: 1,
   opening_variation: 1,
+  game_puzzles: 3,
+  puzzle_explanation: 3,
 };
 
 /** The window event the daily-limit dialog listens for; its `detail` is the DailyLimit. */
@@ -61,6 +63,8 @@ export function dailyLimitTitle(limit: DailyLimit): string {
     case 'challenge_session': return "That's today's free Champion Challenge";
     case 'opening_session': return "That's today's free training session";
     case 'opening_variation': return "That's today's free variation";
+    case 'game_puzzles': return `That's today's ${limit.limit} free games`;
+    case 'puzzle_explanation': return `That's today's ${limit.limit} free puzzle explanations`;
   }
 }
 
@@ -73,6 +77,8 @@ export function dailyLimitBack(limit: DailyLimit, now: Date = new Date()): strin
     case 'challenge_session': return `You can play another one ${back}.`;
     case 'opening_session': return `You can train again ${back}.`;
     case 'opening_variation': return `You can learn another one ${back}.`;
+    case 'game_puzzles': return `You can make puzzles from more games ${back}.`;
+    case 'puzzle_explanation': return `You can read more ${back}. Puzzles stay free, as many as you like.`;
   }
 }
 
@@ -83,8 +89,27 @@ export function dailyLimitMessage(limit: DailyLimit, now: Date = new Date()): st
     challenge_session: "You've played today's free Champion Challenge.",
     opening_session: "You've used today's free training session.",
     opening_variation: "You've learned today's free variation.",
+    game_puzzles: `You've used today's ${limit.limit} free games.`,
+    puzzle_explanation: `You've read today's ${limit.limit} free puzzle explanations.`,
   }[limit.feature];
   return `${used} ${dailyLimitBack(limit, now)}`;
+}
+
+/**
+ * A refused button's own label, short enough for a half-width button (#472): "Back tomorrow" when the reset falls on
+ * the visitor's next day (Romania, India), else the hour later today ("Back at 5 PM", the Americas), minutes only
+ * when they are not zero. The reset is always within a day, so the day and the hour are enough.
+ */
+export function backLabel(limit: DailyLimit, now: Date = new Date()): string {
+  const at = new Date(limit.resetsAt);
+  if (Number.isNaN(at.getTime()) || at.toDateString() !== now.toDateString()) return 'Back tomorrow';
+  const time = at.toLocaleTimeString([], at.getMinutes() === 0 ? { hour: 'numeric' } : { hour: 'numeric', minute: '2-digit' });
+  return `Back at ${time}`;
+}
+
+/** Whether a limit still applies (its reset has not come yet). */
+export function limitApplies(limit: DailyLimit | null, now: number = Date.now()): limit is DailyLimit {
+  return !!limit && !(Date.parse(limit.resetsAt) <= now);
 }
 
 /** Record that the visitor met a limit (GA4 mirror of funnel stage 7), and open the dialog. */

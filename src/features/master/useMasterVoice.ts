@@ -31,18 +31,25 @@ function stored(key: string): boolean {
 }
 
 /*
-  THE VOLUME (#310). One level for the whole site, remembered in this browser, 0 to 1 (default full). It is applied to
-  each recording as it starts and to the one playing when it changes. iPhone and iPad Safari ignore `audio.volume`
-  (it stays 1 whatever is set), so the slider is offered only where setting it works: `volumeSettable()`.
+  THE VOLUME (#310). One level for the whole site, remembered in this browser, 0 to 1. It is applied to each recording
+  as it starts and to the one playing when it changes. iPhone and iPad Safari ignore `audio.volume` (it stays 1
+  whatever is set), so the slider is offered only where setting it works: `volumeSettable()`.
+
+  NOT FULL BY DEFAULT (#401 A2, owner 2026-11-21: "too loud, especially on phone, I had to make the volume down from
+  the phone"). A visitor who never chose a level starts at DEFAULT_VOLUME; one who chose keeps theirs. Linear in
+  amplitude: 0.5 is about -6 dB. The same in both returns below: the build-time render (no localStorage) takes the
+  `catch`, so a different value there would make a built page and the browser disagree.
 */
 export const VOLUME_KEY = 'cp_master_volume';
+export const DEFAULT_VOLUME = 0.5;
 
 function storedVolume(): number {
   try {
-    const v = Number(window.localStorage.getItem(VOLUME_KEY));
-    return window.localStorage.getItem(VOLUME_KEY) !== null && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 1;
+    const raw = window.localStorage.getItem(VOLUME_KEY);
+    const v = Number(raw);
+    return raw !== null && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : DEFAULT_VOLUME;
   } catch {
-    return 1;
+    return DEFAULT_VOLUME;
   }
 }
 
@@ -203,9 +210,12 @@ export function useMasterVoice(
     logGA4Event({ name: 'master_voice_toggled', params: { enabled: true, ...(voiceKey === KEY ? {} : { surface: 'opening_trainer' }) } });
   }, [voiceKey]);
 
-  /** The level chosen, reported once when the slider is let go (not on every step of a drag). */
-  const commitVolume = useCallback((v: number) => {
-    logGA4Event({ name: 'master_voice_volume_set', params: { volume: Math.round(v * 100) } });
+  /**
+   * The level chosen, reported once when the slider is let go (not on every step of a drag). `surface` names the
+   * touch pop-up (#401 A3), so phone levels can be read apart from desktop ones.
+   */
+  const commitVolume = useCallback((v: number, surface?: 'touch_popup') => {
+    logGA4Event({ name: 'master_voice_volume_set', params: { volume: Math.round(v * 100), ...(surface ? { surface } : {}) } });
   }, []);
 
   useEffect(() => {

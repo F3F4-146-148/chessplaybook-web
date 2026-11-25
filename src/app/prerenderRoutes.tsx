@@ -62,6 +62,8 @@ export const WorldChampionship2026Announced = prerenderable(() => lazyRetry(() =
 export const Candidates2026Hub = prerenderable(() => lazyRetry(() => import('@/pages/Candidates2026Hub')));
 export const WorldCup2025Hub = prerenderable(() => lazyRetry(() => import('@/pages/WorldCup2025Hub')));
 export const WorldChampionship2026Hub = prerenderable(() => lazyRetry(() => import('@/pages/WorldChampionship2026Hub')));
+/* The match's game recaps (2026-11-23): written content, one page per game; the slug picks the recap. */
+export const WorldChampionship2026Recap = prerenderable(() => lazyRetry(() => import('@/pages/WorldChampionship2026Recap')));
 export const WorldChampionshipCycle = prerenderable(() => lazyRetry(() => import('@/pages/WorldChampionshipCycle')));
 export const Contact = prerenderable(() => lazyRetry(() => import('@/pages/Contact')));
 export const Credits = prerenderable(() => lazyRetry(() => import('@/pages/Credits')));
@@ -91,6 +93,7 @@ export const PRERENDER_ROUTES: readonly PrerenderRoute[] = [
   { path: '/news/sindarov-gukesh-head-to-head', Component: SindarovGukeshHeadToHead, source: 'src/pages/SindarovGukeshHeadToHead.tsx' },
   { path: '/news/vaishali-ju-wenjun-title-match', Component: VaishaliJuWenjunTitleMatch, source: 'src/pages/VaishaliJuWenjunTitleMatch.tsx' },
   { path: '/news/world-championship-2026-geneva', Component: WorldChampionship2026Announced, source: 'src/pages/WorldChampionship2026Announced.tsx' },
+  { path: '/news/world-championship-2026/:slug', Component: WorldChampionship2026Recap, source: 'src/pages/WorldChampionship2026Recap.tsx' },
   { path: '/candidates-2026', Component: Candidates2026Hub, source: 'src/pages/Candidates2026Hub.tsx' },
   { path: '/world-cup-2025', Component: WorldCup2025Hub, source: 'src/pages/WorldCup2025Hub.tsx' },
   { path: '/world-championship-2026', Component: WorldChampionship2026Hub, source: 'src/pages/WorldChampionship2026Hub.tsx' },

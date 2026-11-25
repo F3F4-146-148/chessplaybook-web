@@ -62,6 +62,7 @@ describe('usePuzzle: accepted moves (#245 B1)', () => {
     expect(hook.result.current[0].moveIndex).toBe(3);
     play(hook, 'd1c2');
     expect(hook.result.current[0].status).toBe('correct');
+    expect(hook.result.current[0].mainLine, '#418 A1: the stored moves').toBe(true);
   });
 
   it('an accepted alternative before the last step ends the puzzle there, solved (D4)', () => {
@@ -70,6 +71,7 @@ describe('usePuzzle: accepted moves (#245 B1)', () => {
     expect(hook.result.current[0].status).toBe('correct');
     expect(hook.result.current[0].lastMove, 'the move played, not the main one').toEqual(['f3', 'e3']);
     expect(hook.result.current[0].firstFailure).toBe(false);
+    expect(hook.result.current[0].mainLine, '#418 A1: never praised as the stored move').toBe(false);
   });
 
   it('an accepted alternative at the last step solves it', () => {
