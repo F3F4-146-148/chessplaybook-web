@@ -251,6 +251,17 @@ function applyUci(co: Chessops, pos: any, uci: string): boolean {
   return true;
 }
 
+const PIECE_VALUE = { pawn: 1, knight: 3, bishop: 3, rook: 5, queen: 9 } as const;
+
+/** The solver's material minus the opponent's, in pawns: the server's own count (puzzleBoard.ts). */
+function materialBalance(pos: any, solver: Side): number {
+  let total = 0;
+  for (const role of Object.keys(PIECE_VALUE) as Array<keyof typeof PIECE_VALUE>) {
+    total += (pos.board.pieces(solver, role).size() - pos.board.pieces(solver === 'white' ? 'black' : 'white', role).size()) * PIECE_VALUE[role];
+  }
+  return total;
+}
+
 function legalMoveCount(pos: any): number {
   let n = 0;
   for (const [, dests] of pos.allDests()) n += dests.size();
@@ -552,6 +563,27 @@ export async function generateForGame(
     // A mate goal whose line stops before the mate is a "win" puzzle.
     if (goal === 'mate' && !(line.mate === 1)) { goal = 'win'; mateIn = null; }
 
+    // A material line ends on its last solver move where the solver is not behind the material they
+    // started with (the server refuses one that is, and that refused the whole game's save, #510: a
+    // longer line can stop mid-exchange). None: not a material puzzle.
+    let reply: string | null = line.pv[1] ?? null;
+    if (goal === 'material') {
+      const start = materialBalance(positionFromFen(co, fen), c.solver);
+      const walkBack = positionFromFen(co, fen);
+      let keep = 0;
+      for (let k = 1; k < moves.length; k += 2) {
+        if (!applyUci(co, walkBack, moves[k])) break;
+        if (materialBalance(walkBack, c.solver) >= start) keep = k;
+        if (k + 1 < moves.length && !applyUci(co, walkBack, moves[k + 1])) break;
+      }
+      if (keep === 0) return 'material-down';
+      if (keep + 1 < moves.length) {
+        reply = moves[keep + 1];
+        moves.length = keep + 1;
+        acceptedMoves.length = (keep + 1) / 2;
+      }
+    }
+
     return {
       fen: setup.fen,
       moves,
@@ -573,7 +605,7 @@ export async function generateForGame(
         depth: t.confirmDepth,
         multiPv: t.confirmMultiPv,
       },
-      reply: line.pv[1] ?? null,
+      reply,
       game: { index: game.index, hash: game.hash },
     };
   }

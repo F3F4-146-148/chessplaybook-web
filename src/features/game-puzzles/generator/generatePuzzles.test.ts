@@ -284,6 +284,24 @@ test('a material line goes on while the next move is again the one clear answer 
   assert.equal(punish.reply, 'a6a5', "the engine reply to the last solver move, for the server's material count");
 });
 
+test('a material line is cut back to its last solver move that is not behind (#510)', async () => {
+  // Scripted: Bxf7+ Ke7 Qxe5+ Nxe5 d3. After d3 White has lost the queen for two pawns, so the
+  // server would refuse the puzzle (and with it the whole game's save): the line ends after Qxe5+.
+  const f = fensBefore(['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6', 'Bxf7+', 'Ke7', 'Qxe5+', 'Nxe5', 'd3']);
+  const decided = {
+    [FENS[5]]: [line('g7g6', -800), line('d8e7', -820), line('d8f6', -850), line('g8h6', -870), line('a7a6', -900)],
+    [FENS[6]]: [line('c4f7', 1700, null, ['e8e7']), line('h5e5', 1300), line('d2d3', 1200), line('a2a3', 1100), line('b1c3', 1000)],
+    [f[8]]: [line('h5e5', 1700, null, ['c6e5']), line('a2a3', 1300), line('b1c3', 1200), line('h2h3', 1100), line('c1d2', 1000)],
+    [f[10]]: [line('d2d3', 1700), line('a2a3', 1300), line('b1c3', 1200), line('h2h3', 1100), line('c1d2', 1000)],
+  };
+  const r = await generatePuzzles([{ pgn: GAME }], {}, scriptedEngine(decided));
+  const punish = r.puzzles.find((p) => p.kind === 'punish')!;
+  assert.equal(punish.goal, 'material');
+  assert.deepEqual(punish.moves, ['g8f6', 'c4f7', 'e8e7', 'h5e5']);
+  assert.deepEqual(punish.acceptedMoves, [['c4f7'], ['h5e5']]);
+  assert.equal(punish.reply, 'c6e5');
+});
+
 test('a line ends when a position comes back (#510)', async () => {
   // Scripted shuffle: Qg4 Ng8 Qh5 Nf6 would repeat the puzzle's position for ever.
   const f = fensBefore(['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6', 'Qg4', 'Ng8', 'Qh5', 'Nf6', 'Qg4']);
