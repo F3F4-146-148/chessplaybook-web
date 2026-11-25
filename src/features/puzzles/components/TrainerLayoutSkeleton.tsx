@@ -201,6 +201,37 @@ export default function TrainerLayoutSkeleton() {
     if (workspaceMode?.mode === 'stacked') setFocusMode(false);
   }, [workspaceMode]);
   /*
+    WHICH CARDS A SOLVER EVER SEES (#521). Stacked, the lower cards are below the
+    board and nobody knew whether phone visitors scroll to them. Each card is
+    logged once per page load when half of it is on screen. The slot marker is
+    `display: contents` (no box), so its card is what is observed. The board's
+    marker has neither and is left out: it is always on screen.
+  */
+  const seenCards = useRef(new Set<string>());
+  const cardLayout = workspaceMode?.mode;
+  useEffect(() => {
+    if (!cardLayout || typeof IntersectionObserver === 'undefined') return;
+    const names = new Map<Element, string>();
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        const card = names.get(entry.target);
+        if (!entry.isIntersecting || !card || seenCards.current.has(card)) continue;
+        seenCards.current.add(card);
+        observer.unobserve(entry.target);
+        logGA4Event({ name: 'puzzle_card_seen', params: { card, layout: cardLayout } });
+      }
+    }, { threshold: 0.5 });
+    document.querySelectorAll<HTMLElement>('[data-skeleton-card]').forEach((marker) => {
+      const card = marker.dataset.skeletonCard;
+      /* A lane's card, or a lane's foot (the analysis band, the appearance card). */
+      const box = marker.closest('.workspace-card, .workspace-foot');
+      if (!card || !box || seenCards.current.has(card)) return;
+      names.set(box, card);
+      observer.observe(box);
+    });
+    return () => observer.disconnect();
+  }, [cardLayout]);
+  /*
     FOCUS MODE HIDES THE SHELL, AND ASKS THE SHELL TO DO IT (#55).
 
     This used to be `{!focusMode && <Navigation />}` - a page deciding whether the
@@ -810,11 +841,21 @@ export default function TrainerLayoutSkeleton() {
                 options={run.options}
                 areas={run.areas}
                 selection={run.selection}
-                onSelectionChange={run.setSelection}
+                /* #521: what a solver chooses to train, logged where the choice is made. */
+                onSelectionChange={(value) => {
+                  logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'mode', value, surface: 'run_setup' } });
+                  run.setSelection(value);
+                }}
                 area={run.area}
-                onAreaChange={run.setArea}
+                onAreaChange={(value) => {
+                  logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'area', value: value ?? 'all', surface: 'run_setup' } });
+                  run.setArea(value);
+                }}
                 total={run.total}
-                onTotalChange={run.setTotal}
+                onTotalChange={(value) => {
+                  logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'length', value: String(value), surface: 'run_setup' } });
+                  run.setTotal(value);
+                }}
                 running={runOnScreen}
                 finished={runFinished}
                 /* Stopped and completed are different sentences - see the card. */

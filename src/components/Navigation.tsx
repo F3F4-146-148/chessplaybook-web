@@ -192,20 +192,31 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
           than a breakpoint, so there is no width at which the row jumps.
         */}
         <div ref={rowRef} data-nav-row className="flex items-center justify-between relative">
-          {/* Mobile only: centered title between icon and hamburger. Hidden on
-              pages that show a left-side breadcrumb (e.g. /champions/*) so the
-              two don't overlap at narrow widths — the logo icon still links home. */}
-          {!inChampionSubPage && (
-            <Link to="/" className="absolute left-1/2 -translate-x-1/2 md:hidden font-playfair font-bold text-[22px] text-foreground hover:text-link transition-colors">
-              Chess Playbook
-            </Link>
-          )}
+          {/* THE NAME IN THE MIDDLE OF THE PHONE'S BAR, AND IT IS THE WAY HOME (owner, 2026-11-25, from a mockup:
+              hamburger left, name centred, account right, no home icon on a phone). Everywhere the hamburger is,
+              champion pages included. Centred on the bar, not between its neighbours (index.css,
+              `[data-nav-center-title]`, which also sizes it). */}
+          <Link to="/" data-nav-center-title className="navrow:hidden font-playfair font-bold whitespace-nowrap text-foreground hover:text-link transition-colors">
+            Chess <span data-wordmark-accent>Playbook</span>
+          </Link>
+
+          {/* THE HAMBURGER ON THE LEFT (owner, 2026-11-25), so the account stands alone on the right. First in the DOM, not moved by CSS `order`, so Tab reaches it first too. `-ml-2.5` puts the icon
+              on the page's edge rather than its padding. */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="navrow:hidden p-2.5 -ml-2.5 mr-1 shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Toggle menu"
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
 
           {/* Left side - Logo/Home + Breadcrumbs.
               `min-w-0` lets this group absorb the squeeze, so a long breadcrumb
               truncates instead of forcing the row to overflow. */}
           <div className="flex items-center gap-4 min-w-0">
-            <Link to="/" aria-label="Chess Playbook" className="flex items-center gap-2 shrink-0 text-foreground hover:text-link transition-colors">
+            {/* Desktop only: on a phone the centred name above is the way home. */}
+            <Link to="/" aria-label="Chess Playbook" className="hidden navrow:flex items-center gap-2 shrink-0 text-foreground hover:text-link transition-colors">
               {/* A HOME ICON, LIKE EVERY OTHER MENU ITEM (owner, #330, 2026-11-18: option B of three). It
                   replaces the queen logo rather than joining it: beside the queen it cost ~2px of every gap and
                   at 840px wide (1.3px gaps) the items overlapped by 4.5px; in its place the row gains ~1px a gap.
@@ -235,17 +246,20 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
 
               The "<player>'s Games" crumb went with it: it showed only from `xl`,
               where the full menu always shows.
+
+              JUST THE ARROW ON A PHONE (2026-11-25): with the name centred in the bar the word does not fit beside
+              it below ~640px, so the arrow alone is the link there, named for screen readers; the word comes back
+              from `sm`.
             */}
             {inChampionSubPage && (
-              <div className="flex items-center gap-2 text-sm min-w-0 navrow:hidden">
-                <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <Link
-                  to="/champions"
-                  className="shrink-0 whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  Champions
-                </Link>
-              </div>
+              <Link
+                to="/champions"
+                aria-label="Back to Champions"
+                className="flex items-center gap-2 text-sm shrink-0 whitespace-nowrap navrow:hidden p-1.5 -ml-1.5 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronLeft className="h-5 w-5 shrink-0" />
+                <span className="hidden sm:inline">Champions</span>
+              </Link>
             )}
           </div>
 
@@ -308,14 +322,17 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
             </div>
           </div>
 
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="navrow:hidden p-2.5 -mr-1 text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="Toggle menu"
-          >
-            {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
+          {/*
+            THE ACCOUNT ALONE ON THE RIGHT OF THE PHONE'S BAR (owner, 2026-11-25: inside the hamburger panel "is not
+            OK"; then the hamburger moved to the left). `ml-auto` pins it to the right edge. Its menu opens down from
+            the bar like the desktop one, and Sign in sits here for a guest, the same slot.
+          */}
+          <div data-nav-account-mobile className="nav-account-mobile navrow:hidden ml-auto pl-2 shrink-0 flex items-center whitespace-nowrap">
+            <Suspense fallback={<div className="w-8 h-8" />}>
+              <UserDropdown />
+            </Suspense>
+          </div>
+
         </div>
 
         {/* Mobile menu */}
@@ -371,11 +388,6 @@ export const Navigation = ({ hidden = false }: { hidden?: boolean }) => {
               </Link>
               <div className="border-t border-border/50 mt-1 pt-2">
                 <MenuThemeChoice />
-              </div>
-              <div className="px-2 pt-2 border-t border-border/50 mt-1">
-                <Suspense fallback={<div className="h-8" />}>
-                  <UserDropdown placement="panel" />
-                </Suspense>
               </div>
             </div>
           </div>

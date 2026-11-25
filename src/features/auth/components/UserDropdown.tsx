@@ -53,10 +53,11 @@ function MenuRow({ to, onClick, icon: RowIcon, children }: { to?: string; onClic
  *
  * A disclosure of links, not an ARIA menu: the trigger says whether it is open and which panel it controls;
  * opening it moves focus to the first row, Escape closes it and returns focus to the trigger, Tab walks the
- * links. In the phone's hamburger panel (`placement="panel"`) it opens in flow at full width, so a taller menu
- * at the bottom of a scrolled panel is never cut off.
+ * links. On a phone it sits in the bar beside the hamburger, not inside its panel (owner, 2026-11-25), and opens
+ * down from the bar the same way; its height is capped at the screen under the bar and it scrolls inside, so on
+ * a short screen (a phone held sideways) Sign out is still reachable.
  */
-export function UserDropdown({ placement = 'nav' }: { placement?: 'nav' | 'panel' }) {
+export function UserDropdown() {
   const { user, signOutUser } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -169,8 +170,9 @@ export function UserDropdown({ placement = 'nav' }: { placement?: 'nav' | 'panel
         <div
           id={panelId}
           ref={panelRef}
-          data-account-menu={placement}
-          className={`account-menu rounded-lg border border-border bg-card shadow-lg py-1 ${placement === 'nav' ? 'absolute right-0 mt-1 w-64 z-50' : 'mt-2 w-full'}`}
+          data-account-menu
+          className="account-menu absolute right-0 mt-1 w-64 z-50 rounded-lg border border-border bg-card shadow-lg py-1 overflow-y-auto overscroll-contain"
+          style={{ maxHeight: 'calc(100dvh - var(--nav-block, 3.5rem) - 0.5rem)' }}
         >
           <div className="account-menu-header">
             <p className="font-semibold text-foreground truncate">{user.username}</p>

@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, FastForward, SlidersHorizontal, TrendingUp } fr
 import { Toggle } from './TrainerUI';
 import { RATING_PRESETS } from '../hooks/usePuzzleSettings';
 import { ThemeListbox } from './ThemeListbox';
+import { logGA4Event } from '@/services/analytics';
 
 /**
  * PUZZLE SETTINGS — the same three rows, the same icons, the same order as
@@ -128,7 +129,11 @@ export function PuzzleSettingsCard({
         <button
           ref={triggerRef}
           type="button"
-          onClick={() => setOpen(o => !o)}
+          onClick={() => {
+            /* #521: whether the picker is found at all, before anything is chosen in it. */
+            if (!open) logGA4Event({ name: 'puzzle_filter_opened', params: { surface: 'settings' } });
+            setOpen(o => !o);
+          }}
           aria-expanded={open}
           data-testid="strength-themes"
           className="w-full text-left flex items-center gap-[calc(var(--card-w,208px)*0.04)] py-[0.16em] text-[length:var(--card-type,14px)] text-muted-foreground hover:text-foreground transition-colors"
@@ -175,7 +180,10 @@ export function PuzzleSettingsCard({
             */}
             <ThemeListbox
               value={theme}
-              onChange={onThemeChange}
+              onChange={(next) => {
+                logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'theme', value: next || 'all', surface: 'settings' } });
+                onThemeChange(next);
+              }}
             />
           </div>
           <div>
@@ -185,7 +193,10 @@ export function PuzzleSettingsCard({
             <div className="flex gap-1.5 flex-wrap">
               <button
                 type="button"
-                onClick={() => onFilterModeChange('auto')}
+                onClick={() => {
+                  logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'strength', value: 'auto', surface: 'settings' } });
+                  onFilterModeChange('auto');
+                }}
                 className={`text-xs py-1.5 px-2.5 rounded border transition-all ${
                   filterMode === 'auto'
                     ? 'border-primary bg-primary/10 text-link'
@@ -198,6 +209,7 @@ export function PuzzleSettingsCard({
                   key={preset.label}
                   type="button"
                   onClick={() => {
+                    logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'strength', value: preset.label, surface: 'settings' } });
                     onFilterModeChange('manual');
                     onRatingRangeChange({ min: preset.min, max: preset.max });
                   }}

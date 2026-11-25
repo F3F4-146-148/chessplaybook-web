@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { CheckCircle2, ChevronRight, Compass, Eye, Lightbulb, RotateCcw, Signal, Swords, Target, TrendingUp, WifiOff, XCircle } from 'lucide-react';
 import type { GameCardLines } from '../lib/gamePuzzleSource';
 import { Action, LiveStatus } from './TrainerUI';
+import { logGA4Event } from '@/services/analytics';
 import { MasterPortrait } from '@/components/master/MasterPortrait';
 import { MASTER_LIVE } from '@/design/designFlags';
 import { linesForPuzzle, linesToPreload, missedLineOn, noteLineReached, notePuzzleOutcome, puzzleMasterMoment, puzzleVoiceLine } from './puzzleMasterMoment';
@@ -189,6 +190,13 @@ export function PuzzleLiveCard({
   /* `correct` or `solution`: resolved, and neither ever reverts. Disjoint from
      `revealable`, so the one slot never offers both. */
   const explainable = Boolean(onExplain) && (status === 'correct' || status === 'solution');
+  /* #521: the Explain button shown, once per puzzle, the denominator of the explanations opened. */
+  const offeredFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!explainable || !puzzleId || offeredFor.current === puzzleId) return;
+    offeredFor.current = puzzleId;
+    logGA4Event({ name: 'puzzle_explain_offered', params: { outcome: status === 'correct' ? 'solved' : 'revealed', in_run: Boolean(sessionId) } });
+  }, [explainable, puzzleId, status, sessionId]);
   const resolvedGame = (status === 'correct' || status === 'solution') && !exploring ? gameLines : null;
   const gameLink = !explainable ? resolvedGame?.href ?? null : null;
   const rowShown = revealable || explainable || gameLink != null;

@@ -393,8 +393,17 @@
     [data-nav-wordmark]` outweighs the `hidden` utility on it, which is why this
     is a rule here rather than a class change in the component.
   */
-  [data-nav-row] a[class*="md:hidden"] {
-    display: none;
+  /*
+    SUPERSEDED ON 2026-11-25 (owner, from a mockup): the hamburger moved to the left and the account to the right,
+    so the phone's bar is hamburger, the name centred, the account, and the home icon and the name beside it are
+    desktop only. The centred name is centred on the BAR (absolute), so it sits in the middle whatever the two
+    ends hold. Absolute here, not by utility: the 24x24 target rule above sets every link `position: relative`.
+  */
+  [data-nav-row] > [data-nav-center-title] {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: calc(var(--nav-row-stacked) * 0.4);
   }
   [data-nav-row] [data-nav-wordmark] {
     display: inline;
@@ -1658,7 +1667,8 @@
 }
 :root[data-design="v2"]:not([data-theme="light"]) [data-nav-row] [data-wordmark-accent] { color: hsl(var(--link)); }
 :root[data-design="v2"]:not([data-theme="light"]) .nav-account-slot button,
-:root[data-design="v2"]:not([data-theme="light"]) .nav-account-slot a {
+:root[data-design="v2"]:not([data-theme="light"]) .nav-account-slot a,
+:root[data-design="v2"]:not([data-theme="light"]) .nav-account-mobile > a {
   border-radius: 9999px;
 }
 
@@ -2169,6 +2179,29 @@
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+
+/*
+  THE ACCOUNT IN THE PHONE'S BAR, BESIDE THE HAMBURGER (owner, 2026-11-25). The trigger carries no classes of its
+  own (the desktop row sizes it through `.nav-account-slot`), so here: the circle and the arrow on one line, a
+  28px circle (owner, 2026-11-25: at 32px in the 38px bar it nearly touched the screen's top edge; 28 leaves 5px
+  above and below and keeps it on the hamburger's centre line), and a target as tall as the bar allows (36px in its 38).
+*/
+.nav-account-mobile > div > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 36px;
+  padding: 0 4px;
+  font-size: 16px;
+}
+.nav-account-mobile > div > button > [data-account-avatar] {
+  width: 28px;
+  height: 28px;
+}
+.nav-account-mobile > div > button svg.account-chevron {
+  width: 16px;
+  height: 16px;
 }
 
 /* The account trigger's initial (owner, 2026-11-24): bold on the solid gold circle, sized to the circle's em. */

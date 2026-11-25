@@ -294,6 +294,16 @@ type GA4Event =
   // The explanation panel on /puzzles (2026-10-21). `outcome` separates a
   // solver checking why it worked from one who gave up.
   | { name: 'puzzle_explanation_opened'; params: { outcome: 'solved' | 'revealed'; puzzle_rating: number; in_run: boolean } }
+  // The Explain button shown after a solve or a reveal, once per puzzle: the denominator of
+  // puzzle_explanation_opened (#521).
+  | { name: 'puzzle_explain_offered'; params: { outcome: 'solved' | 'revealed'; in_run: boolean } }
+  // What a solver chooses to train (#521): the settings card's picker opened, and each choice made there or on
+  // the run setup card. `value` is the choice ('auto' or a band label for strength, a theme key, an area, a length).
+  | { name: 'puzzle_filter_opened'; params: { surface: 'settings' } }
+  | { name: 'puzzle_filter_changed'; params: { kind: 'theme' | 'strength' | 'area' | 'mode' | 'length'; value: string; surface: 'settings' | 'run_setup' } }
+  // A card of /puzzles at least half on screen, once per card per page load (#521): whether stacked (phone)
+  // visitors ever reach the lower cards.
+  | { name: 'puzzle_card_seen'; params: { card: string; layout: 'columns' | 'stacked' } }
   | { name: 'puzzle_explanation_result'; params: { status: 'ready' | 'pending' | 'limited' | 'unavailable' } }
   | { name: 'puzzle_explanation_closed'; params: { ms_open: number; via: 'close' | 'next_puzzle' } }
   /** B3: the "About this trainer" panel opened from the Go to card. */

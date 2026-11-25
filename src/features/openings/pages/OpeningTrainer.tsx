@@ -30,6 +30,9 @@ import { applyMove, positionFromFen } from '@/components/chess/chessLogic';
 import { fetchRepertoires, type RepertoireListing, type TrainingScope } from '../services/openingsApi';
 import { REPERTOIRE_SUITS, WRITTEN_STARTERS, WELCOME_END, WELCOME_GOALS, WELCOME_INTRO, readLastRepertoire, welcomeTexts, writeLastRepertoire, type WelcomeGoal } from '../welcome';
 
+/** How long each goal of the opening stays marked when they play without his voice. */
+const GOAL_CYCLE_MS = 4000;
+
 /** What the Master says on the welcome (#337), one stable list. */
 const WELCOME_TEXTS = welcomeTexts();
 import { logGA4Event } from '@/services/analytics';
@@ -525,7 +528,20 @@ export default function OpeningTrainer() {
   // in training he says hints, not reasons, so no reason is marked as being said
   // on the welcome his line 0 is the intro, so goal i is his line i + 1 (#337)
   const saying = training || voice.lineIndex === null ? null : voice.lineIndex - (welcome ? 1 : spokenFirst.length);
-  const activeReason = picked && picked.id === sayId ? picked.i : saying !== null && saying >= 0 ? saying : null;
+  /*
+    THE GOALS PLAY BY THEMSELVES WITHOUT HIS VOICE (owner, 2026-11-26: "so the experience matches the video"): with the
+    voice off, or before or after he reads, each goal is marked in turn and its marks drawn, GOAL_CYCLE_MS apart, from
+    the first goal and round again. A press on a goal, or his voice reading one, takes over.
+  */
+  const autoCycle = welcome && saying === null && !(picked && picked.id === sayId);
+  const [autoGoal, setAutoGoal] = useState(0);
+  useEffect(() => {
+    if (!autoCycle) return;
+    const t = setInterval(() => setAutoGoal((g) => (g + 1) % WELCOME_GOALS.length), GOAL_CYCLE_MS);
+    return () => clearInterval(t);
+  }, [autoCycle]);
+  const activeReason = picked && picked.id === sayId ? picked.i : saying !== null && saying >= 0 ? saying
+    : autoCycle ? autoGoal : null;
   const active = activeReason !== null && activeReason < shownReasons.length ? shownReasons[activeReason] : null;
   // explaining the opponent's move, its idea is their plan (blue, as Chess.com's coach)
   const theirMove = training ? train.last?.ours === false : !!last && !last.ours;
