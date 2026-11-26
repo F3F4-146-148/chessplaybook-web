@@ -38,6 +38,15 @@ export const GAME_SHORTS: Record<number, GameShort> = {
     uploaded: '2026-11-25',
     duration: 'PT55S',
   },
+  2: {
+    id: 'fobpyy0YWjY',
+    title: "Gukesh vs Sindarov, Game 2: who's guarding b2? | World Chess Championship 2026",
+    description:
+      "Game 2 of the 2026 World Chess Championship in Geneva: Gukesh's London System, Sindarov's queen on b2 by move seven, and a draw in 20 moves.",
+    poster: '/assets/shorts/wch-2026-game-2-poster.webp',
+    uploaded: '2026-11-25',
+    duration: 'PT48S',
+  },
 };
 
 export function RecapShort({ game, className = 'mb-10' }: { game: number; className?: string }) {

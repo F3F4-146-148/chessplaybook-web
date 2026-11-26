@@ -157,6 +157,8 @@ export function LiveRoundGame({ roundId, pick, goTo, waiting, back, info = defau
         analyticsSurface="live_game"
         boardLabel={`Chess board, ${game.white.name} against ${game.black.name}, ${live ? 'live' : 'finished'}`}
         movesMedia={movesMedia}
+        /* the result under the last move once the game is over (owner, 2026-11-26: as on /play and /play-online) */
+        result={!live && (game.result === '1-0' || game.result === '0-1' || game.result === '1/2-1/2') ? game.result : undefined}
       />
     </>
   );

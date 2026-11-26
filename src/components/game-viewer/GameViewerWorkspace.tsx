@@ -102,10 +102,12 @@ export interface GameViewerWorkspaceProps {
    * half of the card and the list the lower; otherwise it is one row.
    */
   movesMedia?: { content: ReactNode; half: boolean };
+  /** A finished game's result, printed under the last move, centred under the moves, as on /play (2026-11-26). */
+  result?: '1-0' | '0-1' | '1/2-1/2';
 }
 
 export function GameViewerWorkspace({
-  pgn, info, players, goTo, live = false, initialPly, review, analyticsSurface, boardLabel, onPositionChange, movesMedia,
+  pgn, info, players, goTo, live = false, initialPly, review, analyticsSurface, boardLabel, onPositionChange, movesMedia, result,
 }: GameViewerWorkspaceProps) {
   const parsed = useMemo(() => parseGame(pgn), [pgn]);
   const model = parsed.ok ? parsed.game : null;
@@ -245,7 +247,7 @@ export function GameViewerWorkspace({
                     : movesMedia.content)}
                   <div className="flex min-h-0 flex-1 flex-col">
                     <WorkspaceList label="Moves">
-                      <GameMoveList moves={plies.map(p => p.san)} startFen={model?.startFen} currentMoveIndex={ply} onMoveClick={stepTo} scrolls={false} className="text-[0.92em]" />
+                      <GameMoveList moves={plies.map(p => p.san)} startFen={model?.startFen} currentMoveIndex={ply} onMoveClick={stepTo} scrolls={false} result={result} className="text-[0.92em]" />
                     </WorkspaceList>
                   </div>
                   {review && model && (

@@ -145,6 +145,12 @@
   box-shadow: inset 0 0 0 2px hsl(var(--board-mark-them-edge) / 0.75);
 }
 
+/* A square in the idea's gold (the queen's home square in the opening goals' examples, #427). */
+.chess-board-wrapper cg-board square.reason-mark-idea {
+  background-color: hsl(var(--board-mark-idea) / 0.42);
+  box-shadow: inset 0 0 0 2px hsl(var(--board-mark-idea-edge) / 0.75);
+}
+
 /* A puzzle's wrong move while it is held on the board (2026-11-22): both squares soft red, as Chess.com marks it,
    softer than its salmon (owner: gentle). The cross on the landing square is a shape (usePuzzleBoard). */
 .chess-board-wrapper cg-board square.wrong-move { background-color: hsl(var(--board-mark) / 0.35); }

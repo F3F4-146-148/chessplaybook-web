@@ -355,6 +355,8 @@ type GA4Event =
   | { name: 'opening_line_finished'; params: { repertoire: string; trained: boolean } }
   // #337: an opening chosen in the Repertoire card; `from_welcome` when it ended the welcome (a first visit, or asked for again).
   | { name: 'opening_repertoire_chosen'; params: { repertoire: string; from_welcome: boolean } }
+  // the Opening principles item at the top of the list (2026-11-26)
+  | { name: 'opening_principles_opened'; params: { from_repertoire: string } }
   | { name: 'live_full_analysis_opened'; params: { source: 'compact' } }
   | { name: 'review_full_analysis_opened'; params: { source: 'compact' } }
   // PZ-043. Its OWN name, deliberately: `analysis_enabled` means the visitor

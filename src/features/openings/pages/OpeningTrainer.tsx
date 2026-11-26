@@ -29,9 +29,8 @@ import { buildPositionHref } from '@/lib/positionDeepLink';
 import { applyMove, positionFromFen } from '@/components/chess/chessLogic';
 import { fetchRepertoires, type RepertoireListing, type TrainingScope } from '../services/openingsApi';
 import { REPERTOIRE_SUITS, WRITTEN_STARTERS, WELCOME_END, WELCOME_GOALS, WELCOME_INTRO, readLastRepertoire, welcomeTexts, writeLastRepertoire, type WelcomeGoal } from '../welcome';
-
-/** How long each goal of the opening stays marked when they play without his voice. */
-const GOAL_CYCLE_MS = 4000;
+import { goalExampleMs } from '../welcomeExamples';
+import { useWelcomeExample } from '../useWelcomeExample';
 
 /** What the Master says on the welcome (#337), one stable list. */
 const WELCOME_TEXTS = welcomeTexts();
@@ -530,16 +529,16 @@ export default function OpeningTrainer() {
   const saying = training || voice.lineIndex === null ? null : voice.lineIndex - (welcome ? 1 : spokenFirst.length);
   /*
     THE GOALS PLAY BY THEMSELVES WITHOUT HIS VOICE (owner, 2026-11-26: "so the experience matches the video"): with the
-    voice off, or before or after he reads, each goal is marked in turn and its marks drawn, GOAL_CYCLE_MS apart, from
+    voice off, or before or after he reads, each goal is marked in turn and its example played (welcomeExamples.ts, as long as it takes), from
     the first goal and round again. A press on a goal, or his voice reading one, takes over.
   */
   const autoCycle = welcome && saying === null && !(picked && picked.id === sayId);
   const [autoGoal, setAutoGoal] = useState(0);
   useEffect(() => {
     if (!autoCycle) return;
-    const t = setInterval(() => setAutoGoal((g) => (g + 1) % WELCOME_GOALS.length), GOAL_CYCLE_MS);
-    return () => clearInterval(t);
-  }, [autoCycle]);
+    const t = setTimeout(() => setAutoGoal((g) => (g + 1) % WELCOME_GOALS.length), goalExampleMs(autoGoal));
+    return () => clearTimeout(t);
+  }, [autoCycle, autoGoal]);
   const activeReason = picked && picked.id === sayId ? picked.i : saying !== null && saying >= 0 ? saying
     : autoCycle ? autoGoal : null;
   const active = activeReason !== null && activeReason < shownReasons.length ? shownReasons[activeReason] : null;
@@ -547,7 +546,14 @@ export default function OpeningTrainer() {
   const theirMove = training ? train.last?.ours === false : !!last && !last.ours;
   // the marks in the colour of the side that made the move explained (owner, 2026-11-18: White blue, Black red)
   const mover: 'white' | 'black' = welcome ? 'white' : (rep?.side === 'black') !== theirMove ? 'black' : 'white';
-  const marks = useMemo(() => (active ? boardMarks(active.marks, mover) : NO_MARKS), [active?.marks, mover]); // eslint-disable-line react-hooks/exhaustive-deps
+  /*
+    ON THE WELCOME THE BOARD SHOWS THE GOAL BY EXAMPLE (owner, 2026-11-26, the video's positions): the goal being shown
+    plays its scenes, a real opening position with its marks; with none shown, the starting position.
+  */
+  const example = useWelcomeExample(welcome && activeReason !== null && activeReason >= 0 ? activeReason : null);
+  const reasonMarks = useMemo(() => (active ? boardMarks(active.marks, mover) : NO_MARKS), [active?.marks, mover]); // eslint-disable-line react-hooks/exhaustive-deps
+  const exampleMarks = useMemo(() => (example ? boardMarks(example.marks, 'white') : null), [example?.marks]); // eslint-disable-line react-hooks/exhaustive-deps
+  const marks = welcome ? exampleMarks ?? NO_MARKS : reasonMarks;
   const brushes = useMemo(() => reasonBrushes(), []);
   const pickReason = (i: number) => setPicked((p) => (p && p.id === sayId && p.i === i ? { id: sayId, i: -1 } : { id: sayId, i }));
   // E3: a move outside the book is graded by the browser engine (F7), from the position before it to the one after.
@@ -854,9 +860,9 @@ export default function OpeningTrainer() {
               />
             ) : (
               <ChessBoard
-                fen={learnFen}
+                fen={example?.fen ?? learnFen}
                 orientation={orientation}
-                lastMove={learnLast}
+                lastMove={example ? example.lastMove as Key[] | undefined : learnLast}
                 viewOnly={false}
                 dests={learnDests}
                 turnColor={learnTurn}
@@ -1140,9 +1146,32 @@ export default function OpeningTrainer() {
                       and more repertoires are coming. The chosen one is scrolled into view, within the list only.
                     */
                     <div className="flex min-h-0 flex-1 flex-col">
-                    {welcome && <span className="mb-[0.2em] px-[0.5em] text-[0.86em] font-semibold text-foreground">Choose an opening</span>}
                     <WorkspaceList label="Repertoires">
                     <div className="flex flex-col gap-[0.15em]" role="radiogroup" aria-label="Choose a repertoire">
+                      {/*
+                        THE OPENING PRINCIPLES, FIRST IN THE LIST (owner, 2026-11-26: "an item in the opening list at the
+                        very top and visible"). The welcome (#337): a first visit opens on it, and from any opening it is
+                        one press away. Choosing it while training goes back to learning (the welcome is learning only).
+                      */}
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={welcome}
+                        ref={welcome ? scrollChosenIntoList : undefined}
+                        onClick={() => {
+                          if (welcome) return;
+                          logGA4Event({ name: 'opening_principles_opened', params: { from_repertoire: repertoireId ?? '' } });
+                          setParams((prev) => { const n = new URLSearchParams(prev); n.set('welcome', '1'); n.delete('repertoire'); n.delete('from'); n.delete('mode'); return n; });
+                        }}
+                        /* pinned to the top of the list: an opening chosen low in it scrolls the list, never this item away. Its
+                           shadow is a band in the card's colour, then a 1px line in the border's: the rows scrolling under it
+                           stop short of it, behind a divider (owner, 2026-11-26: a half-hidden "Colle System" touched it). */
+                        className={`sticky top-0 z-[1] shadow-[0_0.25em_0_hsl(var(--card)),0_calc(0.25em+1px)_0_hsl(var(--border))] flex w-full flex-col rounded px-[0.5em] py-[0.3em] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${welcome ? 'bg-primary' : 'bg-card hover:bg-muted'}`}
+                      >
+                        {/* one line (owner, 2026-11-26, option 1): the list's room is for the openings, tens of them to come */}
+                        <span className={welcome ? 'font-medium text-primary-foreground' : 'text-foreground'}>Opening principles</span>
+                      </button>
+                      {welcome && <span className="mt-[0.2em] px-[0.5em] text-[0.86em] font-semibold text-foreground">Choose an opening</span>}
                       {(starters ?? WRITTEN_STARTERS).map((s) => {
                         // nothing is chosen on the welcome (#337)
                         const on = !welcome && s.id === repertoireId;
@@ -1178,16 +1207,6 @@ export default function OpeningTrainer() {
                       })}
                     </div>
                     </WorkspaceList>
-                    {/* #337: the welcome again, on request (learning only: training has no welcome) */}
-                    {!welcome && !training && (
-                      <button
-                        type="button"
-                        onClick={() => setParams((prev) => { const n = new URLSearchParams(prev); n.set('welcome', '1'); n.delete('repertoire'); n.delete('from'); return n; })}
-                        className="mt-auto self-start px-[0.5em] pt-[0.3em] text-[0.86em] text-link hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        The goals of the opening
-                      </button>
-                    )}
                     </div>
                   )}
                 </div>

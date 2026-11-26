@@ -28,6 +28,10 @@ export function boardMarks(marks: string | undefined | null, mover: Side): Board
   const squares = new Map<Key, string>();
   for (const m of marks.split(' ')) {
     if (/^[a-h][1-8][a-h][1-8]$/.test(m)) shapes.push({ orig: m.slice(0, 2) as Key, dest: m.slice(2, 4) as Key, brush: `mark-${own}` });
+    // "!e7e5": an arrow of the other side (the opening's goals by example, #427: Black's development beside White's)
+    else if (/^![a-h][1-8][a-h][1-8]$/.test(m)) shapes.push({ orig: m.slice(1, 3) as Key, dest: m.slice(3, 5) as Key, brush: `mark-${other}` });
+    // "*d1": a square in the idea's gold (the queen's home square in the goals' examples)
+    else if (/^\*[a-h][1-8]$/.test(m)) squares.set(m.slice(1) as Key, 'reason-mark-idea');
     else if (/^[a-h][1-8]$/.test(m)) squares.set(m as Key, `reason-mark-${own}`);
     else if (/^![a-h][1-8]$/.test(m)) squares.set(m.slice(1) as Key, `reason-mark-${other}`);
     // "~d3": a light tint (the squares a centralised knight now sees, owner 2026-11-18)
