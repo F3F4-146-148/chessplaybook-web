@@ -148,3 +148,49 @@ export function buildPlanCalendarFromItems(
 
   return weeks;
 }
+
+/**
+ * A calendar row as the page draws it: a week, or a run of weeks with no session.
+ *
+ * #549, 2026-11-27. When missed sessions are moved forward, the days they left
+ * become empty days, and the calendar drew every one of them as rest: a 4-week
+ * plan picked up in November showed 13 weeks of "R" from August. A run of whole
+ * weeks without a session is now one row, "No sessions from 25 Aug to 22 Nov",
+ * which is true where "rest" was not. The weeks themselves are unchanged
+ * (`buildPlanCalendar` still returns every one); this is display only.
+ *
+ * `label` numbers the weeks that are drawn, so the first week with sessions is
+ * W1 again. A week holding today is never folded away.
+ */
+export type PlanCalendarRow =
+  | { kind: 'week'; week: PlanCalendarWeek; label: number }
+  | { kind: 'gap'; from: string; to: string; weeks: number };
+
+export function collapseEmptyWeeks(weeks: PlanCalendarWeek[]): PlanCalendarRow[] {
+  const rows: PlanCalendarRow[] = [];
+  let run: PlanCalendarWeek[] = [];
+  let label = 0;
+  const flush = () => {
+    if (run.length === 0) return;
+    const days = run.flatMap(week => week.days);
+    const inPlan = days.filter(day => day.inPlan);
+    const span = inPlan.length > 0 ? inPlan : days;
+    rows.push({ kind: 'gap', from: span[0].iso, to: span[span.length - 1].iso, weeks: run.length });
+    run = [];
+  };
+  for (const week of weeks) {
+    if (week.totalItems === 0 && !week.days.some(day => day.isToday)) {
+      run.push(week);
+    } else {
+      flush();
+      rows.push({ kind: 'week', week, label: ++label });
+    }
+  }
+  flush();
+  return rows;
+}
+
+/** The weeks that hold a session: the plan's length as the player sees it (#549). */
+export function weeksWithSessions(weeks: PlanCalendarWeek[]): number {
+  return weeks.filter(week => week.totalItems > 0).length;
+}

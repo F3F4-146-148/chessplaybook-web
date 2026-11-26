@@ -92,7 +92,10 @@ export interface UsePlanResult {
 
   generate: (input: { sessionsPerWeek: number; positionsPerSession: number; weeks: number })
     => Promise<GeneratedPlan | null>;
-  commit: () => Promise<TrainingPlan | null>;
+  /** `replaces` (#549): the active plan this one takes the place of, stopped in the same act. */
+  commit: (replaces?: string) => Promise<TrainingPlan | null>;
+  /** #549: "Pick up from today", the reflow the offer holds back. */
+  pickUp: () => Promise<boolean>;
   start: (itemId: string) => Promise<boolean>;
   abandon: () => Promise<boolean>;
   clearPreview: () => void;
@@ -100,6 +103,17 @@ export interface UsePlanResult {
   clearJustCreated: () => void;
   /** Re-read the plan from the server. Exposed for the page's Back behaviour. */
   refresh: () => Promise<void>;
+}
+
+/**
+ * A pending training day after a pending final review (#549): the order the old
+ * reflow left 9 of 21 production plans in. The server repairs it on a reflow.
+ */
+export function orderBroken(plan: TrainingPlan): boolean {
+  const review = plan.items.filter(i => i.kind === 'review' && i.status === 'pending')
+    .map(i => i.scheduledOn).sort()[0];
+  return review != null
+    && plan.items.some(i => i.kind !== 'review' && i.status === 'pending' && i.scheduledOn > review);
 }
 
 /**
@@ -255,10 +269,17 @@ export function usePlan({
       finding.
     */
     const today = localToday();
-    if (!plan.items.some(i => i.status === 'pending' && i.scheduledOn < today)) return;
+    /*
+      #549: also when the plan is out of order (a training day after the final
+      review), which plans moved by the old rule are; one reflow repairs it. And
+      NOT while the page is offering a new plan: then the player chooses between
+      a new plan and picking up from today, and picking up is this reflow.
+    */
+    if (plan.offerNewPlan) return;
+    if (!plan.items.some(i => i.status === 'pending' && i.scheduledOn < today) && !orderBroken(plan)) return;
     let alive = true;
     reflowPlan(plan.id)
-      .then(result => { if (alive && result.moved > 0) setPlan(result.plan); })
+      .then(result => { if (alive && (result.changed || result.moved > 0)) setPlan(result.plan); })
       .catch(() => { /* the plan still reads correctly; the dates are just stale */ });
     return () => { alive = false; };
     // Deliberately keyed on the plan ID alone: re-running on every plan object
@@ -282,12 +303,28 @@ export function usePlan({
     }
   }, []);
 
-  const commit = useCallback(async () => {
+  const pickUp = useCallback(async () => {
+    if (!plan) return false;
+    setBusy(true);
+    setError(null);
+    try {
+      // The reflowed plan carries no `offerNewPlan`, so the offer goes with it.
+      setPlan((await reflowPlan(plan.id)).plan);
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not move your sessions');
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }, [plan]);
+
+  const commit = useCallback(async (replaces?: string) => {
     if (!preview) return null;
     setBusy(true);
     setError(null);
     try {
-      const created = await createPlan(preview);
+      const created = await createPlan(preview, replaces);
       setPlan(created);
       setPreview(null);
       setJustCreated(true);
@@ -358,7 +395,7 @@ export function usePlan({
   return {
     plan, preview, busy, error, justCreated, loading,
     activeItem, nextItem, owedItems, nextDayTotal,
-    generate, commit, start, abandon, refresh,
+    generate, commit, pickUp, start, abandon, refresh,
     clearPreview: useCallback(() => setPreview(null), []),
     clearError: useCallback(() => setError(null), []),
     clearJustCreated: useCallback(() => setJustCreated(false), []),

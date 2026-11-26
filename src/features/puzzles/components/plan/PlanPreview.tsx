@@ -21,10 +21,12 @@ export interface PlanPreviewProps {
   error?: string | null;
   /** See `PlanSetup.boxed` — the page draws its own container. */
   boxed?: boolean;
+  /** #549: this plan replaces the active one, which stops when it starts. */
+  replacing?: boolean;
 }
 
 export function PlanPreview({
-  preview, onCommit, onChange, busy = false, error = null, boxed = true,
+  preview, onCommit, onChange, busy = false, error = null, boxed = true, replacing = false,
 }: PlanPreviewProps) {
   const s = preview.summary;
   const items: PlanItem[] = preview.items.map((item, index) => ({
@@ -114,6 +116,11 @@ export function PlanPreview({
         />
       </div>
 
+      {replacing && (
+        <p className="mt-3 text-xs text-muted-foreground" data-testid="plan-replaces-note">
+          This replaces your current plan. Everything you solved stays on your record.
+        </p>
+      )}
       <div className="mt-3 flex gap-2">
         <button
           type="button"

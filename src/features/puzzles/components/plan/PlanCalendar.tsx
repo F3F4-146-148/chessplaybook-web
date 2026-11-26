@@ -2,6 +2,7 @@ import { ArrowRight, CalendarDays, Check, RotateCcw } from 'lucide-react';
 
 import { Section } from '@/features/puzzles/components/TrainerUI';
 
+import { collapseEmptyWeeks } from '../../lib/planCalendar';
 import type { PlanCalendarBlock, PlanCalendarWeek } from '../../lib/planCalendar';
 import type { PlanItem } from '../../services/PlanApi';
 import { AREA_LABEL, dayLabel } from './planFormat';
@@ -27,11 +28,14 @@ interface PlanCalendarProps {
 export function PlanCalendar({
   weeks, activeItem, nextItem, busy, onStart, readOnly = false,
 }: PlanCalendarProps) {
+  // #549: a run of weeks with no session is one row, not weeks of "rest".
+  const rows = collapseEmptyWeeks(weeks);
+  const drawn = rows.flatMap(row => (row.kind === 'week' ? [row.week] : []));
   return (
     <Section
       title="Training schedule"
       icon={<CalendarDays className="h-4 w-4" />}
-      aside={<span className="text-xs font-medium normal-case tracking-normal text-foreground">{monthRange(weeks)}</span>}
+      aside={<span className="text-xs font-medium normal-case tracking-normal text-foreground">{monthRange(drawn)}</span>}
       testId="plan-schedule"
       className="h-full p-2.5"
     >
@@ -44,16 +48,27 @@ export function PlanCalendar({
         </div>
 
         <div className="overflow-hidden rounded-md border border-border/60">
-          {weeks.map(week => (
+          {rows.map(row => row.kind === 'gap' ? (
             <div
-              key={week.startsOn}
+              key={`gap-${row.from}`}
+              className="grid grid-cols-[3rem_minmax(0,1fr)] border-b border-border/60 last:border-b-0"
+              data-plan-gap={row.weeks}
+            >
+              <div className="bg-muted/20" aria-hidden="true" />
+              <div className="flex min-h-9 items-center justify-center border-l border-border/60 px-2 text-xs text-muted-foreground">
+                {gapLabel(row.from, row.to)}
+              </div>
+            </div>
+          ) : (
+            <div
+              key={row.week.startsOn}
               className="grid grid-cols-[3rem_repeat(7,minmax(0,1fr))] border-b border-border/60 last:border-b-0"
-              data-plan-week={week.index}
+              data-plan-week={row.week.index}
             >
               <div className="flex items-center justify-center bg-muted/20 px-1 text-[11px] text-muted-foreground">
-                W{week.index}
+                W{row.label}
               </div>
-              {week.days.map(day => (
+              {row.week.days.map(day => (
                 <div
                   key={day.iso}
                   className={`min-h-14 min-w-0 border-l border-border/60 p-1 ${
@@ -91,13 +106,22 @@ export function PlanCalendar({
       </div>
 
       <div className="mt-3 space-y-3 sm:hidden" data-testid="plan-calendar-agenda">
-        {weeks.map(week => {
+        {rows.map(row => {
+          if (row.kind === 'gap') {
+            return (
+              <p key={`gap-${row.from}`} data-plan-gap={row.weeks}
+                className="rounded-md border border-dashed border-border/60 p-2 text-center text-xs text-muted-foreground">
+                {gapLabel(row.from, row.to)}
+              </p>
+            );
+          }
+          const week = row.week;
           const blocks = week.days.flatMap(day => day.blocks);
           const completed = blocks.filter(block => block.status === 'completed').length;
           return (
             <section key={week.startsOn} data-plan-week={week.index}>
               <div className="mb-1.5 flex items-center justify-between gap-3 text-xs">
-                <h3 className="font-semibold text-foreground">Week {week.index}</h3>
+                <h3 className="font-semibold text-foreground">Week {row.label}</h3>
                 <span className="text-muted-foreground">{completed} of {blocks.length} complete</span>
               </div>
               <div className="divide-y divide-border/60 rounded-md border border-border/60">
@@ -261,6 +285,13 @@ function monthRange(weeks: PlanCalendarWeek[]): string {
   if (firstMonth === lastMonth && firstYear === lastYear) return `${firstMonth} ${firstYear}`;
   if (firstYear === lastYear) return `${firstMonth} – ${lastMonth} ${lastYear}`;
   return `${firstMonth} ${firstYear} – ${lastMonth} ${lastYear}`;
+}
+
+/** "No sessions from 25 Aug to 22 Nov" (#549). */
+function gapLabel(from: string, to: string): string {
+  const format = (iso: string) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })
+    .format(utcFromIso(iso));
+  return from === to ? `No sessions on ${format(from)}` : `No sessions from ${format(from)} to ${format(to)}`;
 }
 
 function shortMonthDay(iso: string): string {

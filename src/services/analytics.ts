@@ -457,6 +457,12 @@ type GA4Event =
   | { name: 'plan_setup_opened'; params: { from: 'card' | 'offer' | 'page' } }
   | { name: 'plan_details_opened'; params: { from: 'card' } }
   /*
+    #549: after three weeks away the plan page offers a new plan. `shown` once
+    per visit that shows it; `new_plan` / `pick_up` for the choice. Register
+    `action` as a GA4 event parameter when this ships.
+  */
+  | { name: 'plan_renew_offer'; params: { action: 'shown' | 'new_plan' | 'pick_up' } }
+  /*
     The training record's success test (#107): of the players who open it, how
     many act on its next step. `viewed` is the denominator and carries the step
     that was shown, so a low click rate can be read per kind of advice rather

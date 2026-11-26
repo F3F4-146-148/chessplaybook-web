@@ -38,6 +38,7 @@ import { usePlan } from '../hooks/usePlan';
 import { PlanDetails } from '../components/plan/PlanDetails';
 import { PlanPreview } from '../components/plan/PlanPreview';
 import { PlanSetup } from '../components/plan/PlanSetup';
+import { DURATIONS } from '../components/plan/planFormat';
 
 export default function PuzzlePlan() {
   const navigate = useNavigate();
@@ -48,7 +49,7 @@ export default function PuzzlePlan() {
     plan, preview, busy, error,
     justCreated, clearJustCreated, clearPreview, loading,
     activeItem, nextItem, nextDayTotal,
-    generate, commit, start, abandon, refresh,
+    generate, commit, pickUp, start, abandon, refresh,
   } = usePlan();
 
   const [sessionsPerWeek, setSessionsPerWeek] = useState(3);
@@ -56,6 +57,35 @@ export default function PuzzlePlan() {
   const [weeks, setWeeks] = useState(4);
   const [configuring, setConfiguring] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
+  /** #549: the plan being built takes the place of the active one. */
+  const [replacing, setReplacing] = useState(false);
+
+  /*
+    #549: THE OFFER AFTER THREE WEEKS AWAY. Counted once per plan shown with it.
+    "Start a new plan" opens the same three questions, answered as the old plan
+    was, and the plan built replaces it in one act on the server.
+  */
+  const offerPlanId = plan?.offerNewPlan ? plan.id : null;
+  useEffect(() => {
+    if (offerPlanId) logGA4Event({ name: 'plan_renew_offer', params: { action: 'shown' } });
+  }, [offerPlanId]);
+
+  const onNewPlan = useCallback(() => {
+    if (!plan) return;
+    const days = new Set(plan.items.map(i => i.scheduledOn)).size;
+    const planned = Math.max(1, Math.round(days / plan.sessionsPerWeek));
+    const nearest = [...DURATIONS].sort((a, b) => Math.abs(a - planned) - Math.abs(b - planned))[0];
+    setSessionsPerWeek(plan.sessionsPerWeek);
+    setPositionsPerSession(plan.positionsPerSession);
+    setWeeks(nearest);
+    setReplacing(true);
+    setConfiguring(true);
+    logGA4Event({ name: 'plan_renew_offer', params: { action: 'new_plan' } });
+  }, [plan]);
+
+  const onPickUp = useCallback(async () => {
+    if (await pickUp()) logGA4Event({ name: 'plan_renew_offer', params: { action: 'pick_up' } });
+  }, [pickUp]);
 
   /*
     `?mode=setup` opens the three questions directly.
@@ -137,8 +167,9 @@ export default function PuzzlePlan() {
 
   const onCommit = useCallback(async () => {
     const summary = preview?.summary;
-    const created = await commit();
+    const created = await commit(replacing && plan ? plan.id : undefined);
     if (!created || !summary) return;
+    setReplacing(false);
     logGA4Event({
       name: 'plan_created',
       params: {
@@ -150,7 +181,7 @@ export default function PuzzlePlan() {
         surface: 'plan_page',
       },
     });
-  }, [commit, preview]);
+  }, [commit, preview, replacing, plan]);
 
   /*
     STARTING A SESSION FROM HERE ENDS UP IN THE TRAINER, and it has to.
@@ -209,6 +240,7 @@ export default function PuzzlePlan() {
             onChange={() => { clearPreview(); setConfiguring(true); }}
             busy={busy}
             error={error}
+            replacing={replacing && plan != null}
           />
         ) : configuring ? (
           <PlanSetup
@@ -219,7 +251,7 @@ export default function PuzzlePlan() {
             onPositionsPerSession={setPositionsPerSession}
             onWeeks={setWeeks}
             onGenerate={onGenerate}
-            onCancel={() => setConfiguring(false)}
+            onCancel={() => { setConfiguring(false); setReplacing(false); }}
             busy={busy}
             error={error}
             reminders={<RemindersSwitch signedIn={!!user} source="plan" compact />}
@@ -232,6 +264,8 @@ export default function PuzzlePlan() {
             nextDayTotal={nextDayTotal}
             onStart={onStart}
             onAbandon={onAbandon}
+            onNewPlan={onNewPlan}
+            onPickUp={onPickUp}
             busy={busy}
             error={error}
             justCreated={justCreated}

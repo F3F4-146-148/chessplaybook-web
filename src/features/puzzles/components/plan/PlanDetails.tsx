@@ -2,7 +2,7 @@ import { ArrowLeft, CalendarDays, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { RemindersSwitch } from '@/features/reminders/RemindersSwitch';
-import { buildPlanCalendar } from '../../lib/planCalendar';
+import { buildPlanCalendar, weeksWithSessions } from '../../lib/planCalendar';
 import type { PlanItem, TrainingPlan } from '../../services/PlanApi';
 import { PlanCalendar } from './PlanCalendar';
 import { PlanCalendarExport } from './PlanCalendarExport';
@@ -15,6 +15,9 @@ export interface PlanDetailsProps {
   nextDayTotal: number;
   onStart: (itemId: string, area: string, total: number, kind: string) => void;
   onAbandon: () => void;
+  /** #549: the offer after three weeks away. */
+  onNewPlan?: () => void;
+  onPickUp?: () => void;
   busy?: boolean;
   error?: string | null;
   justCreated?: boolean;
@@ -27,15 +30,22 @@ export interface PlanDetailsProps {
 
 export function PlanDetails({
   plan, activeItem, nextItem, nextDayTotal, onStart, onAbandon,
-  busy = false, error = null, justCreated = false, onDismissJustCreated,
+  onNewPlan, onPickUp, busy = false, error = null, justCreated = false, onDismissJustCreated,
   signedIn, returnTo, confirmStop, onConfirmStop,
 }: PlanDetailsProps) {
   const weeks = buildPlanCalendar(plan);
+  // #549: the weeks that hold a session, as the calendar draws them, and the last day.
+  const lastDay = plan.items.map(i => i.scheduledOn).sort().at(-1);
+  const offer = Boolean(plan.offerNewPlan) && !activeItem && onNewPlan != null && onPickUp != null;
 
   return (
     <div className="grid items-stretch gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] lg:grid-rows-[auto_auto_1fr]" data-testid="plan-panel">
-      <NextSessionCard activeItem={activeItem} nextItem={nextItem} nextDayTotal={nextDayTotal}
-        busy={busy} onStart={onStart} />
+      {offer ? (
+        <NewPlanOfferCard busy={busy} onNewPlan={onNewPlan!} onPickUp={onPickUp!} />
+      ) : (
+        <NextSessionCard activeItem={activeItem} nextItem={nextItem} nextDayTotal={nextDayTotal}
+          busy={busy} onStart={onStart} />
+      )}
 
       <div className="h-full lg:col-start-1 lg:row-span-3 lg:row-start-1">
         <PlanCalendar weeks={weeks} activeItem={activeItem} nextItem={nextItem}
@@ -50,7 +60,10 @@ export function PlanDetails({
           <span className="text-xs text-muted-foreground">{plan.progress.completed}/{plan.progress.items} sessions</span>
         </div>
         <div className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 border-t border-border/60 pt-1.5 text-xs text-muted-foreground">
-          <span><strong className="text-foreground">{weeks.length}</strong> weeks</span>
+          <span>
+            <strong className="text-foreground">{weeksWithSessions(weeks)}</strong> weeks
+            {lastDay ? `, ends ${endLabel(lastDay)}` : ''}
+          </span>
           <span><strong className="text-foreground">{plan.sessionsPerWeek}</strong> sessions/week</span>
           <span><strong className="text-foreground">{plan.positionsPerSession}</strong> per session</span>
           <span><strong className="text-foreground">{plan.progress.positionsDone}</strong>/{plan.progress.positions} positions</span>
@@ -95,6 +108,45 @@ export function PlanDetails({
 
       <div className="h-full lg:col-start-2"><PlanCalendarExport plan={plan} /></div>
     </div>
+  );
+}
+
+/** "19 Dec" (#549). */
+function endLabel(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+/**
+ * #549: after three weeks with nothing done and sessions missed, the card asks
+ * before the plan is moved again. A new plan stops this one (never deletes it:
+ * owner, 2026-11-27); "Pick up from today" moves the sessions as before. Same
+ * rows as the Next session card, so the column does not change height.
+ */
+function NewPlanOfferCard({ busy, onNewPlan, onPickUp }: {
+  busy: boolean;
+  onNewPlan: () => void;
+  onPickUp: () => void;
+}) {
+  return (
+    <section className="surface-card surface-card-promoted rounded-lg p-2.5 lg:col-start-2 lg:row-start-1"
+      data-testid="plan-renew-offer">
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">Been away?</p>
+      <p className="mt-0.5 font-semibold text-foreground">Start a new plan?</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">It's been over three weeks since your last session.</p>
+      <div className="mt-1.5 flex items-start gap-2">
+        {/* No icon and tight padding: both labels stay on one line from 360px up. The
+            outline's 1px is taken off its padding so both buttons are the Next session
+            card's button height and the card does not change size. */}
+        <button type="button" disabled={busy} onClick={onNewPlan}
+          className="flex-1 whitespace-nowrap rounded-lg bg-primary px-1.5 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
+          Start a new plan
+        </button>
+        <button type="button" disabled={busy} onClick={onPickUp}
+          className="flex-1 whitespace-nowrap rounded-lg border border-border px-1.5 py-[5px] text-sm text-muted-foreground hover:bg-accent/40 hover:text-foreground disabled:opacity-50">
+          Pick up from today
+        </button>
+      </div>
+    </section>
   );
 }
 

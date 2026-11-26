@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import type { PlanItem, TrainingPlan } from '../services/PlanApi';
-import { buildPlanCalendar, calendarBlocksForDay, groupPlanItemsByDay } from './planCalendar';
+import {
+  buildPlanCalendar, calendarBlocksForDay, collapseEmptyWeeks, groupPlanItemsByDay, weeksWithSessions,
+} from './planCalendar';
 
 function item(overrides: Partial<PlanItem> = {}): PlanItem {
   return {
@@ -88,5 +90,44 @@ describe('plan calendar grouping', () => {
     expect(weeks[0].days.find(day => day.iso === '2026-08-08')?.isRest).toBe(true);
     expect(weeks[0].completedItems).toBe(0);
     expect(weeks[0].totalItems).toBe(1);
+  });
+});
+
+describe('collapsed empty weeks (#549)', () => {
+  // The owner's plan: started 25 Aug, every session moved to 24 Nov - 19 Dec.
+  const moved = ['2026-11-24', '2026-11-26', '2026-11-28', '2026-12-01', '2026-12-03', '2026-12-19']
+    .map((scheduledOn, n) => item({ id: `m-${n}`, scheduledOn }));
+  const owners = plan(moved, { startsOn: '2026-08-25', endsOn: '2026-12-19' });
+
+  it('folds the weeks before the first session into one row', () => {
+    const weeks = buildPlanCalendar(owners, '2026-11-27');
+    expect(weeks).toHaveLength(17);
+    const rows = collapseEmptyWeeks(weeks);
+    expect(rows[0]).toEqual({ kind: 'gap', from: '2026-08-25', to: '2026-11-22', weeks: 13 });
+    expect(rows[1]).toMatchObject({ kind: 'week', label: 1 });
+    expect(rows[1].kind === 'week' && rows[1].week.startsOn).toBe('2026-11-23');
+  });
+
+  it('folds a gap in the middle too, and numbers only the weeks drawn', () => {
+    const rows = collapseEmptyWeeks(buildPlanCalendar(owners, '2026-11-27'));
+    // Weeks of 30 Nov and 14 Dec have sessions; 7 Dec does not.
+    const kinds = rows.map(row => row.kind === 'gap' ? `gap:${row.weeks}` : `W${row.label}`);
+    expect(kinds).toEqual(['gap:13', 'W1', 'W2', 'gap:1', 'W3']);
+  });
+
+  it('never folds the week holding today', () => {
+    const rows = collapseEmptyWeeks(buildPlanCalendar(owners, '2026-10-07'));
+    expect(rows.some(row => row.kind === 'week' && row.week.days.some(day => day.isToday))).toBe(true);
+  });
+
+  it('leaves a plan without gaps as it was', () => {
+    const fresh = plan([item({ scheduledOn: '2026-08-10' }), item({ id: 'b', scheduledOn: '2026-08-17' })],
+      { startsOn: '2026-08-10', endsOn: '2026-08-23' });
+    const rows = collapseEmptyWeeks(buildPlanCalendar(fresh, '2026-08-09'));
+    expect(rows.map(row => row.kind)).toEqual(['week', 'week']);
+  });
+
+  it('counts the weeks that hold a session as the plan length', () => {
+    expect(weeksWithSessions(buildPlanCalendar(owners, '2026-11-27'))).toBe(3);
   });
 });

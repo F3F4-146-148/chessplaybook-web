@@ -52,6 +52,12 @@ export interface TrainingPlan {
   endedAt: string | null;
   items: PlanItem[];
   progress: PlanProgress;
+  /**
+   * #549: sessions were missed and nothing has been done for three weeks, so the
+   * page offers a new plan. Only `fetchActivePlan` carries it (it needs the
+   * player's date); a plan from any other call reads as no offer.
+   */
+  offerNewPlan?: boolean;
 }
 
 export interface GeneratedPlanSummary {
@@ -105,6 +111,8 @@ export function startPlanItem(planId: string, itemId: string): Promise<TrainingP
 /** Catch the calendar up after missed days. Placement only. */
 export function reflowPlan(planId: string): Promise<{
   plan: TrainingPlan; moved: number; overflow: number; extended: boolean;
+  /** Any date changed: a plan repaired into order moves days with nothing missed (#549). */
+  changed?: boolean;
 }> {
   return request(`/plans/${planId}/reflow`, {
     method: 'POST',
@@ -205,11 +213,17 @@ export function generatePlan(input: GenerateInput): Promise<GeneratedPlan> {
   });
 }
 
-/** Commit the plan the player has just read. */
-export function createPlan(plan: GeneratedPlan): Promise<TrainingPlan> {
+/**
+ * Commit the plan the player has just read.
+ *
+ * `replaces` (#549): the id of the active plan this one takes the place of. The
+ * server stops that plan and creates this one in one act.
+ */
+export function createPlan(plan: GeneratedPlan, replaces?: string): Promise<TrainingPlan> {
   return request<TrainingPlan>('/plans', {
     method: 'POST',
     body: JSON.stringify({
+      ...(replaces ? { replaces } : {}),
       sessionsPerWeek: plan.sessionsPerWeek,
       positionsPerSession: plan.positionsPerSession,
       startsOn: plan.startsOn,
@@ -221,7 +235,8 @@ export function createPlan(plan: GeneratedPlan): Promise<TrainingPlan> {
 }
 
 export function fetchActivePlan(): Promise<TrainingPlan | null> {
-  return request<TrainingPlan | null>('/plans/active');
+  // The player's date, for `offerNewPlan` (#549); an older server ignores it.
+  return request<TrainingPlan | null>(`/plans/active?today=${localToday()}`);
 }
 
 /**
