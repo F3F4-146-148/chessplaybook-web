@@ -47,6 +47,15 @@ export const GAME_SHORTS: Record<number, GameShort> = {
     uploaded: '2026-11-25',
     duration: 'PT48S',
   },
+  3: {
+    id: 'Bc-KnmOkc-c',
+    title: 'Sindarov vs Gukesh, Game 3: a stress-free way to play the Berlin? | World Chess Championship 2026',
+    description:
+      'Game 3 of the 2026 World Chess Championship in Geneva: Gukesh avoids the Berlin endgame with 5...Be7, Sindarov makes move 40 with seven seconds left, and a draw in 60 moves.',
+    poster: '/assets/shorts/wch-2026-game-3-poster.webp',
+    uploaded: '2026-11-26',
+    duration: 'PT53S',
+  },
 };
 
 export function RecapShort({ game, className = 'mb-10' }: { game: number; className?: string }) {
