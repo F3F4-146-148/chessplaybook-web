@@ -7,15 +7,7 @@ import { useEffect, useState } from 'react';
  * (`audioKey` in the backend's narration). The browser only finds the file for a text it was given; a text not yet
  * recorded (a rebake added it) fails to load and he goes on to the next one, while the text stays on the card.
  */
-const AUDIO_BASE = '/audio/master-v3/';
-/*
-  "NAJDORF" SAID AGAIN (owner, 2026-11-26): master-v3's Najdorf lines were voiced on 11-23 before the "Nai-dorf" fix
-  (#454) and still say "nadj-dorf". The 13 trainer lines with the word (the introduction, its first sentence, the 11
-  named variations) were voiced again at master-v3's own settings (speed 1, no carrier) into their own folder: a
-  recording is cached for a year, so the same address could never reach a returning visitor. Gone with master-v4.
-*/
-const NAJDORF_BASE = '/audio/master-v3-najdorf/';
-const baseFor = (text: string) => (/Najdorf/.test(text) ? NAJDORF_BASE : AUDIO_BASE);
+const AUDIO_BASE = '/audio/master-v4/';
 
 export type VoicedLine = { text: string; audioUrl: string; cuesUrl: string };
 
@@ -46,7 +38,7 @@ export function useReasonVoice(id: string | null, texts: readonly string[] | nul
     const all = joined.split('\n');
     void Promise.all(all.map(reasonAudioKey)).then((ks) => {
       if (!live) return;
-      setLines({ id, lines: ks.map((k, i) => ({ text: all[i], audioUrl: `${baseFor(all[i])}${k}.mp3`, cuesUrl: `${baseFor(all[i])}${k}.json` })) });
+      setLines({ id, lines: ks.map((k, i) => ({ text: all[i], audioUrl: `${AUDIO_BASE}${k}.mp3`, cuesUrl: `${AUDIO_BASE}${k}.json` })) });
     });
     return () => { live = false; };
   }, [id, joined]);

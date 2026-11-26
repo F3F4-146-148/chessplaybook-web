@@ -37,7 +37,7 @@ const sample: VideoScript = {
 
 export const VIDEO_SCRIPTS: Record<string, VideoScript> = { sample };
 
-export const AUDIO_BASE = '/audio/master-v3/';
+export const AUDIO_BASE = '/audio/master-v4/';
 
 /** Every text a script says, for voicing new lines (`scripts/video/list-texts.mjs`). */
 export function scriptTexts(script: VideoScript): string[] {

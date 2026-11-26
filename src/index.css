@@ -2052,6 +2052,17 @@
 }
 
 /*
+  THE RECORD CARD'S LABELS NEVER CUT (#521, 2026-11-26). Six stats in two columns give each label half a narrow
+  card: "Best streak" was 1px short on wide windows (240px cards) and 13px short at 948x947 (177px), live for an
+  hour. The columns' gap is half the grid's usual, and under 200px of card the small icons in front of the labels go
+  (about 14px each). Measured over the 22-window matrix; the values are unchanged.
+*/
+[data-skeleton-card="record-merged"] dl { column-gap: calc(var(--card-w, 208px) * 0.02); }
+@container (max-width: 200px) {
+  [data-skeleton-card="record-merged"] dt > span:first-child { display: none; }
+}
+
+/*
   A LONG ARTICLE'S SECTIONS ARE LAID OUT WHEN THEY COME NEAR THE SCREEN (prerender plan E3, 2026-11-20). A built article
   arrives as one long document, and laying all of it out at first paint was one long task (about 230 ms on a slow
   phone, the plan's blocking-time limit broken on three articles). `content-visibility: auto` skips the sections off

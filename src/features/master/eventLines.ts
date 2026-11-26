@@ -14,7 +14,7 @@ import { browserLineStore, chooseLine, noteLineUsed, type LineStore } from './li
 export type MasterEvent = keyof typeof lines;
 
 /** George's voice and its mouth cues (#298), the same folder the server's `MASTER_AUDIO_BASE` names. */
-const AUDIO_BASE = '/audio/master-v3/';
+const AUDIO_BASE = '/audio/master-v4/';
 
 /*
   THE PUZZLES CARD'S LINES HAVE THEIR OWN FOLDER (#454, owner 2026-11-23). Every one is short, Kokoro's known weak spot

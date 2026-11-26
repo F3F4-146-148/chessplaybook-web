@@ -63,6 +63,11 @@ export interface WorkspaceProps {
    * (owner, 2026-10-08), and a page cannot know the mode any other way.
    */
   onModeChange?: (mode: WorkspaceMode) => void;
+  /**
+   * STACKED, a card whose type declares a `stackHeight` takes exactly that height at the lane's base type instead of
+   * a share of the screen (#521, owner 2026-11-26, /puzzles only for now). Columns mode is unchanged.
+   */
+  stackedFit?: boolean;
 }
 
 /**
@@ -236,16 +241,24 @@ function Lane({ role, lane, focus }: { role: 'activity' | 'context'; lane?: Work
     >
       <h2 id={id} className="sr-only">{lane.title}</h2>
       <LaneOverlayContext.Provider value={{ claim: setClaimed, target }}>
-      <div className="workspace-lane-stack">
+      <div
+        className="workspace-lane-stack"
+        style={{
+          ['--lane-cards' as string]: cards.length,
+          ['--lane-shares' as string]: (cards as ReactElement<WorkspaceCardProps>[]).reduce((n, c) => n + (c.props.share ?? 1), 0),
+        }}
+      >
         {(cards as ReactElement<WorkspaceCardProps>[]).map((c, i) => {
           const { share = 1, type, keepInFocus, children } = c.props;
+          const stackHeight = (CARD_TYPES[type] as CardTypeSpec).stackHeight;
           return (
             <div
               key={c.key ?? i}
               className="workspace-card surface-card rounded-lg"
               data-card-type={type}
               data-keep-in-focus={keepInFocus || undefined}
-              style={{ ['--share' as string]: share }}
+              data-stack-fit={stackHeight ? '' : undefined}
+              style={{ ['--share' as string]: share, ...(stackHeight ? { ['--stack-h' as string]: stackHeight } : {}) }}
               hidden={(focus && !keepInFocus) || undefined}
               /* Under an overlay a card is covered, so it must not take focus
                  or be read out either. */
@@ -277,7 +290,7 @@ function Lane({ role, lane, focus }: { role: 'activity' | 'context'; lane?: Work
   );
 }
 
-export function Workspace({ board, toolbar, activity, context, focus, onModeChange }: WorkspaceProps) {
+export function Workspace({ board, toolbar, activity, context, focus, onModeChange, stackedFit }: WorkspaceProps) {
   const chrome = useContext(ChromeContext);
   const isFocus = focus ?? chrome?.chromeHidden ?? false;
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -287,7 +300,7 @@ export function Workspace({ board, toolbar, activity, context, focus, onModeChan
   /* DOM order is the reading order in both modes: centre, activity, context (spec §4). */
   return (
     <div className="workspace-viewport" ref={viewportRef}>
-      <div className="workspace-canvas" ref={canvasRef} data-focus={isFocus || undefined}>
+      <div className="workspace-canvas" ref={canvasRef} data-focus={isFocus || undefined} data-stacked-fit={stackedFit || undefined}>
         <div className="workspace-centre">
           <div className="workspace-board">{board}</div>
           <div className="workspace-toolbar">{toolbar}</div>

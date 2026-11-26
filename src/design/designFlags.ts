@@ -43,3 +43,10 @@ export const MAIA_LIVE: boolean = true;
 // (found starting the dev server: the config failed to load); there it reads as off.
 const BUILD_ENV = (import.meta as { env?: { DEV?: boolean; VITE_PROGRESS_MOMENT_LIVE?: string } }).env;
 export const PROGRESS_MOMENT_LIVE: boolean = BUILD_ENV?.DEV === true || BUILD_ENV?.VITE_PROGRESS_MOMENT_LIVE === 'on';
+
+/**
+ * THE NEW /PUZZLES ARRANGEMENT (#521, plan B2), for the whole traffic when on (owner, 2026-11-26: no half-and-half
+ * test, today's page sells nothing). `features/puzzles/lib/layoutArm.ts`. Off until the arrangement is finished;
+ * `?layout=b` shows it in any build meanwhile, `?layout=a` today's page.
+ */
+export const PUZZLES_NEW_LAYOUT_LIVE: boolean = true;

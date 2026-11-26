@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useChrome } from '@/app/SiteShell';
 import { ChessBoard } from '@/components/chess/ChessBoard';
@@ -14,6 +14,7 @@ import { AboutTrainerText, PuzzleAboutPanel } from './PuzzleAboutPanel';
 import { ABOUT_TRAINER_TITLE } from '../aboutTrainer';
 import { PuzzleAnalysisCard } from './PuzzleAnalysisCard';
 import { PuzzleRunSetupCard } from './PuzzleRunSetupCard';
+import { PuzzleTrainCard } from './PuzzleTrainCard';
 import { ProgressMomentCard } from './ProgressMomentCard';
 import { MASTER_VOICE_KEY } from '@/features/master/useMasterVoice';
 import { PROGRESS_MOMENT_LIVE } from '@/design/designFlags';
@@ -38,6 +39,7 @@ import { isRatingProvisional } from '../lib/provisionalRating';
 import SeoHead from '@/components/SeoHead';
 import { useAuth } from '@/features/auth/AuthContext';
 import { useReminderOffer } from '@/features/reminders/useReminderOffer';
+import { layoutArm } from '../lib/layoutArm';
 import { ReminderOfferLine } from '@/features/reminders/ReminderOfferLine';
 import RouteHeading from '@/components/RouteHeading';
 import { CheckCircle2, Clock, History, Minimize2, PieChart, TrendingUp, XCircle, Zap } from 'lucide-react';
@@ -461,6 +463,73 @@ export default function TrainerLayoutSkeleton() {
     otherwise see it for 1.2 seconds and lose it.
   */
   const { user, isLoading: authLoading } = useAuth();
+  /* #521 B2: which arrangement the page shows ('b' the new one), the same for everyone (`layoutArm.ts`). */
+  const [arm] = useState(layoutArm);
+  /* #521 (owner, 2026-11-26): stacked, the new half puts the record above the settings; columns keep their order. */
+  const recordFirstWhenStacked = (cards: ReactElement[]) => {
+    if (arm !== 'b' || workspaceMode?.mode !== 'stacked') return cards;
+    const at = cards.findIndex(c => c.key === 'record-merged');
+    return at <= 0 ? cards : [cards[at], ...cards.slice(0, at), ...cards.slice(at + 1)];
+  };
+  const tryLines = useCallback(() => {
+    logGA4Event({ name: 'puzzle_try_lines', params: { outcome: puzzle.puzzleState.status === 'correct' ? 'solved' : 'revealed' } });
+    puzzle.stepTo(1);
+  }, [puzzle]);
+  /* The run setup card, in both halves; the new half's "What to train" card shows it to customise a run, during one,
+     and with a finished run's result (#521). Not memoised: it reads the run and the puzzle on every render, as the
+     inline element did. */
+  const renderRunSetup = (onClose: (() => void) | undefined) => (
+    <PuzzleRunSetupCard
+      onClose={onClose}
+      /* #521: the new half names the two lists Mode and Area (owner, 2026-11-26). */
+      modeLabel={arm === 'b' ? 'Mode' : undefined}
+      areaLabel={arm === 'b' ? 'Area' : undefined}
+      options={run.options}
+      areas={run.areas}
+      selection={run.selection}
+      /* #521: what a solver chooses to train, logged where the choice is made. */
+      onSelectionChange={(value) => {
+        logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'mode', value, surface: 'run_setup' } });
+        run.setSelection(value);
+      }}
+      area={run.area}
+      onAreaChange={(value) => {
+        logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'area', value: value ?? 'all', surface: 'run_setup' } });
+        run.setArea(value);
+      }}
+      total={run.total}
+      onTotalChange={(value) => {
+        logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'length', value: String(value), surface: 'run_setup' } });
+        run.setTotal(value);
+      }}
+      running={runOnScreen}
+      finished={runFinished}
+      /* Stopped and completed are different sentences - see the card. */
+      runStatus={run.session?.status}
+      runSelection={run.session?.selection}
+      runArea={run.session?.area ?? null}
+      theme={run.theme}
+      onThemeClear={() => run.setTheme(null)}
+      runTheme={run.session?.theme ?? null}
+      runTotal={run.session?.total}
+      runRated={run.session?.rated}
+      completed={run.session?.progress.completed ?? 0}
+      /* The counter is pinned to the puzzle on screen. */
+      puzzleId={puzzle.puzzleState.puzzle?.id ?? null}
+      attemptRecorded={attemptRecorded}
+      /* No number over a puzzle the run never served. */
+      servedByRun={runOnScreen && puzzle.servedRunId === run.session?.id}
+      busy={run.starting}
+      loading={run.loading}
+      onStart={input => run.startRun(input, settings.rated)}
+      onStop={run.stopRun}
+      /* A plan day says so, in the title and in the way out (D13). A
+         review day is mixed. */
+      planArea={planItemForRun
+        ? (planItemForRun.kind === 'review' ? 'mixed' : planItemForRun.area)
+        : null}
+    />
+  );
   const reminderOffer = useReminderOffer({
     status: puzzle.puzzleState.status,
     puzzleId: puzzle.puzzleState.puzzle?.id ?? null,
@@ -711,6 +780,8 @@ export default function TrainerLayoutSkeleton() {
       <Workspace
         focus={focusMode}
         onModeChange={setWorkspaceMode}
+        /* #521: on a phone the new half's cards are as tall as what they hold, not a share of the screen. */
+        stackedFit={arm === 'b'}
         board={
           /*
             The wheel listener lives on this wrapper, so scrolling anywhere over
@@ -834,55 +905,46 @@ export default function TrainerLayoutSkeleton() {
                 /* A puzzle made from a game has no explanation (#245 B2): no button, so the
                    reserved row stays empty after the solve, as it does offline. */
                 onExplain={puzzle.serverUnreachable || isGeneratedPuzzleId(currentPuzzleId) ? undefined : openExplanation}
+                onTryLines={arm === 'b' ? tryLines : undefined}
               />
             ), 2, true),
+            ...(arm === 'b' ? [
+              /*
+                #521 B2: the run setup and the plan card become one "What to train" card, three shares (theirs), so
+                the live card keeps today's size. The progress moment (#418) keeps this slot.
+              */
+              slot('train', 'puzzleTrain', shownMoment ? <ProgressMomentCard moment={shownMoment} offerAccount={!user && !authLoading} /> : (
+                <PuzzleTrainCard
+                  theme={linked.theme || settings.theme}
+                  onThemeChange={(theme) => {
+                    setLinked(l => ({ ...l, theme: '' }));
+                    settings.setTheme(theme);
+                  }}
+                  filterMode={settings.filterMode}
+                  onFilterModeChange={settings.setFilterMode}
+                  ratingRange={settings.ratingRange}
+                  onRatingRangeChange={settings.setRatingRange}
+                  bandIsFarFromRating={record.bandIsFarFromRating}
+                  options={run.options}
+                  areas={run.areas}
+                  selection={run.selection}
+                  onSelectionChange={run.setSelection}
+                  area={run.area}
+                  onAreaChange={run.setArea}
+                  onTotalChange={run.setTotal}
+                  total={run.total}
+                  onStartRun={() => run.startRun({ total: run.total, selection: run.selection, area: run.selection === 'weak_areas' ? null : run.area }, settings.rated)}
+                  busy={run.starting}
+                  loading={run.loading}
+                  runOnScreen={runOnScreen}
+                  runFinished={runFinished}
+                  hasPlan={plan.plan != null}
+                  runSetup={renderRunSetup}
+                />
+              ), 3),
+            ] : [
             slot('run-setup', 'puzzleRunSetup', shownMoment ? <ProgressMomentCard moment={shownMoment} offerAccount={!user && !authLoading} /> : (
-              <PuzzleRunSetupCard
-                options={run.options}
-                areas={run.areas}
-                selection={run.selection}
-                /* #521: what a solver chooses to train, logged where the choice is made. */
-                onSelectionChange={(value) => {
-                  logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'mode', value, surface: 'run_setup' } });
-                  run.setSelection(value);
-                }}
-                area={run.area}
-                onAreaChange={(value) => {
-                  logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'area', value: value ?? 'all', surface: 'run_setup' } });
-                  run.setArea(value);
-                }}
-                total={run.total}
-                onTotalChange={(value) => {
-                  logGA4Event({ name: 'puzzle_filter_changed', params: { kind: 'length', value: String(value), surface: 'run_setup' } });
-                  run.setTotal(value);
-                }}
-                running={runOnScreen}
-                finished={runFinished}
-                /* Stopped and completed are different sentences - see the card. */
-                runStatus={run.session?.status}
-                runSelection={run.session?.selection}
-                runArea={run.session?.area ?? null}
-                theme={run.theme}
-                onThemeClear={() => run.setTheme(null)}
-                runTheme={run.session?.theme ?? null}
-                runTotal={run.session?.total}
-                runRated={run.session?.rated}
-                completed={run.session?.progress.completed ?? 0}
-                /* The counter is pinned to the puzzle on screen. */
-                puzzleId={puzzle.puzzleState.puzzle?.id ?? null}
-                attemptRecorded={attemptRecorded}
-                /* No number over a puzzle the run never served. */
-                servedByRun={runOnScreen && puzzle.servedRunId === run.session?.id}
-                busy={run.starting}
-                loading={run.loading}
-                onStart={input => run.startRun(input, settings.rated)}
-                onStop={run.stopRun}
-                /* A plan day says so, in the title and in the way out (D13). A
-                   review day is mixed. */
-                planArea={planItemForRun
-                  ? (planItemForRun.kind === 'review' ? 'mixed' : planItemForRun.area)
-                  : null}
-              />
+              renderRunSetup(undefined)
             ), 2),
             slot('plan-link', 'puzzlePlan', (
               <PuzzlePlanCard
@@ -908,6 +970,7 @@ export default function TrainerLayoutSkeleton() {
                 onOfferDismiss={planOffer.onDismiss}
               />
             ), 1),
+            ]),
           ],
           /*
             THE ANALYSIS BAND IS GATED ON `isResolved` AND NOTHING ELSE. `failed`
@@ -939,7 +1002,7 @@ export default function TrainerLayoutSkeleton() {
         }}
         context={{
           title: 'Your record',
-          cards: [
+          cards: recordFirstWhenStacked([
             slot('settings', 'puzzleSettings', (
               <PuzzleSettingsCard
                 rated={settings.rated}
@@ -958,6 +1021,8 @@ export default function TrainerLayoutSkeleton() {
                 ratingRange={settings.ratingRange}
                 onRatingRangeChange={settings.setRatingRange}
                 bandIsFarFromRating={record.bandIsFarFromRating}
+                /* #521: the new half has the picker in its "What to train" card. */
+                showPicker={arm !== 'b'}
               />
             )),
             /*
@@ -965,7 +1030,51 @@ export default function TrainerLayoutSkeleton() {
               (owner, 2026-08-06). `null` renders a dash and never `0`: *we do not
               know yet* and *you scored nothing* are different sentences.
             */
-            slot('record-session', 'puzzleRecord', (
+            /*
+              #521 B2: the new half has ONE record card, the same card type and grid as the two it replaces (so the
+              type scale and the measured content stay), holding what a first visit needs. Accuracy is on the
+              training record.
+            */
+            ...(arm === 'b' ? [
+              slot('record-merged', 'puzzleRecordFull', (
+                <>
+                  <span className="card-label inline-flex items-center gap-[0.35em]">
+                    <History className="w-[1em] h-[1em]" />
+                    Your record
+                  </span>
+                  <div className="card-body">
+                    <StatGrid
+                      columns={2}
+                      stats={[
+                        {
+                          label: 'Rating',
+                          value: record.progress.estimatedRating,
+                          icon: <TrendingUp className="w-[1em] h-[1em] text-muted-foreground" />,
+                          delta: isRatingProvisional(record.progress) ? 'est.'
+                            : record.lastSolveFrozen ? 'practice'
+                              : record.ratingDelta !== null ? `${record.ratingDelta > 0 ? '+' : ''}${record.ratingDelta}` : null,
+                        },
+                        {
+                          label: 'Accuracy',
+                          icon: <PieChart className="w-[1em] h-[1em] text-muted-foreground" />,
+                          value: record.progress.totalSolved + record.progress.totalFailed > 0
+                            ? `${Math.round((record.progress.totalSolved / (record.progress.totalSolved + record.progress.totalFailed)) * 100)}%`
+                            : null,
+                        },
+                        { label: 'Solved', value: record.progress.totalSolved, icon: <CheckCircle2 className="w-[1em] h-[1em] text-success" /> },
+                        { label: 'Best streak', value: record.progress.bestStreak, icon: <Zap className="w-[1em] h-[1em] text-muted-foreground" /> },
+                        { label: 'Session', value: record.stats.solved, icon: <Clock className="w-[1em] h-[1em] text-muted-foreground" /> },
+                        { label: 'Streak', value: record.stats.streak, icon: <Zap className="w-[1em] h-[1em] text-muted-foreground" /> },
+                      ]}
+                    />
+                  </div>
+                </>
+              /* Two shares: the card replaces two, so settings and Go to keep today's height and type (one share made
+                 every card taller and the settings rows wrapped out of their card at 948x947). Its own type,
+                 `puzzleRecordFull`, holds six stats in two shares at the one-share cards' type. */
+              ), 2),
+            ] : [
+              slot('record-session', 'puzzleRecord', (
               <>
                 <span className="card-label inline-flex items-center gap-[0.35em]">
                   <Clock className="w-[1em] h-[1em]" />
@@ -990,7 +1099,7 @@ export default function TrainerLayoutSkeleton() {
                 </div>
               </>
             )),
-            slot('record-overall', 'puzzleRecord', (
+              slot('record-overall', 'puzzleRecord', (
               <>
                 <span className="card-label inline-flex items-center gap-[0.35em]">
                   <History className="w-[1em] h-[1em]" />
@@ -1027,6 +1136,7 @@ export default function TrainerLayoutSkeleton() {
                 </div>
               </>
             )),
+            ]),
             slot('standings', 'puzzleStandings', (
               <PuzzleStandingsCard
                 onAbout={() => {
@@ -1035,7 +1145,7 @@ export default function TrainerLayoutSkeleton() {
                 }}
               />
             )),
-          ],
+          ]),
           overlay: aboutOpen ? { label: ABOUT_TRAINER_TITLE, content: <PuzzleAboutPanel onClose={closeAbout} /> } : null,
           foot: footSlot('theme-focus', (
             <PuzzleAppearanceCard

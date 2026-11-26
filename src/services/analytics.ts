@@ -299,8 +299,10 @@ type GA4Event =
   | { name: 'puzzle_explain_offered'; params: { outcome: 'solved' | 'revealed'; in_run: boolean } }
   // What a solver chooses to train (#521): the settings card's picker opened, and each choice made there or on
   // the run setup card. `value` is the choice ('auto' or a band label for strength, a theme key, an area, a length).
-  | { name: 'puzzle_filter_opened'; params: { surface: 'settings' } }
-  | { name: 'puzzle_filter_changed'; params: { kind: 'theme' | 'strength' | 'area' | 'mode' | 'length'; value: string; surface: 'settings' | 'run_setup' } }
+  // "Try other lines" pressed after a puzzle (#521, the new arrangement).
+  | { name: 'puzzle_try_lines'; params: { outcome: 'solved' | 'revealed' } }
+  | { name: 'puzzle_filter_opened'; params: { surface: 'settings' | 'train' } }
+  | { name: 'puzzle_filter_changed'; params: { kind: 'theme' | 'strength' | 'area' | 'mode' | 'length'; value: string; surface: 'settings' | 'run_setup' | 'train' } }
   // A card of /puzzles at least half on screen, once per card per page load (#521): whether stacked (phone)
   // visitors ever reach the lower cards.
   | { name: 'puzzle_card_seen'; params: { card: string; layout: 'columns' | 'stacked' } }
@@ -426,7 +428,7 @@ type GA4Event =
   /* The way to Premium from the daily-limit dialog, and which feature ran out. */
   | { name: 'premium_link_clicked'; params: { from: 'limit_dialog'; feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' | 'game_puzzles' | 'puzzle_explanation' } }
   /* The other ways to Premium and the Membership page (#467 plan B6): where the visitor came from. */
-  | { name: 'premium_link_clicked'; params: { from: 'account_menu' | 'membership' | 'profile' | 'footer' | 'pending_line' } }
+  | { name: 'premium_link_clicked'; params: { from: 'account_menu' | 'membership' | 'profile' | 'footer' | 'pending_line' | 'explanation_panel' } }
   /** A link to one of our own accounts elsewhere (2026-11-25: the YouTube channel, from the footer). */
   | { name: 'social_link_clicked'; params: { network: 'youtube'; from: 'footer' } }
   /* /membership seen (#467 plan B6): the first block the visitor got (status, plans, signIn, couldNotCheck...). */

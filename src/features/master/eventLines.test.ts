@@ -15,7 +15,7 @@ describe('the Master event lines', () => {
   it('chooses a line per game and serves it from the voice folder', () => {
     const a = eventLine('win', 0);
     expect(a.text).toBe('Well played! You beat me.');
-    expect(a.audioUrl).toMatch(/^\/audio\/master-v3\/[0-9a-f]{16}\.mp3$/);
+    expect(a.audioUrl).toMatch(/^\/audio\/master-v4\/[0-9a-f]{16}\.mp3$/);
     expect(a.cuesUrl).toBe(a.audioUrl.replace(/\.mp3$/, '.json'));
     expect(eventLine('win', 3).text).toBe(a.text);
     expect(eventLine('draw', 1).text).toBe('A draw. A fair result.');
@@ -27,7 +27,7 @@ describe('the Master event lines', () => {
     for (let game = 1; game <= 30; game++) {
       const a = chosenEventLine('start', game, { store });
       expect(chosenEventLine('start', game, { store })).toBe(a); // the same game: the same line
-      expect(a.audioUrl).toMatch(/^\/audio\/master-v3\/[0-9a-f]{16}\.mp3$/);
+      expect(a.audioUrl).toMatch(/^\/audio\/master-v4\/[0-9a-f]{16}\.mp3$/);
       expect(a.text).not.toBe(prev);
       prev = a.text;
     }

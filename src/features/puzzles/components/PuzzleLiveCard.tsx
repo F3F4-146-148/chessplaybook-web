@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { CheckCircle2, ChevronRight, Compass, Eye, Lightbulb, RotateCcw, Signal, Swords, Target, TrendingUp, WifiOff, XCircle } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Compass, Eye, GitBranch, Lightbulb, RotateCcw, Signal, Swords, Target, TrendingUp, WifiOff, XCircle } from 'lucide-react';
 import type { GameCardLines } from '../lib/gamePuzzleSource';
 import { Action, LiveStatus } from './TrainerUI';
 import { logGA4Event } from '@/services/analytics';
@@ -130,6 +130,11 @@ export interface PuzzleLiveCardProps {
    * while the puzzle is being played.
    */
   onExplain?: () => void;
+  /**
+   * Takes the board back to the puzzle's position to try other moves (#521, the new arrangement only). Shown beside
+   * Explain once the puzzle is over; the board already takes moves then, and the analysis band follows them.
+   */
+  onTryLines?: () => void;
   /** The puzzle on the board: the Master's line is picked by it, and a wrong move is remembered per puzzle. */
   puzzleId?: string | null;
   /**
@@ -158,7 +163,7 @@ export function PuzzleLiveCard({
   exploring, isMidSolve, announcement, loading, sessionId,
   filterFoundNothing = false, onClearFilter, runOutcome = null,
   serverUnreachable = false, offer = null,
-  onNextPuzzle, onShowSolution, onExplain, puzzleId = null, gameLines = null, onVoiceBusyChange,
+  onNextPuzzle, onShowSolution, onExplain, onTryLines, puzzleId = null, gameLines = null, onVoiceBusyChange,
   playerRating = null, returning = false, moment = null, momentPending = false,
 }: PuzzleLiveCardProps) {
   /*
@@ -551,15 +556,29 @@ export function PuzzleLiveCard({
             explanation takes it and no card changes size.
           */}
           {explainable ? (
-            <button
-              type="button"
-              onClick={onExplain}
-              data-explain-trigger
-              className="trainer-reveal flex-1 min-h-11 rounded-[0.4em] border border-border text-[length:var(--card-type,14px)] font-medium text-foreground transition-colors hover:bg-muted inline-flex items-center justify-center gap-[0.4em]"
-            >
-              <Lightbulb className="w-[1em] h-[1em]" />
-              Explain solution
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={onExplain}
+                data-explain-trigger
+                className="trainer-reveal flex-1 min-h-11 rounded-[0.4em] border border-border text-[length:var(--card-type,14px)] font-medium text-foreground transition-colors hover:bg-muted inline-flex items-center justify-center gap-[0.4em]"
+              >
+                <Lightbulb className="w-[1em] h-[1em]" />
+                {onTryLines ? 'Explain' : 'Explain solution'}
+              </button>
+              {/* #521: the half with the new arrangement. Short labels: two buttons share the row. */}
+              {onTryLines && (
+                <button
+                  type="button"
+                  onClick={onTryLines}
+                  data-try-lines
+                  className="trainer-reveal ml-[0.5em] flex-1 min-h-11 rounded-[0.4em] border border-border text-[length:var(--card-type,14px)] font-medium text-foreground transition-colors hover:bg-muted inline-flex items-center justify-center gap-[0.4em]"
+                >
+                  <GitBranch className="w-[1em] h-[1em]" />
+                  Try other lines
+                </button>
+              )}
+            </>
           ) : gameLink ? (
             /* A new tab, so the puzzle, its solved line and the run stay where they were. */
             <a

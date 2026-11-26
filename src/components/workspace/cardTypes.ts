@@ -40,6 +40,18 @@ export interface CardTypeSpec {
   spacers: number;
   nested: number;
   lead?: number;
+  /**
+   * STACKED, ON A PAGE THAT ASKS FOR IT (`Workspace` `stackedFit`), the card's height in multiples of the lane's base
+   * type, which is then also the card's type, instead of a share of the screen (#521, owner 2026-11-26: the /puzzles
+   * cards stood half empty on a phone). MEASURED at the stacked widths in the card's tallest state, padding and a
+   * fixed rhythm included: a declared height, never the content's, so nothing moves when the card's state does. A card
+   * sized from its own height (the live card's controls) cannot take it.
+   *
+   * The /puzzles values were measured on 2026-11-26 at 360x800, 390x844, 414x736, 430x932 and 768x1024 (the same in
+   * em at every width): What to train 12.56 (plus about 2 for a plan holder's "Your training plan" row), the record
+   * 12.49, settings 7.26, Go to 10.03 (a guest's four rows); each declared with half a type of margin.
+   */
+  stackHeight?: number;
 }
 
 export const CARD_TYPES = {
@@ -73,15 +85,23 @@ export const CARD_TYPES = {
   },
   /** Run setup: length, mode and the start control. */
   puzzleRunSetup: { rows: 7, reserve: 0, content: 10.99, gaps: 5, spacers: 4, nested: 4 },
+  /** "What to train" (#521, the new /puzzles half): the run setup and the plan in three shares. `rows` 10.5 keeps the
+   *  run setup's type (7 rows in 2 shares); `content` and the rhythm are the run setup's, its tallest state, until the
+   *  compact view is measured. */
+  puzzleTrain: { rows: 10.5, reserve: 0, content: 10.99, gaps: 5, spacers: 4, nested: 4, stackHeight: 15 },
   /** The training plan entry: title, today's line, one action. */
   puzzlePlan: { rows: 3, reserve: 0, content: 4.9, gaps: 1, spacers: 0, nested: 0, lead: 4.9 },
   /** Puzzle settings: three toggles. */
-  puzzleSettings: { rows: 3, reserve: 0, content: 6.52, gaps: 3, spacers: 0, nested: 0 },
+  puzzleSettings: { rows: 3, reserve: 0, content: 6.52, gaps: 3, spacers: 0, nested: 0, stackHeight: 7.75 },
   /** A record card (session or overall): a title over a two-column stat grid. */
   puzzleRecord: { rows: 4, reserve: 0, content: 6.97, gaps: 1, spacers: 0, nested: 2 },
+  /** The record in one card (#521, the new /puzzles half): a title over six stats, two shares of its lane.
+   *  `content` the tallest across the viewport matrix, air at zero (9.78 at 788x467, 2026-11-26); `nested` measured
+   *  at 1366x768 (3px per pixel of air: the grid's three rows). */
+  puzzleRecordFull: { rows: 6, reserve: 0, content: 9.8, gaps: 1, spacers: 0, nested: 3, stackHeight: 13 },
   /** Standings: a title and three links, four for a guest from 2026-11-19 ("How it works", shown only on a card 100px
    *  or taller: index.css). `content` is unchanged: below 100px the fourth row is not there. */
-  puzzleStandings: { rows: 4, reserve: 0, content: 6.36, gaps: 3, spacers: 0, nested: 0 },
+  puzzleStandings: { rows: 4, reserve: 0, content: 6.36, gaps: 3, spacers: 0, nested: 0, stackHeight: 10.5 },
 
   /*
     `/play` (D1, 2026-10-08). `content` measured as the /puzzles values were: the

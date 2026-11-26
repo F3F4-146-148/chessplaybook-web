@@ -302,6 +302,33 @@
 .workspace-lane[data-lane="activity"] { block-size: max(calc(var(--activity-share-stacked) * 100cqh + var(--foot-block)), var(--lane-floor)); }
 .workspace-lane[data-lane="context"] { block-size: max(calc(var(--context-share-stacked) * 100cqh + var(--foot-block)), var(--lane-floor)); }
 
+/*
+  A FITTED STACK (#521, owner 2026-11-26, a page's `stackedFit`): stacked only, a card whose type declares a
+  `stackHeight` is exactly that tall, in the lane's base type, which is also its own type, with a fixed rhythm. The
+  /puzzles cards stood half empty on a phone: a share of the screen is room a card's few rows never use. The others
+  (the live card, sized from its own height) keep the height their share gave them, the lane floor included, so
+  nothing on the first screen moves. The lane is then as tall as its cards.
+*/
+.workspace-lane[data-lane="activity"] { --lane-share-stacked: var(--activity-share-stacked); }
+.workspace-lane[data-lane="context"] { --lane-share-stacked: var(--context-share-stacked); }
+@container workspace not ((min-width: theme('workspace.columnsMinInline')) and (min-height: theme('workspace.columnsMinBlock')) and (min-aspect-ratio: theme('workspace.columnsMinAspect'))) {
+  .workspace-canvas[data-stacked-fit] > .workspace-lane[data-lane] { block-size: auto; }
+  .workspace-canvas[data-stacked-fit] .workspace-lane-stack > .workspace-card {
+    flex: none;
+    block-size: calc(
+      (max(var(--lane-share-stacked) * 100cqh, var(--lane-floor) - var(--foot-block)) - (var(--lane-cards) - 1) * var(--gap-card))
+      * var(--share) / var(--lane-shares)
+    );
+  }
+  .workspace-canvas[data-stacked-fit] .workspace-lane-stack > .workspace-card[data-stack-fit] {
+    block-size: calc(var(--stack-h) * 1em);
+  }
+  .workspace-canvas[data-stacked-fit] .workspace-card[data-stack-fit] > .workspace-card-content {
+    font-size: 1em;
+    --card-unit: 0.4em;
+  }
+}
+
 .workspace-lane-stack {
   display: flex;
   flex-direction: column;

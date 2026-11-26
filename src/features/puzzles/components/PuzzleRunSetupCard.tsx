@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Flag, ListChecks, Play } from 'lucide-react';
+import { Flag, ListChecks, Play, X } from 'lucide-react';
 import type { SelectionOption, SessionArea, SessionSelection } from '../services/PuzzleSessionApi';
 import { CardListbox, LABEL_INSET_X } from './CardListbox';
 import { patternName } from '../services/trainingRecord';
@@ -73,7 +73,7 @@ interface ChipProps {
  * instead of chips that wrap the row to a second line and take the height the
  * Length row and the button are holding.
  */
-function Chip({ children, selected, disabled = false, title, onClick }: ChipProps) {
+export function Chip({ children, selected, disabled = false, title, onClick }: ChipProps) {
   return (
     <button
       type="button"
@@ -180,7 +180,12 @@ export interface PuzzleRunSetupCardProps {
   busy?: boolean;
   loading?: boolean;
   onStart: (input: { total: number; selection: SessionSelection; area: SessionArea | null }) => void;
+  /** Back to the compact "What to train" card (#521, the new arrangement only; never while a run is going). */
+  onClose?: () => void;
   onStop?: () => void;
+  /** The two lists' names; the new arrangement says Mode and Area (#521). */
+  modeLabel?: string;
+  areaLabel?: string;
 }
 
 export function PuzzleRunSetupCard({
@@ -190,7 +195,8 @@ export function PuzzleRunSetupCard({
   runSelection, runArea, runTheme = null, theme = null, onThemeClear, runTotal, runRated,
   completed = 0, puzzleId = null, attemptRecorded = false,
   servedByRun = true, planArea = null,
-  busy = false, loading = false, onStart, onStop,
+  busy = false, loading = false, onStart, onStop, onClose,
+  modeLabel = 'What to train', areaLabel = 'Where from',
 }: PuzzleRunSetupCardProps) {
   /*
     THE FULL GEOMETRY FROM THE FIRST PAINT. The fallback is the real list of
@@ -277,6 +283,18 @@ export function PuzzleRunSetupCard({
         {/* A plan day says so in the TITLE, not in a line of its own: a label
             that exists in one state only is a block that comes and goes. */}
         {planArea ? 'Training plan session' : running ? 'Your run' : 'Set up a run'}
+        {/* #521: back to the compact card. Inside the title row, so the card's content keeps its measured height. */}
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Back to what to train"
+            data-testid="run-setup-close"
+            className="ml-[0.5em] inline-flex items-center text-muted-foreground hover:text-foreground"
+          >
+            <X />
+          </button>
+        )}
       </span>
       <div className="card-body">
         {/* TWO COLUMNS. Stacked, each group wraps to two rows and the card is
@@ -307,11 +325,11 @@ export function PuzzleRunSetupCard({
         <div className="grid grid-cols-2" style={{ columnGap: 'calc(var(--card-type) * 0.5)', rowGap: 'calc(var(--card-air) * 3)' }}>
           <div className="min-w-0" style={{ display: 'grid', gap: 'var(--card-air)' }}>
             <span className="card-row" id="run-what-label" style={{ fontSize: 'calc(var(--card-type) * 0.86)', paddingLeft: LABEL_INSET_X }}>
-              What to train
+              {modeLabel}
             </span>
             <CardListbox<SessionSelection>
               id="run-selection"
-              label="What to train"
+              label={modeLabel}
               value={shownSelection}
               /*
                 `awaitingOptions` TOO, which the chips did not need.
@@ -337,7 +355,7 @@ export function PuzzleRunSetupCard({
 
           <div className="min-w-0" style={{ display: 'grid', gap: 'var(--card-air)' }}>
             <span className="card-row" style={{ fontSize: 'calc(var(--card-type) * 0.86)', paddingLeft: LABEL_INSET_X }}>
-              Where from
+              {areaLabel}
             </span>
             {/* `areaChosenForYou` is Weak spots having already picked it. The
                 control says so IN ITS VALUE rather than vanishing, because a
@@ -347,7 +365,7 @@ export function PuzzleRunSetupCard({
                 is going, the run's own area is shown: the server's actual pick. */}
             <CardListbox<string | null>
               id="run-area"
-              label="Where from"
+              label={areaLabel}
               value={shownTheme ? THEME_VALUE : areaChosenForYou && !running ? null : shownArea}
               disabled={areaChosenForYou || locked || awaitingOptions}
               options={[

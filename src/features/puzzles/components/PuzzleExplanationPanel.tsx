@@ -1,9 +1,11 @@
 import { useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { ChevronRight, X } from 'lucide-react';
 import { PositionExplanationCard } from '@/components/game-analysis/PositionExplanationCard';
 import type { StructuredExplanation } from '@/types/positionExplanation';
 import type { PuzzleExplanation } from '../services/PuzzleService';
 import { Action } from './TrainerUI';
+import { logGA4Event } from '@/services/analytics';
 
 /**
  * The puzzle's explanation, drawn over the activity lane (owner, 2026-10-21).
@@ -81,6 +83,20 @@ export function PuzzleExplanationPanel({
         error={error}
         className="shrink-0 border-border/60 bg-background/30 shadow-none"
       />
+
+      {/* #521: the limit dialog closes, the panel stays, so the panel offers Premium too. */}
+      {explanation?.status === 'limited' && (
+        <p className="text-sm text-foreground">
+          Premium explains every puzzle.{' '}
+          <Link
+            to="/premium"
+            onClick={() => logGA4Event({ name: 'premium_link_clicked', params: { from: 'explanation_panel' } })}
+            className="font-medium text-link underline-offset-2 hover:underline"
+          >
+            See Premium
+          </Link>
+        </p>
+      )}
 
       {/* Pinned to the panel's bottom edge, so moving on never needs a scroll
           to the end of a long explanation. */}
