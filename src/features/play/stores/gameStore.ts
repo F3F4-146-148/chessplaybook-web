@@ -28,6 +28,8 @@ interface PlayGameState {
   startGame: (playerColor: 'white' | 'black') => void;
   makeMove: (move: string, newFen: string) => void;
   endGame: (result: GameResult) => void;
+  /** #428 B2: take back the last `plies` moves; `fen` is the position they leave (the hook replays it). */
+  takeBack: (plies: number, fen: string) => void;
   reset: () => void;
 }
 
@@ -60,6 +62,12 @@ export const usePlayGameStore = create<PlayGameState>()((set) => ({
     status: 'ended',
     result,
   }),
+
+  takeBack: (plies, fen) => set((state) => ({
+    fen,
+    moves: state.moves.slice(0, Math.max(0, state.moves.length - plies)),
+    isPlayerTurn: plies % 2 === 1 ? !state.isPlayerTurn : state.isPlayerTurn,
+  })),
 
   reset: () => set({
     fen: INITIAL_FEN,

@@ -1,0 +1,290 @@
+{
+  "pipelineVersion": "4.9.6",
+  "notes": [
+    {
+      "ply": 10,
+      "san": "Be7",
+      "fen": "r1bqk2r/ppppbppp/2n5/1B2p3/3Pn3/5N2/PPP2PPP/RNBQ1RK1 w kq - 1 6",
+      "action": "The central tension between the pawns on d4 and e5 is the key question: how it resolves shapes the middlegame.",
+      "structured": {
+        "verdict": {
+          "eval": "White has a slight edge",
+          "opening": "Ruy Lopez: Berlin Defense, Rio de Janeiro Variation",
+          "eco": "C67",
+          "phase": "opening"
+        },
+        "action": "The central tension between the pawns on d4 and e5 is the key question: how it resolves shapes the middlegame.",
+        "sections": {
+          "threats_and_tactics": {
+            "summary": "Nothing is hanging on either side.",
+            "items": [
+              {
+                "text": "Nothing is hanging on either side.",
+                "side": "neutral",
+                "priority": 10
+              }
+            ]
+          },
+          "king_safety": {
+            "summary": "Castling is the priority for Black: the bishop on c8 is still on starting squares.",
+            "items": [
+              {
+                "text": "Castling is the priority for Black: the bishop on c8 is still on starting squares.",
+                "side": "black",
+                "priority": 50
+              },
+              {
+                "text": "White is castled kingside; the king is off the centre and the rook joins the game.",
+                "side": "white",
+                "priority": 50
+              }
+            ]
+          },
+          "material": {
+            "summary": "Black is up a pawn, but White has equal play here.",
+            "items": [
+              {
+                "text": "Black is up a pawn, but White has equal play here.",
+                "side": "both",
+                "priority": 80
+              }
+            ]
+          },
+          "pieces": {
+            "summary": "White's knight on f3 and rook on f1 give it the heavier presence on the kingside.",
+            "items": [
+              {
+                "text": "White's knight on f3 and rook on f1 give it the heavier presence on the kingside.",
+                "side": "white",
+                "priority": 62
+              },
+              {
+                "text": "White has a tiny bit more space in the centre.",
+                "side": "white",
+                "priority": 60
+              },
+              {
+                "text": "The initiative belongs to White. The ability to create immediate threats puts the opponent under pressure.",
+                "side": "white",
+                "priority": 58
+              }
+            ]
+          },
+          "pawn_structure": {
+            "summary": "White plays for two results, a win or a draw; Black is playing for the draw.",
+            "items": [
+              {
+                "text": "White plays for two results, a win or a draw; Black is playing for the draw.",
+                "side": "white",
+                "priority": 86
+              },
+              {
+                "text": "The e-file is half-open for White, whose rooks can press against Black's central pawn on it.",
+                "side": "both",
+                "priority": 65
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "ply": 17,
+      "san": "Qe4",
+      "fen": "r1bqk2r/p1ppbppp/2p5/4Pn2/4Q3/5N2/PPP2PPP/RNB2RK1 b kq - 2 9",
+      "action": "White controls more central squares with a pawn on e5. g6: protects the knight on f5.",
+      "structured": {
+        "verdict": {
+          "eval": "White has a clear advantage",
+          "phase": "opening"
+        },
+        "action": "White controls more central squares with a pawn on e5. g6: protects the knight on f5.",
+        "sections": {
+          "threats_and_tactics": {
+            "summary": "Black's knight on f5 is undefended and attacked by White's queen on e4. It must be saved or lost.",
+            "items": [
+              {
+                "text": "Black's knight on f5 is undefended and attacked by White's queen on e4. It must be saved or lost.",
+                "side": "white",
+                "priority": 85,
+                "tag": "problem"
+              }
+            ]
+          },
+          "king_safety": {
+            "summary": "Black should castle; the bishop on c8 needs to come out before the king can find safety.",
+            "items": [
+              {
+                "text": "Black should castle; the bishop on c8 needs to come out before the king can find safety.",
+                "side": "black",
+                "priority": 50
+              },
+              {
+                "text": "White's king has reached safety, castled kingside.",
+                "side": "white",
+                "priority": 50
+              }
+            ]
+          },
+          "material": {
+            "summary": "Black enjoys the bishop pair: together the two bishops cover every color complex and thrive in open positions.",
+            "items": [
+              {
+                "text": "Black enjoys the bishop pair: together the two bishops cover every color complex and thrive in open positions.",
+                "side": "black",
+                "priority": 60
+              }
+            ]
+          },
+          "pieces": {
+            "summary": "White's knight on f3 and rook on f1 concentrate on the kingside, outnumbering the opponent there.",
+            "items": [
+              {
+                "text": "White's knight on f3 and rook on f1 concentrate on the kingside, outnumbering the opponent there.",
+                "side": "white",
+                "priority": 62
+              },
+              {
+                "text": "White has more central space, anchored by the e5 pawn.",
+                "side": "white",
+                "priority": 60
+              },
+              {
+                "text": "White is dictating the play, creating problems that the opponent must solve before doing anything else.",
+                "side": "white",
+                "priority": 58
+              },
+              {
+                "text": "White has a half-open d-file available. Placing a rook here would create pressure.",
+                "side": "white",
+                "priority": 35
+              }
+            ]
+          },
+          "pawn_structure": {
+            "summary": "White can press here without risk. Black is the one who has to hold.",
+            "items": [
+              {
+                "text": "White can press here without risk. Black is the one who has to hold.",
+                "side": "white",
+                "priority": 86
+              },
+              {
+                "text": "With a pawn on e5, White controls important central squares.",
+                "side": "white",
+                "priority": 70
+              },
+              {
+                "text": "Black suffers from doubled pawns on the c-file, limiting pawn coordination and creating a static weakness.",
+                "side": "black",
+                "priority": 50
+              },
+              {
+                "text": "With three pawn islands, Black's pawns are more scattered and harder to protect than White's compact two-island structure.",
+                "side": "both",
+                "priority": 50
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "ply": 32,
+      "san": "Qxd4",
+      "fen": "r3k2r/p1p1bp1p/2p1b1p1/3pP3/N2q4/PP2B3/2P2PPP/R4RK1 w kq - 0 17",
+      "action": "Only Bxd4 holds for White; everything else loses.",
+      "structured": {
+        "verdict": {
+          "eval": "Equal position",
+          "opening": "French Advance pawn structure",
+          "phase": "middlegame"
+        },
+        "action": "Only Bxd4 holds for White; everything else loses.",
+        "sections": {
+          "threats_and_tactics": {
+            "summary": "White can win Black's queen on d4 with the bishop from e3.",
+            "items": [
+              {
+                "text": "White can win Black's queen on d4 with the bishop from e3.",
+                "side": "white",
+                "priority": 80,
+                "tag": "asset"
+              }
+            ]
+          },
+          "king_safety": {
+            "summary": "White is castled kingside; the king is off the centre and the rook joins the game.",
+            "items": [
+              {
+                "text": "White is castled kingside; the king is off the centre and the rook joins the game.",
+                "side": "white",
+                "priority": 50
+              },
+              {
+                "text": "Black's king is still on its starting square, with castling rights live.",
+                "side": "black",
+                "priority": 30
+              }
+            ]
+          },
+          "material": {
+            "summary": "After taking on d4, Black enjoys the bishop pair: together the two bishops cover every color complex and thrive in open positions.",
+            "items": [
+              {
+                "text": "After taking on d4, Black enjoys the bishop pair: together the two bishops cover every color complex and thrive in open positions.",
+                "side": "black",
+                "priority": 60
+              }
+            ]
+          },
+          "pieces": {
+            "summary": "White's rooks are coordinated on the back rank.",
+            "items": [
+              {
+                "text": "White's rooks are coordinated on the back rank.",
+                "side": "white",
+                "priority": 40
+              },
+              {
+                "text": "White has a half-open d-file available. Placing a rook here would create pressure.",
+                "side": "white",
+                "priority": 35
+              },
+              {
+                "text": "The b-file is half-open for Black, offering a potential avenue for rook activity.",
+                "side": "black",
+                "priority": 35
+              }
+            ]
+          },
+          "pawn_structure": {
+            "summary": "There is play for both sides here.",
+            "items": [
+              {
+                "text": "There is play for both sides here.",
+                "side": "both",
+                "priority": 88
+              },
+              {
+                "text": "Black's three pawn islands versus White's two tells the story: a fractured pawn structure is a long-term liability.",
+                "side": "both",
+                "priority": 50
+              },
+              {
+                "text": "Black suffers from doubled pawns on the c-file, limiting pawn coordination and creating a static weakness.",
+                "side": "black",
+                "priority": 50
+              },
+              {
+                "text": "Black's f-pawn on f7 is backward: it cannot advance safely and is a long-term weakness.",
+                "side": "black",
+                "priority": 50
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

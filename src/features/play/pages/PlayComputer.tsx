@@ -31,6 +31,9 @@ import { readPositionDeepLink } from '@/lib/positionDeepLink';
 import { defaultLevelId, findLevel, playLevels, type PlayLevel } from '../services/playLevels';
 import { MAIA_LIVE, MASTER_LIVE } from '@/design/designFlags';
 import { MasterStrip } from '../components/MasterStrip';
+import { GUIDED_INVITATION, GuidedPlayBlock, GuidedSwitchRow, readGuidedMock } from '../components/GuidedMock';
+import { ENGINE_BUSY_LINE, useGuidedGame } from '../guided/useGuidedGame';
+import type { Guide } from '../hooks/useComputerGame';
 import { logGA4Event } from '@/services/analytics';
 import { GamePgnActions } from '@/features/games/GamePgnActions';
 import { buildGamePgn, gamePgnFileName } from '@/features/games/gamePgn';
@@ -138,9 +141,20 @@ export function PlayComputer() {
     trainer opens it in a new tab after a move outside the book. Without it, /play is unchanged.
   */
   const fromPosition = useMemo(() => readPositionDeepLink(location.search).value, [location.search]);
+  /* #428 A4: the guided game's DEV-only mock (`?guidedMock=1` or `=warn`); null in a production build. */
+  const guidedMock = useMemo(() => readGuidedMock(location.search), [location.search]);
+  /* The switch is ON by default (owner, 2026-11-26) and remembered per browser once changed (analysis 4.2). */
+  const [guidedOn, setGuidedOnState] = useState(() => { if (guidedMock === 'warn') return true; try { return localStorage.getItem('cp_guided_on') !== '0'; } catch { return true; } });
+  const setGuidedOn = (on: boolean) => { setGuidedOnState(on); try { localStorage.setItem('cp_guided_on', on ? '1' : '0'); } catch { /* private window */ } };
+  /* In a guided game the move list starts collapsed, remembered per browser (owner, 2026-11-26: beginners do not read
+     the notation yet, "point the squares"), so his speech area can take the card. */
+  const [guidedMovesOpen, setGuidedMovesOpen] = useState(() => { try { return localStorage.getItem('cp_guided_moves_open') === '1'; } catch { return false; } });
+  const toggleGuidedMoves = () => setGuidedMovesOpen((o) => { try { localStorage.setItem('cp_guided_moves_open', o ? '0' : '1'); } catch { /* private window */ } return !o; });
   const startFen = fromPosition?.fen ?? STARTING_FEN;
   const startTurn: Color = positionFromFen(startFen)?.turnColor ?? 'white';
-  const [gameState, actions] = useComputerGame();
+  /* #428 B4: the guided game's guide, given to the computer game; a ref, since the two hooks need each other */
+  const guideRef = useRef<Guide | null>(null);
+  const [gameState, actions] = useComputerGame({ guideRef });
   const { timeout } = actions;
   const [selectedColor, setSelectedColor] = useState<Color>(fromPosition?.orientation ?? 'white');
   useEffect(() => { if (fromPosition) setSelectedColor(fromPosition.orientation); }, [fromPosition]);
@@ -345,6 +359,8 @@ export function PlayComputer() {
     game; D6 replaces "Your move." with the sentence that says the move he just played.
   */
   const masterHere = MASTER_LIVE && levelInPlay.kind === 'master';
+  /* #428 B: a guided game, behind the DEV switch (`?guidedMock`) until Phase D ships it */
+  const guided = useGuidedGame({ enabled: guidedMock !== null && guidedOn && masterHere && !fromPosition, guideRef, game: gameState, actions });
   /* The end of a game, once (D10). */
   const reportedEndRef = useRef(false);
   useEffect(() => {
@@ -492,6 +508,9 @@ export function PlayComputer() {
             */
             slot('play-live', 'playLive', (
               <div className="card-body">
+                {/* A guided game hides the two header rows while it is played (analysis 4.2: the button row and the speech block need the room). */}
+                {!(guidedMock && guidedOn && masterHere && gameState.gameStatus !== 'idle') && (
+                <>
                 <span className="card-row">
                   <Swords className="shrink-0 text-link" />
                   {/* his levels name him, the Stockfish levels stay "computer" (owner, 2026-11-17: only 5 of the 9 levels are him) */}
@@ -499,22 +518,34 @@ export function PlayComputer() {
                   <span className="ml-auto shrink-0 text-[0.8em] text-success">Engine {gameState.isEngineReady ? 'ready' : 'loading'}</span>
                 </span>
                 <span className="card-row text-[0.86em]">{levelShort(levelInPlay)} · {timeControl.label}</span>
+                </>
+                )}
                 {gameState.gameStatus === 'idle' ? (
                   <>
-                  {masterHere && !stacked && <MasterStrip variant="invitation" stacked={false} expression={master.expression} line={master.line} />}
+                  {/* #428: the switch at the top of the card, above his invitation (owner, 2026-11-26) */}
+                  {guidedMock && masterHere && !fromPosition && <GuidedSwitchRow checked={guidedOn} onChange={setGuidedOn} />}
+                  {masterHere && !stacked && <MasterStrip variant="invitation" stacked={false} expression={master.expression} line={guidedMock && guidedOn ? GUIDED_INVITATION : master.line} />}
                   <div className="ws-push-end flex flex-col" style={{ gap: 'calc(var(--card-air) * 2)' }}>
                     <button type="button" onClick={() => startGame()} disabled={!gameState.isEngineReady} className="card-btn card-btn-primary w-full disabled:opacity-50">
                       {!gameState.isEngineReady ? 'Loading engine…' : fromPosition ? 'Play from this position' : 'New game'}
                     </button>
                     {otherWays}
                   </div>
-                  {masterHere && stacked && <MasterStrip variant="invitation" stacked expression={master.expression} line={master.line} />}
+                  {masterHere && stacked && <MasterStrip variant="invitation" stacked expression={master.expression} line={guidedMock && guidedOn ? GUIDED_INVITATION : master.line} />}
                   </>
                 ) : (
                   <>
                     {masterHere && <MasterStrip variant="strip" stacked={stacked} expression={master.expression} line={master.line} voice={voice} />}
+                    {guidedMock && guidedOn && masterHere && <GuidedPlayBlock warning={guided.warning} sampleWarning={guidedMock === 'warn' && !guided.warning} takebacksLeft={guided.takebacksLeft} onTakeBack={guided.takeBack} onPlayOn={guided.playOn} notice={guided.enginePaused ? ENGINE_BUSY_LINE : null} />}
                     <span className="card-row justify-between text-[0.8em] uppercase tracking-wide">
-                      <span>Moves</span>
+                      {guidedMock && guidedOn && masterHere ? (
+                        <button type="button" onClick={toggleGuidedMoves} aria-expanded={guidedMovesOpen} aria-controls="guided-moves" className="inline-flex items-center gap-[0.3em] uppercase tracking-wide hover:text-foreground" data-guided="moves-toggle">
+                          {guidedMovesOpen ? <ChevronDown className="shrink-0" aria-hidden /> : <ChevronRight className="shrink-0" aria-hidden />}
+                          Moves
+                        </button>
+                      ) : (
+                        <span>Moves</span>
+                      )}
                       {/* No position label (owner: "Latest position" removed 2026-10-08,
                           "Move N" removed 2026-10-10): the list marks the move shown. */}
                       {/* #416: Copy and Download, at any time against the computer, in the row's empty right side. */}
@@ -529,7 +560,8 @@ export function PlayComputer() {
                         />
                       )}
                     </span>
-                    <div className="flex min-h-0 flex-1 flex-col">
+                    {/* #428: in a guided game the moves get a constant 2 of 5 shares of the free height, his speech area 3 (owner, 2026-11-26) */}
+                    <div id="guided-moves" className={`${guidedMock && guidedOn && masterHere && !guidedMovesOpen ? 'hidden' : 'flex'} min-h-0 flex-col ${guidedMock && guidedOn && masterHere ? 'flex-[2_1_0%]' : 'flex-1'}`}>
                       <WorkspaceList label="Moves">
                         {/* The result below the last move, as on /play-online (owner, 2026-11-19): 1-0, 0-1 or 1/2-1/2. */}
                         <GameMoveList

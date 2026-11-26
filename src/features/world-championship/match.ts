@@ -74,7 +74,7 @@ export const GAME_1_WHITE: PlayerKey | null = 'sindarov';
 export const GAME_STREAMS: Partial<Record<number, string>> = {
   1: '7dyXiy2kWsw',
   2: 'i_0ELvDXYQc',
-  3: 'fmRMkVhvtOU',
+  3: 'AejT5f8bDgM',
 };
 
 /**

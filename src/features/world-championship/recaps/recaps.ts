@@ -11,9 +11,10 @@ import type { GameRecap } from './types';
 import { DRAFT_WCH2024_GAME_14 } from './drafts/wch2024-game-14';
 import { GAME_1_RECAP } from './game-1';
 import { GAME_2_RECAP } from './game-2';
+import { GAME_3_RECAP } from './game-3';
 
 /** Published recaps, in game order. Each is read by the owner before it goes here (owner, 2026-11-23). */
-export const PUBLISHED_RECAPS: readonly GameRecap[] = [GAME_1_RECAP, GAME_2_RECAP];
+export const PUBLISHED_RECAPS: readonly GameRecap[] = [GAME_1_RECAP, GAME_2_RECAP, GAME_3_RECAP];
 
 const DRAFTS: readonly GameRecap[] = import.meta.env.DEV ? [DRAFT_WCH2024_GAME_14] : [];
 

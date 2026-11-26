@@ -86,6 +86,19 @@ interface WorkerWrapper {
   terminate: () => void;
 }
 
+/** #428 B3: a short search's result, from the side to move's point of view. */
+export interface SearchScore { cp: number | null; mate: number | null; best: string; pv: string[] }
+
+/** The last exact score line before `bestmove` (bounds skipped), with its line; null without a move or a score. */
+export function parseSearchScore(lines: string[]): SearchScore | null {
+  const best = lines.find(l => l.startsWith('bestmove'))?.match(/^bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/)?.[1];
+  const info = [...lines].reverse().find(l => l.startsWith('info') && / score (cp|mate) /.test(l) && / pv /.test(l) && !/ (lowerbound|upperbound)/.test(l));
+  const m = info?.match(/ score (cp|mate) (-?\d+)/);
+  if (!best || !info || !m) return null;
+  const pv = info.slice(info.indexOf(' pv ') + 4).trim().split(/\s+/);
+  return { cp: m[1] === 'cp' ? Number(m[2]) : null, mate: m[1] === 'mate' ? Number(m[2]) : null, best, pv };
+}
+
 export class AnalysisService {
   private static instance: AnalysisService;
   private worker: WorkerWrapper | null = null;
@@ -1827,6 +1840,23 @@ export class AnalysisService {
    * depends on the position alone.
    */
   async findBestReply(fen: string, movetimeMs = 300, timeoutMs = 1500): Promise<string | null> {
+    const lines = await this.shortSearch(fen, movetimeMs, timeoutMs);
+    const best = lines?.find(l => l.startsWith('bestmove'))?.match(/^bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
+    return best ? best[1] : null;
+  }
+
+  /**
+   * #428 B3: one short search with its score, for grading a move in a guided game. The score is from the side to
+   * move's point of view (UCI): `cp` in centipawns, or `mate` in moves (positive: the side to move mates). `pv` is
+   * the engine's line, its first move the best. Null as for `findBestReply` (over, no engine, another tab, no answer).
+   */
+  async searchScore(fen: string, movetimeMs = 300, timeoutMs = 1500): Promise<SearchScore | null> {
+    const lines = await this.shortSearch(fen, movetimeMs, timeoutMs);
+    return lines ? parseSearchScore(lines) : null;
+  }
+
+  /** The search behind findBestReply and searchScore: the engine held, from `ucinewgame`, one line, a time limit. */
+  private async shortSearch(fen: string, movetimeMs: number, timeoutMs: number): Promise<string[] | null> {
     if (!fen || terminalDescription(fen)) return null;
     try {
       if (!this.isInitialized) await this.initialize();
@@ -1868,8 +1898,7 @@ export class AnalysisService {
         this.sendCommand(`position fen ${fen}`);
         this.sendCommand(`go movetime ${movetimeMs}`);
       });
-      const best = lines?.find(l => l.startsWith('bestmove'))?.match(/^bestmove\s+([a-h][1-8][a-h][1-8][qrbn]?)/);
-      return best ? best[1] : null;
+      return lines;
     } finally {
       this.sendCommand(`setoption name MultiPV value ${this.multiPvCount}`);
       release();
