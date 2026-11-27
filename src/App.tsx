@@ -40,8 +40,16 @@ const App = () => {
       });
       // Meta Pixel — loads in parallel with GA, no-ops in dev.
       // See docs/Master Plan - Active/M1/META_PIXEL_INSTALL_PLAN.md.
-      import('./services/metaPixel').then(m => {
-        m.initMetaPixel();
+      // CONSENT (#564): only once advertising is allowed. GA4 above loads for everyone (Consent
+      // Mode v2 Advanced; the defaults are in index.html); the Pixel has no such mode, so a UK or
+      // EEA visitor's Pixel waits for their answer, and follows it if they change it later.
+      void Promise.all([import('./services/metaPixel'), import('./services/consent')]).then(([pixel, consent]) => {
+        const follow = () => {
+          if (consent.advertisingAllowed()) pixel.initMetaPixel();
+          else pixel.revokeMetaPixel();
+        };
+        void consent.startConsent().then(follow);
+        consent.subscribeConsent(follow);
       });
     };
 

@@ -6,7 +6,8 @@ import { AppRoutes } from "@/app/routes";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { trackPageView as trackMetaPixelPageView } from "@/services/metaPixel";
 import { usePresenceHeartbeat } from "@/hooks/usePresenceHeartbeat";
-import { captureFirstTouch, hasInteracted, onFirstInteraction, recordVisit } from "@/services/funnel";
+import { captureFirstTouch, flushFunnelMemory, hasInteracted, onFirstInteraction, recordVisit } from "@/services/funnel";
+import { startConsent, subscribeConsent } from "@/services/consent";
 import { isPrerendering, onPrerenderActivated } from "@/services/prerender";
 import { ThemeRouteSync } from '@/design/theme/ThemeProvider';
 
@@ -65,7 +66,10 @@ function FunnelVisit() {
     let stop: (() => void) | undefined;
     if (isPrerendering()) stop = onPrerenderActivated(start);
     else start();
-    return () => { document.removeEventListener('visibilitychange', onVisible); stop?.(); stopWaiting?.(); };
+    // #564: the funnel keeps its keys in memory until Measurement is allowed, then writes them.
+    void startConsent().then(flushFunnelMemory);
+    const stopConsent = subscribeConsent(flushFunnelMemory);
+    return () => { document.removeEventListener('visibilitychange', onVisible); stop?.(); stopWaiting?.(); stopConsent(); };
   }, []);
   return null;
 }

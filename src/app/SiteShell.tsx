@@ -2,6 +2,7 @@ import { useContext, useLayoutEffect, useMemo, useState, type ReactNode } from '
 import { ChromeContext, type Chrome } from './chromeContext';
 import { Outlet, useLocation, useNavigationType } from 'react-router-dom';
 import { DailyLimitDialog } from '@/features/premium/DailyLimitDialog';
+import { ConsentBanner } from '@/components/ConsentBanner';
 import { Navigation } from '@/components/Navigation';
 import { useReminderClick } from '@/features/reminders/useReminderClick';
 
@@ -96,6 +97,8 @@ export function SiteShell({ children }: { children?: ReactNode }) {
       </div>
       {/* Outside the two-child grid: the dialog portals to the body and renders nothing until a limit is met. */}
       <DailyLimitDialog />
+      {/* #564: over the foot of the window, outside the grid; nothing until the visitor's country is known. */}
+      <ConsentBanner />
     </ChromeContext.Provider>
   );
 }

@@ -9,6 +9,7 @@ import SeoHead from '@/components/SeoHead';
 import { LEGAL_LAST_UPDATED, formatLegalDate } from '@/config/legalDates';
 import { COMPANY } from '@/config/company';
 import { Link } from 'react-router-dom';
+import { openConsentSettings } from '@/services/consent';
 
 const Privacy = () => {
   return (
@@ -70,6 +71,13 @@ const Privacy = () => {
                   (for example google.com). We do not keep the full address you came from, your IP address, your
                   browser details or the ad click's own code. We also keep the days on which you visited. If you
                   create an account, these move to your account, and they are deleted when you delete it.
+                </p>
+                <p className="text-muted-foreground mb-4">
+                  If you are in the UK, the European Economic Area or Switzerland, your browser stores none of this
+                  until you accept analytics cookies. The first page and campaign tags are still sent
+                  with your visit, read from the link you opened, because we need them to tell which ads are
+                  worth paying for. That is our legitimate interest. To object, write to us at{' '}
+                  <a href={`mailto:${COMPANY.email}`} className="text-link hover:underline">{COMPANY.email}</a>.
                 </p>
 
                 <h3 className="text-xl font-semibold text-link mb-3">Server Logs</h3>
@@ -147,19 +155,20 @@ const Privacy = () => {
               <section className="mb-8">
                 <h2 className="text-2xl font-semibold text-foreground mb-4">Cookies</h2>
                 <p className="text-muted-foreground mb-4">
-                  We use cookies for the following purposes:
+                  Cookies and browser storage on this site fall into three groups:
                 </p>
                 <ul className="list-disc list-inside text-muted-foreground mb-4 space-y-2">
-                  <li><strong>Google Analytics Cookies:</strong> Track website usage and performance</li>
-                  <li><strong>Google Ads Cookies:</strong> Measure ad performance and conversions</li>
-                  <li><strong>Meta Pixel Cookies:</strong> Measure ad performance on Facebook and Instagram, and build audiences for retargeting</li>
-                  <li><strong>YouTube Cookies:</strong> Some pages show a YouTube video. YouTube's player loads, and may set its own cookies, only after you press play</li>
-                  <li><strong>Essential Cookies:</strong> Enable basic website functionality</li>
-                  <li><strong>First-party browser storage:</strong> Retains a random identifier used for privacy-minimized daily engagement totals</li>
+                  <li><strong>Essential cookies:</strong> signing in, the random identifier that keeps a guest's puzzles, rating, plans and daily allowance, your settings (board theme, sound, the Master's voice), checkout, and your cookie choices. These are always on.</li>
+                  <li><strong>Analytics cookies:</strong> Google Analytics cookies, and our own record of the days you visited and of the pages you use, to see how the site is used.</li>
+                  <li><strong>Advertising cookies:</strong> Google Ads and Meta Pixel cookies, to measure our ads on Google, Facebook and Instagram and to show our ads to people who visited.</li>
+                  <li><strong>YouTube:</strong> some pages show a YouTube video. YouTube's player loads, and may set its own cookies, only after you press play.</li>
                 </ul>
                 <p className="text-muted-foreground mb-4">
-                  You can control cookies through your browser settings. However, disabling cookies may affect
-                  website functionality.
+                  If you are in the UK, the European Economic Area or Switzerland, analytics and advertising cookies stay off
+                  until you choose. Google Analytics then still receives a visit without cookies (Google Consent Mode),
+                  and the Meta Pixel does not load at all. Visitors elsewhere have both on. You can change your choice at
+                  any time:{' '}
+                  <button type="button" onClick={openConsentSettings} className="text-link hover:underline">Cookie settings</button>.
                 </p>
               </section>
 

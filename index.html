@@ -150,16 +150,9 @@
   </head>
 
   <body>
-    <!-- Meta Pixel <noscript> fallback. Fires PageView for users with
-         JS disabled. The active Pixel install is in src/services/metaPixel.ts.
-         Pixel ID 943497925350474 is public (sent in every browser request)
-         so hardcoding it here is safe. Per HTML5 spec, <noscript> with
-         <img> content must be in <body>, not <head>. -->
-    <noscript>
-      <img height="1" width="1" style="display:none"
-           src="https://www.facebook.com/tr?id=943497925350474&ev=PageView&noscript=1"
-           alt="" />
-    </noscript>
+    <!-- The Meta Pixel's <noscript> image was removed on 2026-11-27 (#564): no script can hold it
+         until a UK or EEA visitor consents, and the site does not work without JavaScript anyway.
+         The Pixel lives in src/services/metaPixel.ts and starts only with advertising consent. -->
 
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
@@ -184,6 +177,11 @@
          the console but also costs demographics and remarketing audiences, so it is a
          product decision, not a bug fix. -->
 
-    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}</script>
+    <!-- CONSENT MODE v2 (#564, COOKIE_CONSENT_ANALYSIS): set BEFORE any tag. Denied by default in the
+         EEA, the UK and Switzerland (the list in src/services/consent.ts; a test checks the two agree),
+         granted elsewhere. A visitor's stored answer (cp_consent) is applied here too, so a returning
+         visitor's choice is in place before gtag.js loads. src/services/consent.ts sends the updates. -->
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}
+(function(){var d='denied',g='granted';gtag('consent','default',{ad_storage:d,ad_user_data:d,ad_personalization:d,analytics_storage:d,wait_for_update:500,region:['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE','IS','LI','NO','GB','CH']});gtag('consent','default',{ad_storage:g,ad_user_data:g,ad_personalization:g,analytics_storage:g});try{var c=JSON.parse(localStorage.getItem('cp_consent')||'null');if(c&&c.v===1){var m=c.measurement?g:d,a=c.advertising?g:d;gtag('consent','update',{analytics_storage:m,ad_storage:a,ad_user_data:a,ad_personalization:a});}}catch(e){}})();</script>
   </body>
 </html>

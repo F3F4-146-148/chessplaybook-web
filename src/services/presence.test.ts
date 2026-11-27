@@ -8,9 +8,10 @@ import {
   normalizeRouteGroup,
   sendPresenceHeartbeat,
 } from './presence';
+import { resetConsentForTests } from './consent';
 
 describe('presence transport', () => {
-  beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
+  beforeEach(() => { sessionStorage.clear(); localStorage.clear(); resetConsentForTests({ status: 'resolved', required: false, choice: null }); });
 
   it('creates and reuses one ephemeral ID per storage context', () => {
     const first = getPresenceId();
@@ -48,5 +49,25 @@ describe('presence transport', () => {
     const body = JSON.parse(init.body);
     expect(body).toEqual({ presenceId: expect.any(String), visitorId: expect.any(String), routeGroup: 'puzzles' });
     expect(JSON.stringify(body)).not.toMatch(/query|gclid|referrer|userAgent/);
+  });
+});
+
+describe('presence and consent (#564)', () => {
+  beforeEach(() => { sessionStorage.clear(); localStorage.clear(); });
+
+  it('sends nothing and creates no id for a UK or EEA visitor who has not accepted Measurement', async () => {
+    resetConsentForTests({ status: 'resolved', required: true, choice: null });
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 204 }));
+    await sendPresenceHeartbeat('puzzles', { fetchImpl });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(localStorage.getItem(VISITOR_STORAGE_KEY)).toBeNull();
+    expect(sessionStorage.getItem(PRESENCE_STORAGE_KEY)).toBeNull();
+  });
+
+  it('sends nothing while the answer is not known yet', async () => {
+    resetConsentForTests();
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 204 }));
+    await sendPresenceHeartbeat('puzzles', { fetchImpl });
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,5 @@
 import env from '@/config/env';
+import { measurementAllowed } from '@/services/consent';
 
 export const PRESENCE_STORAGE_KEY = 'chessplaybook.presence.session.v1';
 export const VISITOR_STORAGE_KEY = 'chessplaybook.visitor.v1';
@@ -61,6 +62,9 @@ export async function sendPresenceHeartbeat(
   routeGroup: RouteGroup,
   options: { fetchImpl?: typeof fetch; sessionStore?: Storage; visitorStore?: Storage; timeoutMs?: number } = {},
 ): Promise<void> {
+  // #564: measurement. A UK or EEA visitor sends none until Measurement is accepted (and none
+  // while the answer is not known yet); its two ids are never created before that.
+  if (!measurementAllowed()) return;
   warmAuthToken();
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 4_000);

@@ -57,6 +57,8 @@ export function initMetaPixel(): void {
   })(window, document, 'script', 'https://connect.facebook.net/en_US/fbevents.js');
   /* eslint-enable */
 
+  // Harmless on a first start; after a revoke in this page it lets the Pixel send again.
+  window.fbq?.('consent', 'grant');
   window.fbq?.('init', PIXEL_ID);
   window.fbq?.('track', 'PageView');
   initialized = true;
@@ -84,4 +86,15 @@ export function trackViewContent(contentName?: string): void {
 export function trackCompleteRegistration(): void {
   if (!initialized) return;
   window.fbq?.('track', 'CompleteRegistration');
+}
+
+/*
+  CONSENT (#564). The Pixel starts only once advertising is allowed (App.tsx asks
+  src/services/consent.ts first). A visitor who later withdraws it gets Meta's own revoke, which
+  stops the Pixel sending for the rest of the page; the next page load does not start it.
+*/
+export function revokeMetaPixel(): void {
+  if (!initialized) return;
+  window.fbq?.('consent', 'revoke');
+  initialized = false;
 }

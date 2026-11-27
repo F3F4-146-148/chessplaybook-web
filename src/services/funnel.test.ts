@@ -9,8 +9,12 @@ vi.mock('@/features/auth/utils/getAuthToken', () => ({ getRequestHeaders: async 
 
 import {
   readFirstTouch, bucharestDay, captureFirstTouch, recordVisit, countFirstDayAttempt, seenBeforeThisLoad,
-  onFirstInteraction, hasInteracted, resetInteractionForTests,
+  onFirstInteraction, hasInteracted, resetInteractionForTests, resetFunnelMemoryForTests, flushFunnelMemory,
 } from './funnel';
+import { resetConsentForTests, saveConsent } from './consent';
+
+/** A visitor outside the consent countries (the state every earlier test assumed). */
+const outsideConsentCountries = () => resetConsentForTests({ status: 'resolved', required: false, choice: null });
 
 const at = new Date('2026-11-12T10:00:00Z');
 const loc = (pathAndQuery: string) => {
@@ -57,6 +61,8 @@ describe('bucharestDay', () => {
 describe('recordVisit', () => {
   beforeEach(() => {
     localStorage.clear();
+    resetFunnelMemoryForTests();
+    outsideConsentCountries();
     headers.value = { 'X-Anonymous-Id': 'anon-1' };
   });
   const ok = () => vi.fn(async () => new Response(null, { status: 204 }));
@@ -146,7 +152,7 @@ describe('onFirstInteraction', () => {
 });
 
 describe('countFirstDayAttempt (funnel stage 3b)', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => { localStorage.clear(); resetFunnelMemoryForTests(); outsideConsentCountries(); });
   const later = new Date('2026-11-12T15:00:00Z');
 
   it('is true once, on the fifth attempt of the first day', () => {
@@ -180,5 +186,45 @@ describe('countFirstDayAttempt (funnel stage 3b)', () => {
     localStorage.clear();
     localStorage.setItem('CognitoIdentityServiceProvider.abc.LastAuthUser', 'sub');
     expect(seenBeforeThisLoad()).toBe(true);
+  });
+});
+
+describe('consent (#564, D3): a UK or EEA visitor before Measurement is accepted', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetFunnelMemoryForTests();
+    resetConsentForTests({ status: 'resolved', required: true, choice: null });
+    headers.value = { 'X-Anonymous-Id': 'anon-1' };
+  });
+  const ok = () => vi.fn(async () => new Response(null, { status: 204 }));
+
+  it('stores nothing, and still sends the first touch with the visit', async () => {
+    window.history.replaceState(null, '', '/puzzles?utm_source=google&utm_campaign=search-west-puzzles');
+    captureFirstTouch(at, false);
+    const fetchImpl = ok();
+    await recordVisit({ fetchImpl, now: at });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    const body = JSON.parse((fetchImpl.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body.firstTouch.utmCampaign).toBe('search-west-puzzles');
+    for (let i = 0; i < localStorage.length; i++) expect(localStorage.key(i)).not.toMatch(/^cp_(first|visit)/);
+    expect(localStorage.length).toBe(0);
+  });
+
+  it('sends the visit once in this page, from memory', async () => {
+    captureFirstTouch(at, false);
+    const fetchImpl = ok();
+    await recordVisit({ fetchImpl, now: at });
+    await recordVisit({ fetchImpl, now: at });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it('writes what it kept once Measurement is accepted', async () => {
+    captureFirstTouch(at, false);
+    await recordVisit({ fetchImpl: ok(), now: at });
+    expect(localStorage.getItem('cp_first_touch_sent')).toBeNull();
+    saveConsent(true, false, at);
+    flushFunnelMemory();
+    expect(localStorage.getItem('cp_first_touch_sent')).toBe('1');
+    expect(localStorage.getItem('cp_visit_day')).toBe(bucharestDay(at));
   });
 });

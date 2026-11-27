@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 
 import { normalizeRouteGroup, sendPresenceHeartbeat } from '@/services/presence';
 import { isPrerendering, onPrerenderActivated } from '@/services/prerender';
+import { measurementAllowed, subscribeConsent } from '@/services/consent';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
@@ -68,6 +69,14 @@ export function usePresenceHeartbeat(): void {
     // If this document IS a prerender, `send()` above did nothing. Count it the
     // moment it is actually shown, rather than waiting up to 30s for the next tick.
     const stopWaitingForActivation = onPrerenderActivated(send);
+    // #564: the send above does nothing until Measurement is allowed (the answer is often not
+    // known yet at mount). Send the moment it becomes allowed rather than up to 30s later.
+    let wasAllowed = measurementAllowed();
+    const stopConsent = subscribeConsent(() => {
+      const allowed = measurementAllowed();
+      if (allowed && !wasAllowed) sendIfVisible();
+      wasAllowed = allowed;
+    });
     const interval = window.setInterval(sendIfVisible, HEARTBEAT_INTERVAL_MS);
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('pagehide', sendTrailing);
@@ -75,6 +84,7 @@ export function usePresenceHeartbeat(): void {
     return () => {
       window.clearInterval(interval);
       stopWaitingForActivation();
+      stopConsent();
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('pagehide', sendTrailing);
     };

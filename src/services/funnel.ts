@@ -10,6 +10,7 @@
  * referrer, no click id. Every failure is swallowed: measuring must never break a page.
  */
 import env from '@/config/env';
+import { measurementAllowed } from '@/services/consent';
 
 const FIRST_TOUCH_KEY = 'cp_first_touch';
 const FIRST_TOUCH_SENT_KEY = 'cp_first_touch_sent';
@@ -91,11 +92,40 @@ export function bucharestDay(now: Date): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Bucharest', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
 }
 
+/*
+  CONSENT (#564, owner decision D3): these keys are measurement, so a UK or EEA visitor's browser
+  keeps them only once Measurement is accepted. Until then (and while the answer is not known yet)
+  they live in this page's memory: the first touch is still read from the URL and SENT with the
+  visit, without being stored, which the server keeps first-one-wins (INSERT OR IGNORE). When
+  Measurement is allowed, what is in memory is written through.
+*/
+const memory = new Map<string, string>();
+
+function storageAllowed(): boolean {
+  return measurementAllowed();
+}
 function read(key: string): string | null {
-  try { return localStorage.getItem(key); } catch { return null; }
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored !== null) return stored;
+  } catch { /* fall through to memory */ }
+  return memory.get(key) ?? null;
 }
 function write(key: string, value: string): void {
+  memory.set(key, value);
+  if (!storageAllowed()) return;
   try { localStorage.setItem(key, value); } catch { /* private mode: the next visit tries again */ }
+}
+
+/** Write what this page kept in memory once Measurement is allowed (consent.ts calls subscribers). */
+export function flushFunnelMemory(): void {
+  if (!storageAllowed()) return;
+  try { for (const [key, value] of memory) localStorage.setItem(key, value); } catch { /* nothing to do */ }
+}
+
+/** For tests. */
+export function resetFunnelMemoryForTests(): void {
+  memory.clear();
 }
 
 /** Keep the first touch, once, on the first page this browser loads. */

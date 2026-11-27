@@ -352,6 +352,8 @@ type GA4Event =
   // Prerender plan A14 (2026-11-19): once per load of a page built at deploy time: taken over in place (hydrate) or
   // built from scratch (create), and how many hydration mismatches React recovered from. The production signal that a
   // built page and the browser's first render agree.
+  // #564: the cookie banner's answer (consent rate for UK/EEA visitors). Sent after the Consent Mode update.
+  | { name: 'consent_choice'; params: { choice: 'accept_all' | 'reject_all' | 'choose'; measurement: boolean; advertising: boolean } }
   | { name: 'prerender_load'; params: { route: string; mode: 'hydrate' | 'create'; recoverable_errors: number } }
   | { name: 'opening_session_started'; params: { repertoire: string; scope: 'main' | 'secondary' | 'both'; resumed: boolean; from_position: boolean; focus?: 'mistakes' | 'review' } }
   | { name: 'opening_line_finished'; params: { repertoire: string; trained: boolean } }

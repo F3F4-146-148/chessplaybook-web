@@ -1,3 +1,4 @@
+import { openConsentSettings } from "@/services/consent";
 import { startTransition, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Youtube } from 'lucide-react';
@@ -140,6 +141,7 @@ export const Footer = () => {
           </p>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <a href="/credits" className="hover:text-link transition-colors">Credits & Attribution</a>
+            <button type="button" onClick={openConsentSettings} className="hover:text-link transition-colors">Cookie settings</button>
             <a
               href="https://github.com/F3F4-146-148/chessplaybook-web"
               target="_blank"
