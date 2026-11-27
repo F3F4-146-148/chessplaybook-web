@@ -16,6 +16,7 @@ import {
   type CheckoutSettings, type PaymentsProvider, type Plans, type PremiumState,
 } from './paddleCheckout';
 import { createStripeCheckout, STRIPE_PENDING_LINE, STRIPE_REFUSAL } from './stripeCheckout';
+import { reportPurchase } from './purchaseEvent';
 import type { PlanKey } from './premiumPlans';
 
 /* The read itself lives in premiumFetch.ts (#467 A1a), so the always-loaded provider can reach it lazily. */
@@ -167,6 +168,8 @@ export function usePremiumOffer({ prices = true }: { prices?: boolean } = {}): P
       try { extendFrom = sessionStorage.getItem(EXTEND_KEY); } catch { /* none */ }
       const done = extendFrom !== null ? Boolean(next?.premium && next.periodEndsAt && next.periodEndsAt !== extendFrom) : Boolean(next?.premium);
       if (done) {
+        /* #559: the server confirmed it, so GA4 (and through it Google Ads) learns of the sale. */
+        reportPurchase(next, from);
         try { sessionStorage.removeItem(EXTEND_KEY); } catch { /* none */ }
         setExtendWait(false);
         if (extendFrom !== null) { setPurchased(false); setExtendWait(false); }

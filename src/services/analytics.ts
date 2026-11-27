@@ -470,6 +470,10 @@ type GA4Event =
   | { name: 'premium_checkout_started'; params: { plan: 'yearly' | 'monthly' | 'one_year'; control: 'sign_in'; from?: 'puzzle_ask' } }
   /* A plan card chosen on the Premium page (#261); the buy button buys the chosen one. */
   | { name: 'premium_plan_selected'; params: { plan: 'yearly' | 'monthly' | 'one_year' } }
+  /* #559: a Premium purchase the server confirmed, after the return from checkout (purchaseEvent.ts). GA4's own
+     `purchase` event, so Google Ads can import it; `value` is the amount paid, tax included, in `currency`;
+     `transaction_id` lets GA4 drop a repeat. Never an identity or an email. */
+  | { name: 'purchase'; params: { transaction_id: string; value?: number; currency?: string; kind: 'pass' | 'subscription'; provider: 'stripe' | 'paddle' } }
   /*
     The DENOMINATOR for the move. `plan_setup_opened` counts intent to build one
     and `from` says what prompted it — the standing card, the one offer, or a
