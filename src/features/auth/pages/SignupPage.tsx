@@ -113,7 +113,9 @@ export default function SignupPage() {
                     required
                     minLength={3}
                     maxLength={30}
-                    autoComplete="username"
+                    /* A display name, not the sign-in name: "username" here made Chrome save it as the login, so
+                       the sign-in form's Email box was filled with the display name (owner, staging, 2026-11-27). */
+                    autoComplete="nickname"
                   />
                 </div>
                 <div className="space-y-2">
@@ -125,7 +127,8 @@ export default function SignupPage() {
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     required
-                    autoComplete="email"
+                    /* The email IS the sign-in name: password managers save it as the login. */
+                    autoComplete="username"
                   />
                 </div>
                 <div className="space-y-2">

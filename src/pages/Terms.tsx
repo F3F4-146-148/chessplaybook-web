@@ -77,8 +77,9 @@ const Terms = () => {
               <section className="mb-8">
                 <h2 className={H2}>Accounts</h2>
                 <p className={P}>
-                  Most of the Website works without an account. You need one to buy Premium. Keep your sign-in
-                  details to yourself: you are responsible for what is done with your account.
+                  Most of the Website works without an account. If you buy Premium without signing in, we create an
+                  account for you with the email you pay with, and email you a link to set its password. Keep your
+                  sign-in details to yourself: you are responsible for what is done with your account.
                 </p>
                 <p className={P}>
                   You can delete your account at any time from your{' '}

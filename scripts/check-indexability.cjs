@@ -354,6 +354,9 @@ const DELIBERATELY_UNSITEMAPPED = new Map([
   ['/reminders',
     "one person's email reminder setting; it is reached from the link in their own " +
     'emails, and a crawler sees nothing to index'],
+  ['/set-password',
+    "one person's link from the email after a purchase without an account; nothing happens without " +
+    'its token, and a crawler sees an empty form'],
   ['/membership',
     "one person's own Premium: their plan, managing it, and the plans for a free account; it " +
     'is reached from the account menu, and a crawler sees an empty state'],

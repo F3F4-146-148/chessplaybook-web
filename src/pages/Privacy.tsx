@@ -101,7 +101,7 @@ const Privacy = () => {
                 <h3 className="text-xl font-semibold text-link mb-3">Premium Purchases</h3>
                 <p className="text-muted-foreground mb-4">
                   If you buy Premium, Link takes the payment as our Merchant of Record (Sold through Link, LLC,
-                  an affiliate of Stripe). When you choose Buy, we send Stripe your account's email address and
+                  an affiliate of Stripe). If you are signed in, when you choose Buy, we send Stripe your account's email address and
                   our number for your account, so the purchase is linked to it, and you go to Link's checkout
                   page, which sees your IP address and the details you enter there. Stripe is responsible for the
                   payment and billing details it collects, under Link's{' '}
@@ -114,6 +114,14 @@ const Privacy = () => {
                   you Premium and to handle refunds. They are deleted when you delete your account. We also keep
                   a log of the notifications Stripe sends us, with Stripe's numbers and nothing that names you.
                   Stripe keeps its own records of the sale, as the law requires.
+                </p>
+                <p className="text-muted-foreground mb-4">
+                  If you buy Premium without signing in, Link's checkout asks for your email. After the payment, Stripe
+                  sends it to us, and we use it to create your account or to find the account that already has it. We
+                  send one email to that address: a link to set your password, or a note that Premium is on your
+                  account. We keep, until you delete your account: the purchase's number, the plan, that email and when
+                  the payment arrived. For one day we also keep a scrambled form of your IP address, used only to
+                  limit how many checkouts can be opened from one address.
                 </p>
 
                 {/* Owner-approved 2026-11-24 (premium grants plan D8). */}

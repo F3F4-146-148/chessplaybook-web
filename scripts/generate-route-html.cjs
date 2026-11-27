@@ -210,7 +210,8 @@ const GAME_SHELL = {
   description: 'Replay it move by move, copy or download the PGN.',
 };
 
-const NOINDEX_ROUTES = new Set(['puzzles/plan', 'puzzles/progress', 'puzzles/from-games', 'reminders', 'membership']);
+// `set-password` (2026-11-27, #521 Phase F): one person's link from the email after a purchase without an account.
+const NOINDEX_ROUTES = new Set(['puzzles/plan', 'puzzles/progress', 'puzzles/from-games', 'reminders', 'membership', 'set-password']);
 
 /*
   A NON-PRODUCTION SITE IS noindex IN FULL (#34).

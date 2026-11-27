@@ -15,10 +15,12 @@ import { GUIDED_LIVE } from '@/design/designFlags';
 
 export const perDay = (n: number) => `${n} a day`;
 
-export const LIMITED: ReadonlyArray<readonly [feature: string, free: string]> = [
+/** The list for a given state of the guided-games switch: a pure function, so a test needs no module mocking. */
+export function limitedList(guidedLive: boolean): ReadonlyArray<readonly [feature: string, free: string]> {
+  return [
   ['Puzzles', perDay(A.puzzle)],
   /* Second, after puzzles (owner, 2026-11-27): after puzzles, games against the Master are what people use most. */
-  ...(GUIDED_LIVE ? [['Guided games with the Master', perDay(A.guided_game)] as const] : []),
+  ...(guidedLive ? [['Guided games with the Master', perDay(A.guided_game)] as const] : []),
   ['Opening variations to learn', perDay(A.opening_variation)],
   ['Opening training sessions', perDay(A.opening_session)],
   ['Game reports and their puzzles', perDay(A.game_report)],
@@ -26,4 +28,7 @@ export const LIMITED: ReadonlyArray<readonly [feature: string, free: string]> = 
   ['Puzzle explanations', perDay(A.puzzle_explanation)],
   ['Puzzles from your games', `${A.game_puzzles} games a day`],
   ['Champion Challenge', perDay(A.challenge_session)],
-];
+  ];
+}
+
+export const LIMITED = limitedList(GUIDED_LIVE);

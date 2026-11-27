@@ -5,10 +5,13 @@ import { resolvePrerendered } from "@/app/prerenderRoutes";
 import { fixRenderClock } from "@/app/buildClock";
 import "./index.css";
 import { captureInviteFromLocation, INVITE_EVENT } from "@/features/premium/invitation";
+import { captureSetPasswordToken } from "@/features/premium/setPasswordToken";
 
 // A Premium invitation link (`/premium#invite=<token>`, grants plan D6): stored and removed from the address bar
 // before the first render and before analytics starts (App's first effect), so no page_view or tag sees the token.
 captureInviteFromLocation();
+// The set-password link after a purchase without an account (`/set-password#token=`, #521 Phase F): the same.
+captureSetPasswordToken();
 // The same link opened in a tab already showing the site changes only the fragment, without a reload (Codex): caught
 // here too, and the banner told to read it. `popstate` comes before `hashchange` on such a navigation and is what GA4's
 // history tracking listens to; registered here, before analytics loads, ours runs first.

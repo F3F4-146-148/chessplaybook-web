@@ -125,18 +125,20 @@ export interface CheckoutAnswer {
   provider: PaymentsProvider | null;
   /** Paddle's settings; set only when Paddle sells. */
   settings: CheckoutSettings | null;
+  /** #521 Phase F: Stripe sells to a visitor who is not signed in too (GUEST_CHECKOUT=on on the server). */
+  guestCheckout?: boolean;
 }
 
-const NOBODY: CheckoutAnswer = { provider: null, settings: null };
+const NOBODY: CheckoutAnswer = { provider: null, settings: null, guestCheckout: false };
 
 export async function fetchCheckoutSettings(fetchImpl: typeof fetch = fetch): Promise<CheckoutAnswer> {
   try {
     const response = await fetchImpl(`${env.apiBaseUrl}/api/premium/checkout`);
     if (!response.ok) return NOBODY;
-    const body = await response.json() as { provider?: unknown; checkout?: CheckoutSettings | null };
+    const body = await response.json() as { provider?: unknown; checkout?: CheckoutSettings | null; guestCheckout?: unknown };
     /* Stripe when the server says so, whatever else is sent (Fable review); Paddle only with its settings;
        an API from before B6 sends no provider, and its settings mean Paddle. */
-    if (body.provider === 'stripe') return { provider: 'stripe', settings: null };
+    if (body.provider === 'stripe') return { provider: 'stripe', settings: null, guestCheckout: body.guestCheckout === true };
     if (body.checkout) return { provider: 'paddle', settings: body.checkout };
     return NOBODY;
   } catch {

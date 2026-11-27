@@ -7,6 +7,7 @@ import { getAuthHeader } from '../utils/getAuthToken';
 import { userPreferencesService, type ServerPreferences } from '@/services/UserPreferencesService';
 import env from '@/config/env';
 import { DeleteAccountCard } from '../components/DeleteAccountCard';
+import { EmailChange } from '../components/EmailChange';
 import { PremiumCard } from '@/features/premium/PremiumCard';
 import { contactHref } from '@/components/support/ReportProblemLink';
 import { logGA4Event } from '@/services/analytics';
@@ -133,6 +134,9 @@ export default function ProfilePage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* #521 Phase F (F7b): a password account's email, changeable, under the card that shows it. */}
+          <EmailChange />
 
           {/*
             Puzzle training, and the way through to the record.

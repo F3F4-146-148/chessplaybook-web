@@ -40,7 +40,7 @@ function base64UrlEncode(buffer: ArrayBuffer): string {
  * Redirect to Cognito's authorize endpoint with Google as identity provider.
  * Generates PKCE code verifier/challenge and state nonce.
  */
-export async function redirectToGoogle(): Promise<void> {
+export async function redirectToGoogle(options: { chooseAccount?: boolean } = {}): Promise<void> {
   const state = await generateNonce();
   const codeVerifier = await generateNonce();
   sessionStorage.setItem(`cp_pkce_${state}`, codeVerifier);
@@ -57,10 +57,39 @@ export async function redirectToGoogle(): Promise<void> {
     redirect_uri: redirectUri,
     scope: 'openid email profile',
     identity_provider: 'Google',
-    prompt: 'select_account',
   });
+  /* The account chooser, except on the retry after a link (the account was just chosen). */
+  if (options.chooseAccount !== false) {
+    params.set('prompt', 'select_account');
+    clearLinkRetry(); // a new sign-in from a button: its own one retry
+  }
 
   window.location.href = `https://${COGNITO_DOMAIN}/oauth2/authorize?${params}`;
+}
+
+/**
+ * #521 Phase F: the pre-sign-up trigger (`deploy/cognito/link-google`) joined this Google sign-in to the existing
+ * account with the same email. Cognito then refuses that first sign-in once (our CP_LINKED marker, or its own
+ * "Already found an entry for username"); signing in again lands in the existing account. True once per sign-in:
+ * the retry is remembered in the tab, so a second refusal is shown, never looped.
+ */
+const LINK_RETRY_KEY = 'cp_google_link_retry';
+export function shouldRetryAfterLink(errorDescription: string | null, storage: Pick<Storage, 'getItem' | 'setItem'> = sessionStorage): boolean {
+  if (!errorDescription || !/CP_LINKED|Already found an entry for username/i.test(errorDescription)) return false;
+  if (storage.getItem(LINK_RETRY_KEY) === '1') return false;
+  storage.setItem(LINK_RETRY_KEY, '1');
+  return true;
+}
+/** The callback's error in words a person can act on. invalid_grant follows a Google sign-in linked to an account
+ *  again after an account was deleted: Cognito refuses it for some minutes (measured on staging, 2026-11-27). */
+export function callbackErrorText(message: string): string {
+  if (/invalid_grant/i.test(message)) {
+    return 'We could not finish signing you in. Please wait a few minutes and try again. If it keeps failing, write to support@chessplaybook.com.';
+  }
+  return message;
+}
+export function clearLinkRetry(storage: Pick<Storage, 'removeItem'> = sessionStorage): void {
+  storage.removeItem(LINK_RETRY_KEY);
 }
 
 /**

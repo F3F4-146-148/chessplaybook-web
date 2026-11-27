@@ -123,7 +123,8 @@ export default function LoginPage() {
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     required
-                    autoComplete="email"
+                    /* The email is the sign-in name, so a password manager fills it here (SignupPage saves it so). */
+                    autoComplete="username"
                   />
                 </div>
                 <div className="space-y-2">

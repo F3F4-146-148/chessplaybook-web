@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useNavigate } from 'react-router-dom';
-import { exchangeCodeForTokens, storeTokensForAmplify } from '../utils/oauth';
+import { callbackErrorText, clearLinkRetry, exchangeCodeForTokens, redirectToGoogle, shouldRetryAfterLink, storeTokensForAmplify } from '../utils/oauth';
 import { trackLead, trackCompleteRegistration } from '@/services/metaPixel';
 import { logGA4Event } from '@/services/analytics';
 import { takeStashedReturnTo } from '../utils/returnTo';
@@ -23,8 +23,17 @@ export default function AuthCallbackPage() {
       return;
     }
 
+    /* #521 Phase F: this Google sign-in was just joined to the existing account with its email; sign in again,
+       once, without the account chooser. It is a sign-in to an existing account, never a new registration. */
+    if (shouldRetryAfterLink(params.get('error_description'))) {
+      sessionStorage.removeItem('cp_signup_intent');
+      void redirectToGoogle({ chooseAccount: false });
+      return;
+    }
+
     exchangeCodeForTokens()
       .then((tokens) => {
+        clearLinkRetry();
         storeTokensForAmplify(tokens);
         logGA4Event({ name: 'signed_in', params: { provider: 'google' } });
         // Meta Pixel: only fire registration events when this OAuth
@@ -50,7 +59,7 @@ export default function AuthCallbackPage() {
       })
       .catch((err) => {
         console.error('[OAuth] Callback error:', err);
-        setError(err instanceof Error ? err.message : 'Sign in failed. Please try again.');
+        setError(err instanceof Error ? callbackErrorText(err.message) : 'Sign in failed. Please try again.');
       });
   }, [navigate]);
 

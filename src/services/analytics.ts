@@ -427,6 +427,10 @@ type GA4Event =
   | { name: 'reminder_sign_in_started'; params: { source: string } }
   | { name: 'reminder_turned_on'; params: { source: string } }
   | { name: 'reminder_turned_off'; params: { source: string } }
+  /* #521 Phase F: a buyer without an account chose their password from the email's link. */
+  | { name: 'guest_password_set'; params: Record<string, never> }
+  /* #521 Phase F (F7b): a password account changed its email on /membership. */
+  | { name: 'account_email_changed'; params: Record<string, never> }
   /*
     `surface` SAYS WHERE IT HAPPENED, and it exists because the plan moved onto
     a page of its own on 2026-08-06 (A7).

@@ -34,6 +34,7 @@ const LiveEventsHub = lazy(() => lazyRetry(() => import("@/pages/LiveEventsHub")
 const WorldCup2025GameDay = lazy(() => lazyRetry(() => import("@/pages/WorldCup2025GameDay")));
 const LiveGameViewer = lazy(() => lazyRetry(() => import("@/pages/live-game/LiveGameViewer")));
 const Reminders = lazy(() => lazyRetry(() => import("@/pages/Reminders")));
+const SetPassword = lazy(() => lazyRetry(() => import("@/pages/SetPassword")));
 /* #467: the account's Premium, managed, and the plans for a free account. Personal: noindex, not built. */
 const Membership = lazy(() => lazyRetry(() => import("@/pages/Membership")));
 const Play = lazy(() => lazyRetry(() => import("@/features/play/pages/PlayComputer")));
@@ -349,6 +350,7 @@ export function AppRoutes() {
         <Route path="/premium" element={<Premium />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/reminders" element={<Reminders />} />
+        <Route path="/set-password" element={<SetPassword />} />
         <Route path="/membership" element={<Membership />} />
         <Route path="/credits" element={<Credits />} />
         <Route path="/world-championship-cycle" element={<WorldChampionshipCycle />} />

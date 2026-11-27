@@ -306,3 +306,22 @@ describe("the account's Premium status (moved from /profile to /membership, #467
     expect(await findByTestId('premium-status')).toBeTruthy();
   });
 });
+
+describe('back from Stripe without an account (#521 Phase F)', () => {
+  it('a settled purchase on an existing account is DONE: no spinner, nothing more to buy (owner, staging)', async () => {
+    auth.user = null;
+    window.location.search = '?checkout=success&purchase=p1';
+    vi.spyOn(window.history, 'replaceState').mockImplementation(() => {});
+    sessionStorage.setItem('cp_guest_purchase', JSON.stringify({ purchaseId: 'p1', secret: 's1' }));
+    handler = (url) => {
+      if (url.endsWith('/api/premium/checkout')) return json({ provider: 'stripe', checkout: null, guestCheckout: true });
+      if (url.endsWith('/api/premium/guest-purchase/status')) return json({ state: 'ready', account: 'existing', email: 'b@example.com', canSignIn: false });
+      return json({});
+    };
+    const { result } = renderHook(() => usePremiumOffer(), { wrapper: Wrap });
+    await waitFor(() => expect(result.current.guestDone).toBe(true));
+    expect(result.current.purchased).toBe(true);
+    expect(result.current.message).toBe('Premium is now on your account b@example.com. Sign in with that email to use it.');
+    expect(sessionStorage.getItem('cp_guest_purchase')).toBeNull();
+  });
+});

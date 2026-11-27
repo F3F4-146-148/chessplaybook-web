@@ -6,7 +6,8 @@
  * `provider` is null where nobody sells (production until launch): nothing can be bought. With Paddle,
  * prices come from Paddle's preview, localised by the visitor's address. With Stripe (STRIPE plan C1)
  * the page shows the table the server charges from (premiumPlans.plansForCountry), and buying sends
- * the browser to Stripe's checkout page. Buying needs an account (owner).
+ * the browser to Stripe's checkout page. Buying needs an account, except where the server sells to a visitor who
+ * is not signed in (#521 Phase F, `guestCheckout`): the account is then made after the payment (guestPurchase.ts).
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/features/auth/AuthContext';
@@ -17,6 +18,9 @@ import {
 } from './paddleCheckout';
 import { createStripeCheckout, STRIPE_PENDING_LINE, STRIPE_REFUSAL } from './stripeCheckout';
 import { reportPurchase } from './purchaseEvent';
+import {
+  createGuestCheckout, fetchGuestStatus, forgetGuestPurchase, GUEST_SIGNED_IN_KEY, readGuestPurchase, signInAfterPurchase,
+} from './guestPurchase';
 import type { PlanKey } from './premiumPlans';
 
 /* The read itself lives in premiumFetch.ts (#467 A1a), so the always-loaded provider can reach it lazily. */
@@ -35,6 +39,14 @@ export const STRIPE_RETURN_PARAM = 'checkout';
 export const LEAVE_TIMEOUT_MS = 20_000;
 
 /** What buy() needs: the plan, Paddle's price id when Paddle sells, and the price shown (checked by the server). */
+/** A guest checkout's refusals, one plain line each (ui-copy). */
+const GUEST_REFUSAL: Record<string, string> = {
+  ...STRIPE_REFUSAL,
+  too_many_checkouts: 'Too many checkouts were opened from here. Please try again in an hour.',
+  checkout_completed: 'Your last checkout was completed. We are confirming the payment; check your email in a few minutes.',
+  signed_in: 'Please reload the page to buy with your account.',
+};
+
 export interface BuyChoice { key: PlanKey; priceId: string | null; minor?: number; currency?: string }
 
 export interface PremiumOffer {
@@ -44,6 +56,8 @@ export interface PremiumOffer {
   provider: PaymentsProvider | null;
   /** Paddle's settings, only when Paddle sells. */
   settings: CheckoutSettings | null;
+  /** #521 Phase F: a visitor who is not signed in may buy (Stripe only). */
+  guestCheckout: boolean;
   /** Paddle's price preview, only when Paddle sells. */
   plans: Plans | null;
   /** The signed-in account's Premium; null for a guest or before it loads. */
@@ -58,6 +72,9 @@ export interface PremiumOffer {
   purchased: boolean;
   /** True while waiting for another year a one-year-pass holder bought (the pass's end to move). */
   extendWait: boolean;
+  /** #521 Phase F: a guest purchase is settled (Premium on an existing account, or a new account emailed). Nothing is
+   *  being waited for: the page shows the message as done, not with a spinner; `purchased` stays true. */
+  guestDone: boolean;
   /** True while a Stripe checkout is being opened: the Buy button and the plan choice wait (Fable, Codex). */
   busy: boolean;
   setState: (state: PremiumState | null) => void;
@@ -76,6 +93,7 @@ export function usePremiumOffer({ prices = true }: { prices?: boolean } = {}): P
   const { user, isLoading: authLoading } = useAuth();
   const [checked, setChecked] = useState(false);
   const [provider, setProvider] = useState<PaymentsProvider | null>(null);
+  const [guestCheckout, setGuestCheckout] = useState(false);
   const [settings, setSettings] = useState<CheckoutSettings | null>(null);
   const [plans, setPlans] = useState<Plans | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -106,6 +124,7 @@ export function usePremiumOffer({ prices = true }: { prices?: boolean } = {}): P
       const found = await fetchCheckoutSettings();
       if (cancelled) return;
       setProvider(found.provider);
+      setGuestCheckout(found.provider === 'stripe' && found.guestCheckout === true);
       setSettings(found.settings);
       setChecked(true);
       if (!found.settings || !prices) return;
@@ -140,6 +159,8 @@ export function usePremiumOffer({ prices = true }: { prices?: boolean } = {}): P
   const [purchased, setPurchased] = useState(false);
   /* True while waiting for another year a pass holder bought (see awaitPremium). */
   const [extendWait, setExtendWait] = useState(false);
+  /* A guest purchase settled with no sign-in on this page (see guestReturned below). */
+  const [guestDone, setGuestDone] = useState(false);
 
   /*
     After a purchase the provider tells our server by webhook; wait for it, up to a minute. Paddle's
@@ -202,6 +223,69 @@ export function usePremiumOffer({ prices = true }: { prices?: boolean } = {}): P
   }, [prices, provider, user, awaitPremium]);
 
   /*
+    #521 PHASE F: BACK FROM STRIPE WITHOUT AN ACCOUNT. The page asks how the purchase stands (only this tab holds
+    its secret), up to two minutes. A NEW account this purchase made: signed in once and the page reloaded, as
+    after Google's sign-in, so the guest's history is linked and the signed-in wait below confirms the sale. An
+    EXISTING account (its email): Premium is on it, the buyer signs in as usual. A purchase this tab does not hold
+    (another tab, a link opened later) is not this page's to explain: nothing is said.
+  */
+  const guestReturned = useRef(false);
+  useEffect(() => {
+    if (!prices || guestReturned.current || provider !== 'stripe' || user || authLoading) return;
+    const query = new URLSearchParams(window.location.search);
+    if (query.get(STRIPE_RETURN_PARAM) !== 'success') return;
+    guestReturned.current = true;
+    const held = readGuestPurchase();
+    const named = query.get('purchase');
+    query.delete(STRIPE_RETURN_PARAM);
+    query.delete('purchase');
+    const rest = query.toString();
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${rest ? `?${rest}` : ''}${window.location.hash}`);
+    if (!held || held.purchaseId !== named) return;
+    setPurchased(true);
+    setMessage('Thank you. We are waiting for your payment to be confirmed…');
+    let tries = 0;
+    const poll = async () => {
+      if (!mounted.current) return;
+      const status = await fetchGuestStatus(held);
+      if (!mounted.current) return;
+      if (status.state === 'ready') {
+        if (status.account === 'new' && status.canSignIn) {
+          setMessage('Thank you. Setting up your account…');
+          if (await signInAfterPurchase(held)) {
+            forgetGuestPurchase();
+            try { sessionStorage.setItem(GUEST_SIGNED_IN_KEY, '1'); } catch { /* the sale is then not reported here */ }
+            window.location.href = '/premium';
+            return;
+          }
+        }
+        forgetGuestPurchase();
+        setGuestDone(true);
+        setMessage(status.account === 'new'
+          ? `Your account is ready. We emailed ${status.email} a link to set your password.`
+          : `Premium is now on your account ${status.email}. Sign in with that email to use it.`);
+        return;
+      }
+      if (status.state === 'closed' || status.state === 'unknown') { setPurchased(false); setMessage(null); return; }
+      if (++tries < 60) { window.setTimeout(poll, 2000); return; }
+      setPurchased(false);
+      setMessage('We have not received a payment yet. If you paid, we will email you as soon as Premium is ready.');
+    };
+    void poll();
+  }, [prices, provider, user, authLoading]);
+
+  /* After the one-time sign-in's reload: the signed-in wait, which reports the sale once the server confirms it. */
+  const afterGuestSignIn = useRef(false);
+  useEffect(() => {
+    if (!prices || afterGuestSignIn.current || provider !== 'stripe' || !user) return;
+    let flagged = false;
+    try { flagged = sessionStorage.getItem(GUEST_SIGNED_IN_KEY) === '1'; sessionStorage.removeItem(GUEST_SIGNED_IN_KEY); } catch { /* none */ }
+    if (!flagged) return;
+    afterGuestSignIn.current = true;
+    awaitPremium('stripe');
+  }, [prices, provider, user, awaitPremium]);
+
+  /*
     Each checkout attempt has a number (Codex, round two). Coming back with the Back button, or another
     account signing in, starts a new number: the old attempt's answer, redirect and timer are then ignored,
     so they can neither send this visitor to another account's checkout nor unlock a newer attempt.
@@ -222,6 +306,7 @@ export function usePremiumOffer({ prices = true }: { prices?: boolean } = {}): P
     if (before === null || before === userId) return;
     release();
     setPurchased(false);
+    setGuestDone(false);
     setMessage(null);
   }, [userId, release]);
 
@@ -233,6 +318,25 @@ export function usePremiumOffer({ prices = true }: { prices?: boolean } = {}): P
        routes/stripe.ts): the one exception to "never for a Premium holder" (owner, 2026-11-24). */
     /* The same rule as the page's button (canAddPassYear: no open subscription, no refund waiting; Fable). */
     const extending = choice.key === 'one_year' && state?.premium === true && canAddPassYear(state);
+    /* #521 Phase F: not signed in, where the server sells to guests. The account comes after the payment. */
+    if (!user && provider === 'stripe' && guestCheckout && stateKnown && !purchased && !inFlight.current) {
+      inFlight.current = true;
+      const mine = ++attemptNo.current;
+      const current = () => mounted.current && attemptNo.current === mine && currentUser.current === null;
+      setBusy(true);
+      setMessage(null);
+      const shown = choice.minor !== undefined && choice.currency ? { minor: String(choice.minor), currency: choice.currency } : undefined;
+      const result = await createGuestCheckout(choice.key, country, shown);
+      if (!current()) return;
+      if (result.ok !== false) {
+        window.location.assign(result.url);
+        window.setTimeout(() => { if (current()) release(); }, LEAVE_TIMEOUT_MS);
+        return;
+      }
+      release();
+      setMessage(GUEST_REFUSAL[result.reason]);
+      return;
+    }
     if (!provider || !user || !stateKnown || (state?.premium && !extending) || grantBlocksPurchase(state) || state?.purchasePending || purchased || inFlight.current) return;
     /* The wait after paying ends when the pass's end moves, not when the account "has Premium" (it already
        does). Kept across Stripe's redirect, for this tab only. */
@@ -278,7 +382,7 @@ export function usePremiumOffer({ prices = true }: { prices?: boolean } = {}): P
     } catch {
       setMessage('Checkout could not be opened. Please try again later.');
     }
-  }, [provider, settings, user, stateKnown, state, purchased, readPremium, release]);
+  }, [provider, settings, user, stateKnown, state, purchased, readPremium, release, guestCheckout]);
 
-  return { checked, provider, settings, plans, state, stateKnown, purchased, extendWait, busy, setState, message, setMessage, buy };
+  return { checked, provider, settings, guestCheckout, plans, state, stateKnown, purchased, extendWait, guestDone, busy, setState, message, setMessage, buy };
 }

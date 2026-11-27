@@ -17,10 +17,12 @@ describe('who sells (B6)', () => {
   const paddle = { environment: 'sandbox', clientToken: 'c', prices: { monthly: 'm', yearly: 'y', oneYear: null } };
 
   it('reads Stripe, Paddle and nobody', async () => {
-    expect(await fetchCheckoutSettings(answer(200, { provider: 'stripe', checkout: null }))).toEqual({ provider: 'stripe', settings: null });
+    expect(await fetchCheckoutSettings(answer(200, { provider: 'stripe', checkout: null }))).toEqual({ provider: 'stripe', settings: null, guestCheckout: false });
+    /* #521 Phase F: guest checkout only when the server says so. */
+    expect(await fetchCheckoutSettings(answer(200, { provider: 'stripe', checkout: null, guestCheckout: true }))).toEqual({ provider: 'stripe', settings: null, guestCheckout: true });
     expect(await fetchCheckoutSettings(answer(200, { provider: 'paddle', checkout: paddle }))).toEqual({ provider: 'paddle', settings: paddle });
-    expect(await fetchCheckoutSettings(answer(200, { provider: null, checkout: null }))).toEqual({ provider: null, settings: null });
-    expect(await fetchCheckoutSettings(answer(500, {}))).toEqual({ provider: null, settings: null });
+    expect(await fetchCheckoutSettings(answer(200, { provider: null, checkout: null }))).toEqual({ provider: null, settings: null, guestCheckout: false });
+    expect(await fetchCheckoutSettings(answer(500, {}))).toEqual({ provider: null, settings: null, guestCheckout: false });
   });
 
   it('an API from before B6 (no provider field) with Paddle settings still means Paddle', async () => {
@@ -28,7 +30,7 @@ describe('who sells (B6)', () => {
   });
 
   it('Stripe wins when the server names it, even beside Paddle settings (Fable)', async () => {
-    expect(await fetchCheckoutSettings(answer(200, { provider: 'stripe', checkout: paddle }))).toEqual({ provider: 'stripe', settings: null });
+    expect(await fetchCheckoutSettings(answer(200, { provider: 'stripe', checkout: paddle }))).toEqual({ provider: 'stripe', settings: null, guestCheckout: false });
   });
 
   it('Paddle is never chosen without its settings, whatever provider says', async () => {

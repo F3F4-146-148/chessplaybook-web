@@ -119,7 +119,7 @@ function day(sqliteUtc: string | null): string | null {
 export default function PremiumPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { checked, provider, plans, state, stateKnown, purchased, extendWait, busy, message, buy } = usePremiumOffer();
+  const { checked, provider, guestCheckout, plans, state, stateKnown, purchased, extendWait, guestDone, busy, message, buy } = usePremiumOffer();
   const country = useVisitorCountry();
 
   const live = provider !== null;
@@ -151,7 +151,9 @@ export default function PremiumPage() {
   /* Paddle needs its price id; Stripe is asked by plan and country. */
   const canBuy = live && stateKnown && !holder && !purchased && !blockedLine && chosen !== null
     && (provider === 'stripe' || chosen.priceId !== null);
-  const buyLabel = user ? 'Buy' : 'Sign in to buy';
+  /* #521 Phase F: where the server sells to guests, a visitor who is not signed in buys straight away. */
+  const buysAsGuest = !user && guestCheckout;
+  const buyLabel = user || buysAsGuest ? 'Buy' : 'Sign in to buy';
   /*
     ANOTHER YEAR FOR A PASS HOLDER (owner, 2026-11-24, option A). The account card's "Add another year" used to
     land here on a holder box with nothing to buy, while the server sells a pass on a pass, starting where the
@@ -177,7 +179,7 @@ export default function PremiumPage() {
   const onBuy = (control: 'plans' | 'sticky_bar') => {
     if (!chosen || !canBuy || busy) return;
     logGA4Event({ name: 'premium_buy_clicked', params: { plan: chosen.key, signed_in: Boolean(user), control, ...askParam } });
-    if (user) void buy({ key: chosen.key, priceId: chosen.priceId, minor: chosen.minor, currency: chosen.currency }, country);
+    if (user || buysAsGuest) void buy({ key: chosen.key, priceId: chosen.priceId, minor: chosen.minor, currency: chosen.currency }, country);
     /* #521 B: back from sign-in with `buy=1`: they chose and pressed Buy already, so the checkout opens by itself. */
     else navigate(`/login?returnTo=${encodeURIComponent(`/premium?plan=${chosen.key}&buy=1${fromAsk ? '&from=puzzle_ask' : ''}`)}`);
   };
@@ -346,7 +348,10 @@ export default function PremiumPage() {
                 <div className="mt-4 flex flex-col gap-2 md:mt-[calc(16*var(--pu))]">
                   {waiting ? (
                     <p data-premium="action" role="status" className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-center text-[16px] font-semibold text-foreground ring-2 ring-primary md:py-[calc(12*var(--pu))] md:text-[length:max(14px,calc(16*var(--pu)))]">
-                      <Loader2 className="h-5 w-5 shrink-0 animate-spin text-link motion-reduce:animate-none" aria-hidden />
+                      {/* #521 Phase F: a settled guest purchase waits for nothing, so a check, not a spinner (owner, staging). */}
+                      {guestDone
+                        ? <Check className="h-5 w-5 shrink-0 text-link" aria-hidden />
+                        : <Loader2 className="h-5 w-5 shrink-0 animate-spin text-link motion-reduce:animate-none" aria-hidden />}
                       {message ?? 'Thank you. We are waiting for your payment to be confirmed…'}
                     </p>
                   ) : blockedLine ? (
@@ -374,7 +379,7 @@ export default function PremiumPage() {
                     <Link to="/refund-policy" className="inline-flex items-center gap-1.5 hover:text-link">
                       <ShieldCheck className="h-4 w-4 v2-gold-icon" fill="none" aria-hidden /> Full refund within 30 days, for any reason.
                     </Link>
-                    {live && !user && <span>A free account is all you need.</span>}
+                    {live && !user && <span data-premium="guest-line">{buysAsGuest ? 'No sign-up: we make your account.' : 'A free account is all you need.'}</span>}
                   </p>
                   {/* Under the button only where the first screen has room (B3). */}
                   <p data-premium="legal" className="hidden text-[12px] leading-relaxed text-muted-foreground md:text-[length:max(12px,calc(12*var(--pu)))] tall-only:block">{legalText}</p>

@@ -82,6 +82,15 @@
     "heading": "Membership",
     "body": "Your Chess Playbook membership: your plan, and Premium."
   },
+  "set-password": {
+    "title": "Set Your Password | Chess Playbook",
+    "description": "Choose the password for your Chess Playbook account.",
+    "ogTitle": "Set Your Password",
+    "ogDescription": "Choose the password for your Chess Playbook account.",
+    "keywords": "chess playbook account, password",
+    "heading": "Set your password",
+    "body": "Choose the password for your Chess Playbook account."
+  },
   "reminders": {
     "title": "Reminder Emails | Chess Playbook",
     "description": "Stop or change the reminder emails Chess Playbook sends you.",
