@@ -28,7 +28,11 @@ export function DaySummaryCard({ summary, offerAccount = false }: { summary: Day
   const hasGraph = points.length >= 2;
   const now = hasGraph ? points[points.length - 1] : null;
   const [chartRef, box] = useBox<HTMLDivElement>();
-  const lines = useMemo(() => daySummaryVoiceLines(summary), [summary]);
+  /* Keyed by what the summary SAYS, never by the object (owner, 2026-11-27: he started again on every move stepped
+     through after the ask). Under the ask the page rebuilds the summary from the refused puzzle's answer on every
+     render, and the voice starts over on any new value: so an equal summary must give the same lines. */
+  const linesKey = `${summary.day}|${summary.lines.map((l) => l.key).join(',')}`;
+  const lines = useMemo(() => daySummaryVoiceLines(summary), [linesKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const voice = useMasterVoice(lines);
   const cardRef = useRef<HTMLDivElement>(null);
 

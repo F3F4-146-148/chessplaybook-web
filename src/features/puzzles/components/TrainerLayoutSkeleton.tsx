@@ -48,6 +48,7 @@ import { backLabel, whenBack, type DailyLimit } from '@/services/freePlanLimit';
 import { usePuzzleAllowance } from '../services/puzzleAllowance';
 import { usePuzzleToday } from '../services/puzzleToday';
 import { TodayGraph } from './TodayGraph';
+import { RecordFoot } from './RecordFoot';
 import { DaySummaryCard } from './DaySummaryCard';
 import { asDaySummary } from '../lib/daySummary';
 import { CheckCircle2, Clock, History, Infinity as InfinityIcon, Minimize2, PieChart, Swords, TrendingUp, XCircle, Zap } from 'lucide-react';
@@ -1156,9 +1157,16 @@ export default function TrainerLayoutSkeleton() {
                         },
                         { label: 'Solved', value: record.progress.totalSolved, icon: <CheckCircle2 className="w-[1em] h-[1em] text-success" /> },
                         { label: 'Best streak', value: record.progress.bestStreak, icon: <Zap className="w-[1em] h-[1em] text-muted-foreground" /> },
-                        { label: 'Session', value: record.stats.solved, icon: <Clock className="w-[1em] h-[1em] text-muted-foreground" /> },
+                        /* #418 (owner, 2026-11-27): the server's session (back to a 30-minute gap), so a reload keeps it
+                           and it counts the same puzzles as the performance below; the page's own count until read. */
+                        { label: 'Session', value: todayLine?.session?.solved ?? record.stats.solved, icon: <Clock className="w-[1em] h-[1em] text-muted-foreground" /> },
                         { label: 'Streak', value: record.stats.streak, icon: <Zap className="w-[1em] h-[1em] text-muted-foreground" /> },
                       ]}
+                    />
+                    <RecordFoot
+                      allowance={allowance ? allowance.puzzle : undefined}
+                      session={todayLine?.session}
+                      days={todayLine?.days}
                     />
                   </div>
                 </>

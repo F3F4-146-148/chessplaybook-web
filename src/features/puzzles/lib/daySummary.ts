@@ -18,6 +18,36 @@ export interface TodayLine {
   points: number[];
   attempts: number;
   solved: number;
+  /** #418: this session (the server's: back to a 30-minute gap), for the foot of "Your record". */
+  session?: SessionFigures | null;
+  /** #418: the days in a row and the last seven days, oldest first, today last. */
+  days?: DaysInARow | null;
+}
+
+export interface SessionFigures {
+  attempts: number;
+  solved: number;
+  /** The rated results the performance is over. */
+  scored: number;
+  /** Null below 5 rated results. */
+  performance: number | null;
+}
+
+export interface DaysInARow {
+  inARow: number;
+  last7: boolean[];
+}
+
+function asSession(v: unknown): SessionFigures | null {
+  const s = v as Partial<SessionFigures> | null | undefined;
+  if (!s || typeof s.attempts !== 'number' || typeof s.solved !== 'number' || typeof s.scored !== 'number') return null;
+  return { attempts: s.attempts, solved: s.solved, scored: s.scored, performance: typeof s.performance === 'number' ? s.performance : null };
+}
+
+function asDays(v: unknown): DaysInARow | null {
+  const d = v as Partial<DaysInARow> | null | undefined;
+  if (!d || typeof d.inARow !== 'number' || !Array.isArray(d.last7) || d.last7.length !== 7) return null;
+  return { inARow: d.inARow, last7: d.last7.map(Boolean) };
 }
 
 export type DayShape = 'up' | 'recovered' | 'upMixed' | 'fadedLate' | 'down' | 'level' | 'unrated';
@@ -37,6 +67,8 @@ export function asTodayLine(v: unknown): TodayLine | null {
   return {
     day: t.day, points: t.points, attempts: Number(t.attempts) || 0, solved: Number(t.solved) || 0,
     ...(summary ? { summary: asDaySummary(summary) } : {}),
+    ...('session' in t ? { session: asSession((t as { session?: unknown }).session) } : {}),
+    ...('days' in t ? { days: asDays((t as { days?: unknown }).days) } : {}),
   };
 }
 
