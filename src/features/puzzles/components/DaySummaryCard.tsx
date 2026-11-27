@@ -72,7 +72,7 @@ export function DaySummaryCard({ summary, offerAccount = false }: { summary: Day
         {now != null && (
           <div className="flex items-baseline gap-[0.5em] text-[length:var(--card-type,14px)]">
             <span className="text-muted-foreground">Today</span>
-            <span className="font-semibold tabular-nums">{now.toLocaleString('en-US')}</span>
+            <span className="font-semibold tabular-nums">{now}</span>
             <RatingChange points={points} />
             <span className="ml-auto text-muted-foreground tabular-nums">
               {summary.solved} of {summary.attempts} solved
@@ -103,7 +103,7 @@ export function DaySummaryCard({ summary, offerAccount = false }: { summary: Day
             onClick={() => logGA4Event({ name: 'puzzle_moment_signup', params: { kind: 'day_end', rating: now } })}
           >
             <UserPlus style={{ width: '1em', height: '1em' }} aria-hidden />
-            Create a free account to keep your {now.toLocaleString('en-US')} rating.
+            Create a free account to keep your {now} rating.
           </Link>
         )}
       </div>

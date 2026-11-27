@@ -120,14 +120,14 @@ export function ProgressMomentCard({ moment, offerAccount = false }: { moment: P
       <div ref={seenRef} className={`card-body moment-body${seen ? '' : ' moment-waiting'}`} data-moment-kind={moment.kind}>
         <div className="moment-grid">
           <div className="moment-stats">
-            <div className="moment-rating tabular-nums" aria-label={`Rating ${now}`}>{shown.toLocaleString('en-US')}</div>
+            <div className="moment-rating tabular-nums" aria-label={`Rating ${now}`}>{shown}</div>
             <div className="moment-gain">
               <ArrowUp style={{ width: '0.9em', height: '0.9em' }} aria-hidden />+{gain} this sitting
             </div>
             {!compact && (
               <div className="moment-goal">
                 <Target style={{ width: '0.9em', height: '0.9em' }} aria-hidden />
-                {goal.toLocaleString('en-US')} is {goal - now} away
+                {goal} is {goal - now} away
               </div>
             )}
           </div>
@@ -142,7 +142,7 @@ export function ProgressMomentCard({ moment, offerAccount = false }: { moment: P
             onClick={() => logGA4Event({ name: 'puzzle_moment_signup', params: { kind: moment.kind, rating: now } })}
           >
             <UserPlus style={{ width: '1em', height: '1em' }} aria-hidden />
-            Create a free account to keep your {now.toLocaleString('en-US')} rating.
+            Create a free account to keep your {now} rating.
           </Link>
         )}
       </div>

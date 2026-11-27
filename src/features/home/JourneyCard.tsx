@@ -58,7 +58,7 @@ export function JourneyCard() {
             <span className="h-12 w-px shrink-0 bg-border" aria-hidden />
             <JourneyStat
               icon={<FaTrophy className="shrink-0 w-6 h-6 md:w-7 md:h-7 v2-gold-icon text-link" aria-hidden />}
-              value={DISPLAY_FIGURES.rating.toLocaleString('en-US')}
+              value={`${DISPLAY_FIGURES.rating}`}
               label="Puzzle rating"
               extra={(
                 <span className="inline-flex items-center text-xs font-medium text-win">

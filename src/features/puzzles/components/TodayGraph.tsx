@@ -47,7 +47,7 @@ export function TodayGraph({ line, offerAccount = false }: { line: TodayLine | n
         <div className="absolute inset-0 flex flex-col gap-[0.25em]" data-testid="today-graph">
           <div className="flex items-baseline gap-[0.5em] text-[length:var(--card-type,14px)]">
             <span className="text-muted-foreground">Today</span>
-            <span className="font-semibold tabular-nums">{now.toLocaleString('en-US')}</span>
+            <span className="font-semibold tabular-nums">{now}</span>
             <RatingChange points={points} />
           </div>
           <div className="relative flex-1 min-h-0">
@@ -66,7 +66,7 @@ export function TodayGraph({ line, offerAccount = false }: { line: TodayLine | n
               onClick={() => logGA4Event({ name: 'puzzle_moment_signup', params: { kind: 'today', rating: now } })}
             >
               <UserPlus style={{ width: '1em', height: '1em' }} aria-hidden />
-              Create a free account to keep your {now.toLocaleString('en-US')} rating.
+              Create a free account to keep your {now} rating.
             </Link>
           )}
         </div>
