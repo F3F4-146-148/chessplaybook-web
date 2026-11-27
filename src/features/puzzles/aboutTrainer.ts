@@ -14,7 +14,12 @@
  *   - a plan is `FREQUENCIES` sessions a week for `DURATIONS` weeks, 5 to 60 positions a session, and ends with a
  *     review of all three areas; it exports to a calendar (PlanCalendarExport).
  * No hints: the owner removed them on 2026-08-12 (their content pointed at the wrong things).
+ * #521 (2026-11-27): the free plan's daily puzzles and its session cap, from the same constants the server and the
+ * plan page use (`FREE_PLAN_ALLOWANCE.puzzle`, `FREE_MAX_POSITIONS`), so the numbers cannot drift.
  */
+import { FREE_PLAN_ALLOWANCE } from '@/services/freePlanLimit';
+import { FREE_MAX_POSITIONS } from './components/plan/planFormat';
+
 export interface AboutSection {
   heading: string;
   lines: readonly string[];
@@ -30,6 +35,7 @@ export const ABOUT_TRAINER: readonly AboutSection[] = [
       'The card tells you what to aim for, such as a mate, winning material or a defence to find.',
       'Your first wrong move counts against your rating, but you can keep trying until you find the answer.',
       'Show solution plays the answer and leaves your rating as it was.',
+      `The free plan has ${FREE_PLAN_ALLOWANCE.puzzle} new puzzles a day. Premium has no limit.`,
     ],
   },
   {
@@ -67,6 +73,7 @@ export const ABOUT_TRAINER: readonly AboutSection[] = [
     heading: 'Training plans',
     lines: [
       'A training plan spreads your training over 3 to 8 weeks, with 2 to 5 sessions a week and 5 to 60 puzzles a session.',
+      `On the free plan a session has at most ${FREE_MAX_POSITIONS} puzzles.`,
       'It covers tactics, middlegames and endgames, and ends with a review of all three.',
       'You can add the sessions to your calendar.',
     ],

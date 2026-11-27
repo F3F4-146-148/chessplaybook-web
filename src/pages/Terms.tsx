@@ -92,10 +92,13 @@ const Terms = () => {
               <section className="mb-8">
                 <h2 className={H2}>The Free Plan and Premium</h2>
                 <p className={P}>
-                  {/* #521 C (owner-approved 2026-11-26): puzzles moved from the free list to the limited one. */}
-                  Training plans, champion games, news and play are free. On the free plan, some features can
-                  have a daily limit, such as puzzles, the game report, position explanations, Champion
-                  Challenge, and opening learning and training. Premium has no daily limits.
+                  {/* #521 C (owner-approved 2026-11-26): puzzles moved from the free list to the limited one.
+                      2026-11-27: guided games with the Master (#428, 1 a day) joined the limited list, and training
+                      plans left the free one (their sessions are puzzles). */}
+                  Champion games, news, the analysis board and games against other players or the computer are
+                  free. On the free plan, some features can have a daily limit, such as puzzles, guided games with
+                  the Master, the game report, position explanations, Champion Challenge, and opening learning
+                  and training. Premium has no daily limits.
                 </p>
                 <p className={P}>Premium is a digital service with no human coaching. You can buy it as:</p>
                 <ul className={UL}>

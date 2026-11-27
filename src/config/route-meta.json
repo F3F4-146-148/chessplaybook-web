@@ -281,9 +281,9 @@
   },
   "play": {
     "title": "Play vs Computer - Chess Playbook",
-    "description": "Play chess against the Master, who plays like a person from 1100 to 1900 and says his moves, or against Stockfish up to grandmaster.",
+    "description": "Play the Master, who plays like a person from 1100 to 1900 and can guide you through a game, or Stockfish up to grandmaster.",
     "ogTitle": "Play vs Computer - Chess Playbook",
-    "ogDescription": "Play the Master, who plays like a person, or Stockfish up to grandmaster.",
+    "ogDescription": "Play the Master, who plays like a person and can guide you through a game, or Stockfish up to grandmaster.",
     "keywords": "play chess vs computer, chess against stockfish, free chess game",
     "heading": "Play vs Computer",
     "body": "Play chess against the Master, who plays like a person from 1100 to 1900, or against Stockfish from beginner to grandmaster."
@@ -362,12 +362,12 @@
   },
   "premium": {
     "title": "Chess Playbook Premium: Train With No Daily Limits",
-    "description": "Premium removes the daily limits on opening training, game reports, explanations and Champion Challenge. Prices in your currency, full refund within 30 days.",
+    "description": "Premium removes the daily limits on puzzles, guided games, opening training, game reports, explanations and Champion Challenge. Full refund within 30 days.",
     "ogTitle": "Chess Playbook Premium",
-    "ogDescription": "Train as much as you want, every day: no daily limits on opening training, game reports, explanations and Champion Challenge.",
+    "ogDescription": "Train as much as you want, every day. No daily limits on puzzles, guided games, opening training, game reports, explanations and Champion Challenge.",
     "keywords": "chess playbook premium, chess training subscription, opening trainer, chess game report",
     "heading": "Premium",
-    "body": "Train as much as you want, every day. Premium removes the free plan's daily limits on puzzles, opening training, game reports, position explanations and Champion Challenge."
+    "body": "Train as much as you want, every day. Premium removes the free plan's daily limits on puzzles, guided games with the Master, opening training, game reports, position explanations and Champion Challenge."
   },
   "world-championship-cycle": {
     "title": "World Championship Cycle: How to Become World Champion",

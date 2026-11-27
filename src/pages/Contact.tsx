@@ -21,7 +21,7 @@ const Contact = () => {
           "@type": "FAQPage",
           "mainEntity": [
             { "@type": "Question", "name": "Where does the game data come from?", "acceptedAnswer": { "@type": "Answer", "text": "All chess games are sourced from publicly available PGN (Portable Game Notation) files containing historical games from World Chess Champions." } },
-            { "@type": "Question", "name": "Is Chess Playbook free to use?", "acceptedAnswer": { "@type": "Answer", "text": "Most of it is. Puzzles, training plans, champion games, news and play are free. Premium has no daily limits on the game report, position explanations or Champion Challenge." } },
+            { "@type": "Question", "name": "Is Chess Playbook free to use?", "acceptedAnswer": { "@type": "Answer", "text": "Most of it is. Champion games, news, play and the analysis board are free. Puzzles, guided games with the Master, opening training, game reports, explanations and Champion Challenge have a daily limit on the free plan. Premium has no daily limits." } },
             { "@type": "Question", "name": "Can I download the games?", "acceptedAnswer": { "@type": "Answer", "text": "Currently, games can be viewed online. We're considering adding download functionality in the future." } },
             { "@type": "Question", "name": "Will you add more champions or games?", "acceptedAnswer": { "@type": "Answer", "text": "We regularly update our database with new games and may add more historical content over time." } }
           ]
@@ -87,8 +87,10 @@ const Contact = () => {
                   <div>
                     <h4 className="font-semibold text-foreground mb-2">Is Chess Playbook free to use?</h4>
                     <p className="text-muted-foreground">
-                      Most of it is. Puzzles, training plans, champion games, news and play are free. Premium has no
-                      daily limits on the game report, position explanations or Champion Challenge. Its refunds are in our <Link to="/refund-policy" className="text-link hover:underline">Refund Policy</Link>.
+                      Most of it is. Champion games, news, play and the analysis board are free. Puzzles, guided games
+                      with the Master, opening training, game reports, explanations and Champion Challenge have a
+                      daily limit on the free plan.
+                      Premium has no daily limits. Its refunds are in our <Link to="/refund-policy" className="text-link hover:underline">Refund Policy</Link>.
                     </p>
                   </div>
 

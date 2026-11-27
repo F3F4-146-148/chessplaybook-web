@@ -42,7 +42,6 @@ const ROWS: Array<{ feature: string; free: string; premium: string }> = [
   { feature: 'Puzzle explanations', free: perDay(FREE_PLAN_ALLOWANCE.puzzle_explanation), premium: 'Unlimited' },
   { feature: 'Champion Challenge', free: perDay(FREE_PLAN_ALLOWANCE.challenge_session), premium: 'Unlimited' },
   { feature: 'Puzzles', free: perDay(FREE_PLAN_ALLOWANCE.puzzle), premium: 'Unlimited' },
-  { feature: 'Training plans', free: 'Unlimited', premium: 'Unlimited' },
   { feature: 'Champion games, play and news', free: 'Unlimited', premium: 'Unlimited' },
 ];
 

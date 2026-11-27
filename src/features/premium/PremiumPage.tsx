@@ -12,11 +12,12 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { BarChart3, Check, ChevronDown, Crown, GraduationCap, Lightbulb, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import { BarChart3, Check, ChevronDown, Crown, GraduationCap, Lightbulb, Loader2, ShieldCheck, Sparkles, Swords } from 'lucide-react';
 import SeoHead from '@/components/SeoHead';
 import { useAuth } from '@/features/auth/AuthContext';
 import { GoldGradientDefs } from '@/features/home/GoldGradientDefs';
 import { FREE_PLAN_ALLOWANCE as A } from '@/services/freePlanLimit';
+import { GUIDED_LIVE } from '@/design/designFlags';
 import { logGA4Event } from '@/services/analytics';
 import { usePremiumOffer } from './usePremiumOffer';
 import { canAddPassYear, grantBlocksPurchase } from './paddleCheckout';
@@ -41,20 +42,42 @@ const img = (name: string) => `/assets/premium-v2/${name}.jpg`;
   sections; the Challenge's 18 champions and its verdict.
 */
 const BENEFITS = [
+  /* #428 (owner, 2026-11-27): guided games first, since puzzles lead the hero and the Master is what people use next.
+     The picture is the owner's own guided game (2026-11-27): his reasons for ...Nc6, "Why?" open, the e5 push marked.
+     The hero keeps the mate warning (scripts/guided/capture-premium-guided.cjs), so the page shows both kinds of help. Every point is what the page does: a warning when the move loses material or allows a
+     mate (the gate), Take back, Hint for your move, Why? for his last move, his levels 1100 to 1900. */
+  ...(GUIDED_LIVE ? [{
+    icon: Swords, title: 'Guided games with the Master', img: 'guided-why-board', layers: ['guided-why-board', 'guided-why'] as const,
+    /* A board a little smaller and his card a little narrower than the trainer's, so the f-file stays in view: two
+       of his reasons name the queen on f3. */
+    layerWidths: ['w-[62%]', 'w-[80%] md:w-[54%]'] as const, line: 'Play the Master, and he helps you as you play.',
+    points: ['He warns you before a move that loses material or walks into mate, and you can take it back.', 'A hint explains what matters in the position, so you understand it before you choose your move.', 'Why? explains what his move does and what it aims for.', 'In the opening, the opening principles are beside the game to guide your choices.', 'He plays like a person, from 1100 to 1900.'],
+    free: `Free: ${A.guided_game} guided game a day. Ordinary games against him are always free.`,
+  }] : []),
   {
     icon: GraduationCap, title: 'Opening Trainer', img: 'trainer', layers: ['trainer-board', 'trainer-why'] as const,
-    line: 'Learn opening repertoires, such as the London, the French or the Slav, move by move, then play them from memory.',
-    points: ['The reason for every move, in plain English.', 'A hint when you are stuck.', 'Training starts with the lines you have not learned yet.'],
+    /* Two modes, like the puzzle trainer (owner, 2026-11-27). Learning: the line move by move, every move's reason said
+       by the Master and marked on the board (#309, #324). Training: the player's side from memory against the book's
+       replies, the hint after a minute, every move recorded, positions missed due again by the spaced review (#339). */
+    line: 'Two modes, like a puzzle trainer for your openings: learn a repertoire such as the London, the French or the Najdorf, then train it until you play it from memory.',
+    points: [
+      'Learning mode: go through each line move by move. The Master gives the reason for every move in plain English and marks it on the board.',
+      'Training mode: you play your side from memory, and the trainer answers with the moves grandmasters play.',
+      'A hint when you are stuck, and every move you play is recorded.',
+      'The positions you got wrong come back for review over the following days.',
+    ],
     free: `Free: ${A.opening_variation} new variation and ${A.opening_session} training session a day.`,
   },
   {
-    icon: BarChart3, title: 'Game reports', img: 'report-v3', line: 'See your accuracy and the moves that changed the game.',
-    points: ['Accuracy for both players, and every move rated from Brilliant to Blunder.', 'A link to the critical moment of the game.', "When World Champions played your opening, links to their games in it, with White and with Black."],
-    free: `Free: ${perDay(A.game_report)}.`,
+    /* report-v4 (owner, 2026-11-27): a real report on production with its puzzles (Anderssen-Dufresne, 1852;
+       scripts/guided/capture-premium-report.cjs). The hero keeps report-v3. */
+    icon: BarChart3, title: 'Game reports and their puzzles', img: 'report-v4', line: 'See your accuracy and the moves that changed the game, then solve puzzles made from it.',
+    points: ['Accuracy for both players, and every move rated from Brilliant to Blunder.', 'Puzzles from the moments where you or your opponent missed something, ready to solve.', 'A link to the critical moment of the game.', "When World Champions played your opening, links to their games in it, with White and with Black."],
+    free: `Free: ${A.game_report} game report a day, with its puzzles.`,
   },
   {
     icon: Lightbulb, title: 'Explain a Position', img: 'explain', line: 'Get any position explained in plain English, not engine numbers.',
-    points: ['What matters now, in one sentence.', 'Threats, king safety, pieces and pawns, each in its own section.', 'Any position: paste a FEN or a Lichess link.'],
+    points: ['What matters now, in one sentence.', 'Threats, king safety, pieces and pawns, each in its own section.', 'Any position: paste a FEN, or load a game from another site and explain any move.'],
     free: `Free: ${perDay(A.explain_position)}.`,
   },
   {
@@ -65,8 +88,9 @@ const BENEFITS = [
 ];
 
 
+/* #521 (2026-11-27): training plans left this list. A plan's sessions are puzzles, so on the free plan they take the
+   day's puzzles and hold at most FREE_MAX_POSITIONS each: "no limits" was no longer true of them. */
 const ALWAYS_FREE = [
-  'Training plans',
   "Every World Champion's games and their best games",
   'Live broadcasts of the World Championship cycle',
   'Play online against other players',
@@ -362,6 +386,9 @@ export default function PremiumPage() {
           <div data-premium="collage" className="relative hidden h-[460px] md:block md:h-[calc(460*var(--pu))] wideshort:hidden" aria-hidden>
             <div className="absolute inset-x-6 bottom-2 top-10 rounded-full blur-3xl" style={{ background: 'hsl(var(--gold-bottom) / 0.18)' }} />
             <img src={img('trainer')} alt="" width={1737} height={1191} className="v2-ring-warm absolute left-0 top-0 w-[88%] -rotate-[2deg] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.55)]" />
+            {/* A guided game (owner, 2026-11-27): the Master's warning in the strip under the trainer, left of the
+                report and under it where they meet. Under the flag, so no build names a feature nobody can reach. */}
+            {GUIDED_LIVE && <img src={img('guided-warning')} alt="" width={1000} height={528} className="v2-ring-warm absolute bottom-[1%] left-[1%] h-auto w-[56%] -rotate-[1deg] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)]" />}
             <img src={img('report-v3')} alt="" width={768} height={995} className="v2-ring-warm absolute bottom-0 right-0 h-auto w-[40%] rotate-[3deg] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)]" />
           </div>
         </div>
@@ -449,10 +476,10 @@ export default function PremiumPage() {
                    reasons stay readable: ~13px at 1524 wide, where the whole trainer put them at ~7px. The
                    card hangs below rank 4, so the pieces the reasons name (Ne5, c6, g4, f7, Qa4) stay visible. */
                 <div className="relative mx-auto w-full max-w-[min(100%,calc(70vh*1.2))] pb-[24%]" role="img" aria-label={`${b.title} on Chess Playbook`}>
-                  <div className="v2-card-editorial w-[70%] overflow-hidden p-2 shadow-[0_24px_50px_rgba(0,0,0,0.45)]">
+                  <div className={`v2-card-editorial ${'layerWidths' in b ? b.layerWidths[0] : 'w-[70%]'} overflow-hidden p-2 shadow-[0_24px_50px_rgba(0,0,0,0.45)]`}>
                     <img src={img(b.layers[0])} alt="" loading="lazy" decoding="async" className="block h-auto w-full rounded-lg" />
                   </div>
-                  <img src={img(b.layers[1])} alt="" loading="lazy" decoding="async" className="v2-ring-warm absolute bottom-0 right-0 h-auto w-[80%] rounded-xl md:w-[58%] shadow-[0_30px_60px_rgba(0,0,0,0.6)]" />
+                  <img src={img(b.layers[1])} alt="" loading="lazy" decoding="async" className={`v2-ring-warm absolute bottom-0 right-0 h-auto ${'layerWidths' in b ? b.layerWidths[1] : 'w-[80%] md:w-[58%]'} rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.6)]`} />
                 </div>
               ) : (
                 <div className="v2-card-editorial mx-auto w-fit max-w-full overflow-hidden p-2 shadow-[0_24px_50px_rgba(0,0,0,0.45)]">
