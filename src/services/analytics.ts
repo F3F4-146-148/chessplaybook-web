@@ -470,7 +470,7 @@ type GA4Event =
   | { name: 'game_puzzles_run_started'; params: { games: number } }
   | { name: 'game_puzzles_run_ended'; params: { outcome: 'done' | 'stopped' | 'limit'; games_saved: number; puzzles: number } }
   /* A plan's buy button on the Premium page; `signed_in` false means it led to sign-in first. */
-  | { name: 'premium_buy_clicked'; params: { plan: 'yearly' | 'monthly' | 'one_year'; signed_in: boolean; control?: 'plans' | 'sticky_bar' | 'extend' | 'ask';
+  | { name: 'premium_buy_clicked'; params: { plan: 'yearly' | 'monthly' | 'one_year'; signed_in: boolean; control?: 'plans' | 'sticky_bar' | 'extend' | 'ask' | 'membership';
     /* #521 B3: the visit came from the puzzle ask (its link carries `from=puzzle_ask`, kept through sign-in). */
     from?: 'puzzle_ask' } }
   /* #521 B: a checkout opened by itself after "Sign in to buy" (the page redirects to Stripe). `control` says how,

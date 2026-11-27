@@ -3,8 +3,9 @@
  *
  * The account's Premium in one place: its status and managing it (PremiumStatus, the card that used to be on
  * /profile), what Premium includes, and for a free account or a guest the plan cards (the same component as
- * /premium, M9). Buying hands over to /premium (M8): Continue opens /premium with the chosen plan, where Buy,
- * the checkout and the wait after paying live; Stripe returns there.
+ * /premium, M9). Buy opens the checkout from here with /premium's own buy() and guards (#588, revising M8's hand-
+ * over: the owner found the second Buy on /premium odd); Stripe still returns to /premium, where the wait after
+ * paying lives, so no backend change was needed.
  *
  * Blocks decided by membershipBlocks (one pure function, tested on every combination).
  */
@@ -16,6 +17,9 @@ import { logGA4Event } from '@/services/analytics';
 import { useAccountPremium } from '../AccountPremium';
 import { PlanCards, planCards, usePlanChoice } from '../PlanCards';
 import { PremiumStatus } from '../PremiumStatus';
+import { PendingLine } from '../PendingLine';
+import { grantBlocksPurchase } from '../paddleCheckout';
+import { STRIPE_PENDING_LINE, STRIPE_UNAVAILABLE_LINE, stripeUnavailableIn } from '../stripeCheckout';
 import { LIMITED } from '../premiumFeatures';
 import { usePremiumOffer } from '../usePremiumOffer';
 import { useVisitorCountry } from '../useVisitorCountry';
@@ -26,10 +30,10 @@ export function MembershipPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const account = useAccountPremium({ load: true });
-  const { checked, provider, plans } = usePremiumOffer();
+  const { checked, provider, guestCheckout, plans, state, stateKnown, purchased, busy, message, buy } = usePremiumOffer();
   const country = useVisitorCountry();
   const cards = useMemo(() => planCards(checked, provider, plans, country), [checked, provider, plans, country]);
-  const choice = usePlanChoice(cards);
+  const choice = usePlanChoice(cards, { locked: busy || purchased });
 
   const blocks = membershipBlocks({
     signedIn: Boolean(user),
@@ -54,10 +58,23 @@ export function MembershipPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.hash, cards, blocks.join()]);
 
-  const onContinue = () => {
-    if (!choice.chosen) return;
-    logGA4Event({ name: 'premium_link_clicked', params: { from: 'membership' } });
-    navigate(`/premium?plan=${choice.chosen.key}`);
+  /* #588: the same rule as /premium's Buy (PremiumPage canBuy): the account known, not a holder, nothing pending,
+     the country sold to, one checkout at a time. buy() itself refuses the same cases (the last line of defence). */
+  const chosen = choice.chosen;
+  const holder = Boolean(state?.premium) || grantBlocksPurchase(state);
+  const unavailable = provider === 'stripe' && stripeUnavailableIn(country);
+  const pending = !purchased && !state?.premium && Boolean(state?.purchasePending);
+  const blockedLine = unavailable ? STRIPE_UNAVAILABLE_LINE : pending ? STRIPE_PENDING_LINE : null;
+  const buysAsGuest = !user && guestCheckout;
+  const canBuy = provider !== null && stateKnown && !holder && !purchased && !blockedLine && chosen !== null
+    && (provider === 'stripe' || chosen.priceId !== null);
+
+  const onBuy = () => {
+    if (!chosen || !canBuy || busy) return;
+    logGA4Event({ name: 'premium_buy_clicked', params: { plan: chosen.key, signed_in: Boolean(user), control: 'membership' } });
+    if (user || buysAsGuest) void buy({ key: chosen.key, priceId: chosen.priceId, minor: chosen.minor, currency: chosen.currency }, country);
+    /* Not signed in where guests cannot buy: /premium's sign-in path, which opens the checkout once back (#521 B). */
+    else navigate(`/login?returnTo=${encodeURIComponent(`/premium?plan=${chosen.key}&buy=1`)}`);
   };
 
   return (
@@ -94,16 +111,24 @@ export function MembershipPage() {
           /* --pu: 1px: the cards' sizes are /premium's multiples of its hero unit; here, the design sizes. */
           <section id="plans" aria-labelledby="membership-plans" className="scroll-mt-20" style={{ ['--pu' as string]: '1px' }} data-membership="plans">
             <h2 id="membership-plans" className="mb-3 text-[17px] font-semibold">Premium plans</h2>
-            <PlanCards cards={cards} choice={choice} disabled={false} />
-            <button
-              type="button"
-              onClick={onContinue}
-              disabled={!choice.chosen}
-              className="v2-btn-gold mt-4 h-12 w-full text-[16px] font-semibold disabled:opacity-60"
-              data-membership="continue"
-            >
-              {choice.chosen ? `Continue with ${choice.chosen.title}` : 'Continue'}
-            </button>
+            <PlanCards cards={cards} choice={choice} disabled={busy || purchased} />
+            {blockedLine ? (
+              <p className="mt-4 w-full rounded-full px-4 py-3 text-center text-[15px] font-semibold text-foreground/85 ring-1 ring-primary/50" data-membership="blocked">
+                {blockedLine === STRIPE_PENDING_LINE ? <PendingLine /> : blockedLine}
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={onBuy}
+                disabled={!canBuy || busy}
+                className="v2-btn-gold mt-4 h-12 w-full text-[16px] font-semibold disabled:cursor-wait disabled:opacity-60"
+                data-membership="buy"
+              >
+                {/* /premium's words: Buy with the price, or Sign in to buy where guests cannot buy. */}
+                {`${user || buysAsGuest ? 'Buy' : 'Sign in to buy'}${chosen ? `: ${chosen.price} ${chosen.unit}` : ''}`}
+              </button>
+            )}
+            {message && <p role="status" className="mt-2 text-[13px] text-foreground/85" data-membership="message">{message}</p>}
             <p className="mt-2 text-[13px] text-foreground/80">
               <Link to="/refund-policy" className="hover:text-link">Full refund within 30 days, for any reason.</Link>
             </p>
