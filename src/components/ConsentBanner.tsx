@@ -5,11 +5,16 @@
  * who opens "Cookie settings" (the footer, the Privacy page). A bar over the foot of the window:
  * it never moves the page (a Workspace page still fits) and it does not block it.
  *
+ * It never MOVES the page, but while it is open it publishes its height (`--consent-banner-h` on the root) and the
+ * pages add that much room at their foot, so what it covers can be scrolled above it: on a phone it covered the
+ * puzzle card's main button (Next puzzle, See Premium) with nowhere to scroll (owner, 2026-11-28). Shrinking the page
+ * instead was rejected: every first visit from the UK and EEA would shift the layout as the banner appeared.
+ *
  * Accept all and Reject all have the same size and the same look, on the first layer: refusing must
  * be as easy as accepting. Choose shows the two purposes, both off until the visitor turns one on.
  * Renders nothing until the state is known, so the built (prerendered) HTML never contains it.
  */
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
@@ -51,6 +56,19 @@ export function ConsentBanner() {
 
   useEffect(() => { void startConsent(); }, []);
 
+  /* Its height while open, for the pages' room at their foot (index.css, workspace.css). Removed when it closes. */
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    const root = document.documentElement;
+    if (!view.show || !el) { root.style.removeProperty('--consent-banner-h'); return; }
+    const publish = () => root.style.setProperty('--consent-banner-h', `${Math.ceil(el.getBoundingClientRect().height)}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => { observer.disconnect(); root.style.removeProperty('--consent-banner-h'); };
+  }, [view.show]);
+
   // Opening the settings shows the visitor's current answer in the switches.
   useEffect(() => {
     if (!view.show) return;
@@ -71,6 +89,7 @@ export function ConsentBanner() {
 
   return (
     <div
+      ref={box}
       role="region"
       aria-label="Cookies on Chess Playbook"
       data-consent-banner

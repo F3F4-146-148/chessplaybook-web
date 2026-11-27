@@ -118,6 +118,9 @@
   min-inline-size: 0;
   min-block-size: 0;
   padding: var(--pad-t) var(--pad-r) var(--pad-b) var(--pad-l);
+  /* Stacked: room under the last card for the cookie banner while it is open, so nothing stays under it
+     (ConsentBanner.tsx). Only this padding, never --pad-b: the board's size reads --pad-b. Columns undo it. */
+  padding-block-end: calc(var(--pad-b) + var(--consent-banner-h, 0px));
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto;
@@ -137,6 +140,7 @@
    source (spec §6). */
 @container workspace (min-width: theme('workspace.columnsMinInline')) and (min-height: theme('workspace.columnsMinBlock')) and (min-aspect-ratio: theme('workspace.columnsMinAspect')) {
   .workspace-canvas {
+    padding-block-end: var(--pad-b); /* columns fit the window: no room for the cookie banner (stacked only) */
     --workspace-columns: 1;
     /*
       v3's spacing in columns mode (owner, 2026-10-06, D23): its `p-2` and its

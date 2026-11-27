@@ -110,6 +110,11 @@
     min-block-size: 0;
     overflow-y: auto;
   }
+  /* Document pages: room after the footer for the cookie banner while it is open (ConsentBanner.tsx), so the
+     page's last lines can scroll above it. Workspace pages take it in their stacked canvas (workspace.css). */
+  [data-kind]:not([data-kind="workspace"]) {
+    padding-block-end: var(--consent-banner-h, 0px);
+  }
 
   /*
     FOCUS MODE: the nav stays mounted as a zero-height row (C1a), `inert` from
