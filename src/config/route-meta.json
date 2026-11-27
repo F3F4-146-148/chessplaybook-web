@@ -3,7 +3,7 @@
     "title": "Chess Playbook: Play, Solve and Understand Chess",
     "description": "Learn chess openings move by move, train on puzzles matched to your level, play online or the computer, and understand any position in plain English.",
     "ogTitle": "Chess Playbook: Play, Solve and Understand Chess",
-    "ogDescription": "Learn openings, solve puzzles, play, challenge a World Champion's position, and understand any position in plain English. Free, no account required.",
+    "ogDescription": "Learn openings, solve puzzles, play, challenge a World Champion's position, and understand any position in plain English. No account required.",
     "keywords": "chess, chess openings, opening trainer, play chess online, chess puzzles, chess position explained, chess analysis, chess training, world chess champions, learn chess",
     "heading": "Play, Solve and Understand Chess",
     "headingAccentWords": 2,
@@ -11,12 +11,12 @@
   },
   "analysis": {
     "title": "Free Chess Game Analysis with Stockfish | Chess Playbook",
-    "description": "Analyze any chess game for free with Stockfish: accuracy scores, move classifications, and plain-English position explanations.",
+    "description": "Analyze any chess game with Stockfish: accuracy scores, move classifications, and plain-English position explanations.",
     "ogTitle": "Free Chess Game Analysis",
-    "ogDescription": "Analyze any chess game for free with Stockfish: accuracy scores, move classifications, and position explanations.",
+    "ogDescription": "Analyze any chess game with Stockfish: accuracy scores, move classifications, and position explanations.",
     "keywords": "free chess analysis, chess game report, stockfish analysis, chess accuracy",
     "heading": "Free Chess Game Analysis",
-    "body": "Analyze any chess game for free with Stockfish. Accuracy scores, move classifications, and a plain-English position explainer."
+    "body": "Analyze any chess game with Stockfish. Accuracy scores, move classifications, and a plain-English position explainer."
   },
   "candidates-2026": {
     "title": "FIDE Candidates 2026: Results and Coverage | Chess Playbook",
