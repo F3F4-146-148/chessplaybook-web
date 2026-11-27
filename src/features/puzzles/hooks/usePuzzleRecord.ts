@@ -7,6 +7,7 @@ import { countFirstDayAttempt } from '@/services/funnel';
 import { partialCredit } from '../lib/partialCredit';
 import { postPuzzleResult } from '../services/postPuzzleResult';
 import { asProgressMoment, type ProgressMoment } from '../lib/progressMoment';
+import { asDaySummary, type DaySummary } from '../lib/daySummary';
 
 export interface PuzzleProgress {
   totalSolved: number;
@@ -175,6 +176,9 @@ export function usePuzzleRecord(
   /* #418: the progress moment a clean solve's answer brought, and the puzzle whose solve is still waiting for its
      answer (the Master holds his ordinary line briefly in case it brings one). */
   const [moment, setMoment] = useState<ProgressMoment | null>(null);
+  /* #418 v3: the day's summary the result that ended a free player's day brought (any outcome, not only a solve).
+     Kept for the rest of the page's life: the day is over; a refused draw also carries it (usePuzzleBoard). */
+  const [daySummary, setDaySummary] = useState<DaySummary | null>(null);
   const [pendingFor, setPendingFor] = useState<string | null>(null);
 
   /*
@@ -336,6 +340,8 @@ export function usePuzzleRecord(
         if (countFirstDayAttempt()) logGA4Event({ name: 'first_day_five_puzzles', params: {} });
         // only for this puzzle: an answer for another (a slow one) is dropped (analysis 3.7)
         if (solved) setMoment(asProgressMoment(data.moment, puzzle.id));
+        const summary = asDaySummary(data.daySummary);
+        if (summary) setDaySummary(summary);
       }
       /* Re-read the run AFTER the write, whether or not the response parsed:
          the attempt row is what advances it, and progress is a count over that
@@ -449,5 +455,7 @@ export function usePuzzleRecord(
     moment,
     /** A clean solve of this puzzle is waiting for the server's answer. */
     momentPendingFor: pendingFor,
+    /** #418 v3: the day's summary a result brought, or null. */
+    daySummary,
   };
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUp, Target, UserPlus } from 'lucide-react';
 import { logGA4Event } from '@/services/analytics';
@@ -82,7 +82,7 @@ function useSeen<T extends HTMLElement>() {
 }
 
 /* Watches its own size: the roomy composition, or the 800x600 one under 70px of height. */
-function useBox<T extends HTMLElement>() {
+export function useBox<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
   useEffect(() => {
@@ -150,9 +150,16 @@ export function ProgressMomentCard({ moment, offerAccount = false }: { moment: P
   );
 }
 
-function SittingChart({ points, goal, w, h, compact, best }: { points: number[]; goal: number; w: number; h: number; compact: boolean; best: boolean }) {
+/**
+ * The rating line in the homepage's gold style. `goal` (v2's next round rating) is optional: the day's graph and
+ * summary (#418 v3) draw none, since a goal line on a down day reads as a reproach. `label` is the chart's spoken name.
+ */
+export function SittingChart({ points, goal = null, w, h, compact, best = false, label, endLabel }: {
+  points: number[]; goal?: number | null; w: number; h: number; compact: boolean; best?: boolean; label?: string; endLabel?: string;
+}) {
+  const gradientId = `moment-area-${useId().replace(/:/g, '')}`;
   const PX = compact ? 6 : 10, TOP = compact ? 6 : 12, BOTTOM = compact ? 4 : 16;
-  const max = Math.max(goal, ...points);
+  const max = Math.max(goal ?? -Infinity, ...points);
   // a floor on the range, so +2 cannot look like +100
   const span = Math.max(60, max - Math.min(...points));
   const lo = Math.min(Math.min(...points), max - span);
@@ -163,28 +170,28 @@ function SittingChart({ points, goal, w, h, compact, best }: { points: number[];
   const baseY = h - BOTTOM;
   const last = pts[pts.length - 1];
   const startY = y(points[0]);
-  const goalY = y(goal);
+  const goalY = goal == null ? null : y(goal);
 
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ width: w, height: h, overflow: 'visible' }} role="img"
-      aria-label={`Your rating this sitting, from ${points[0]} to ${points[points.length - 1]}`}>
+      aria-label={label ?? `Your rating this sitting, from ${points[0]} to ${points[points.length - 1]}`}>
       <defs>
-        <linearGradient id="moment-area" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.32" />
           <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
         </linearGradient>
       </defs>
-      {/* the goal: the next round rating */}
-      <line x1={PX} x2={w - PX} y1={goalY} y2={goalY} stroke="hsl(var(--link))" strokeWidth="1" strokeDasharray="4 4" opacity="0.7" />
+      {/* the goal: the next round rating (v2 only) */}
+      {goalY != null && <line x1={PX} x2={w - PX} y1={goalY} y2={goalY} stroke="hsl(var(--link))" strokeWidth="1" strokeDasharray="4 4" opacity="0.7" />}
       {/* where the sitting started */}
       <line x1={PX} x2={w - PX} y1={startY} y2={startY} stroke="hsl(var(--border))" strokeWidth="1" />
       {!compact && (
         <>
           <text x={PX} y={h - 2} fontSize="11" fill="hsl(var(--foreground) / 0.7)">Start</text>
-          <text x={w - PX} y={h - 2} fontSize="11" textAnchor="end" fill="hsl(var(--link))">{best ? 'Best' : 'Now'}</text>
+          <text x={w - PX} y={h - 2} fontSize="11" textAnchor="end" fill="hsl(var(--link))">{endLabel ?? (best ? 'Best' : 'Now')}</text>
         </>
       )}
-      <path d={`${line} L${last[0]},${baseY} L${pts[0][0]},${baseY} Z`} fill="url(#moment-area)" className="moment-area" />
+      <path d={`${line} L${last[0]},${baseY} L${pts[0][0]},${baseY} Z`} fill={`url(#${gradientId})`} className="moment-area" />
       <path d={line} pathLength={1} className="moment-line v2-line-glow" fill="none" stroke="hsl(var(--primary))" strokeWidth={compact ? 1.75 : 2.25} strokeLinecap="round" />
       {pts.map(([px, py], i) => {
         const isLast = i === pts.length - 1;

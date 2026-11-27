@@ -46,6 +46,10 @@ import { useVisitorCountry } from '@/features/premium/useVisitorCountry';
 import { plansForCountry } from '@/features/premium/premiumPlans';
 import { backLabel, whenBack, type DailyLimit } from '@/services/freePlanLimit';
 import { usePuzzleAllowance } from '../services/puzzleAllowance';
+import { usePuzzleToday } from '../services/puzzleToday';
+import { TodayGraph } from './TodayGraph';
+import { DaySummaryCard } from './DaySummaryCard';
+import { asDaySummary } from '../lib/daySummary';
 import { CheckCircle2, Clock, History, Infinity as InfinityIcon, Minimize2, PieChart, Swords, TrendingUp, XCircle, Zap } from 'lucide-react';
 
 /**
@@ -474,7 +478,18 @@ export default function TrainerLayoutSkeleton() {
     visitor's first plan for their country chosen (the country table, fetched only while the ask shows). There,
     "Sign in to buy" brings a guest back with the checkout opening by itself.
   */
-  const askLimit = puzzle.dailyLimit?.feature === 'puzzle' ? puzzle.dailyLimit : null;
+  const allowance = usePuzzleAllowance(record.stats.solved + record.stats.failed);
+  /* #418 v3 C1: today's rating line, re-read after each result like the allowance. */
+  const todayLine = usePuzzleToday(record.stats.solved + record.stats.failed);
+  /*
+    #418 v3 C2: A RELOAD AT THE LIMIT. The page's first draw (the daily puzzle) is served, not refused (the allowance is
+    charged at the first move), so nothing refused would bring the ask. When the server has recorded today's summary,
+    no puzzle is left and no run holds today's pass, the day is over: the ask shows at once, with the summary.
+  */
+  const reloadLimit: DailyLimit | null = todayLine?.summary && allowance?.puzzle && allowance.puzzle.left === 0 && !allowance.runPass
+    ? { feature: 'puzzle', limit: allowance.puzzle.limit, resetsAt: allowance.puzzle.resetsAt, daySummary: todayLine.summary }
+    : null;
+  const askLimit = puzzle.dailyLimit?.feature === 'puzzle' ? puzzle.dailyLimit : reloadLimit;
   const askCountry = useVisitorCountry(askLimit !== null);
   const askPlan = askLimit && askCountry !== undefined ? plansForCountry(askCountry)[0] ?? null : null;
   const ask = askLimit ? {
@@ -522,7 +537,6 @@ export default function TrainerLayoutSkeleton() {
     (or the hour), disabled, the opening trainer's pattern (#472). Known from a refused draw, or from the allowance
     read after each result (so right after a run that went past the 5, before any refusal).
   */
-  const allowance = usePuzzleAllowance(record.stats.solved + record.stats.failed);
   const knownLimit: DailyLimit | null = askLimit ?? (allowance?.puzzle && allowance.puzzle.left === 0
     ? { feature: 'puzzle', limit: allowance.puzzle.limit, resetsAt: allowance.puzzle.resetsAt }
     : null);
@@ -687,6 +701,17 @@ export default function TrainerLayoutSkeleton() {
      the next puzzle starts it replaces "Set up a run"; the live card says it. */
   const shownMoment = PROGRESS_MOMENT_LIVE && record.moment && record.moment.puzzleId === currentPuzzleId
     && puzzle.puzzleState.status === 'correct' && !puzzle.exploreAt ? record.moment : null;
+  /*
+    #418 v3 C2: THE DAY'S SUMMARY, when a free player's puzzles for today are over: from a refused draw (the server
+    replays it with every one) or from the result that ended the day, once that puzzle is no longer being solved (a
+    miss is reported on the first wrong move, and the player is not interrupted while they keep working it).
+  */
+  const daySummary = PROGRESS_MOMENT_LIVE
+    ? (asDaySummary(askLimit?.daySummary)
+      ?? (record.daySummary && puzzle.puzzleState.status !== 'playing' ? record.daySummary : null)
+      /* a reload: the first draw (the daily puzzle) is served, not refused, so the summary comes from today's line */
+      ?? (!record.daySummary ? todayLine?.summary ?? null : null))
+    : null;
   const momentPending = PROGRESS_MOMENT_LIVE && record.momentPendingFor != null && record.momentPendingFor === currentPuzzleId;
   /* #418 C6: measured once per moment; the next puzzle after it says how long it stayed and whether he had finished. */
   const momentShownRef = useRef<{ tryId: string; kind: string; at: number } | null>(null);
@@ -979,7 +1004,7 @@ export default function TrainerLayoutSkeleton() {
                 #521 B2: the run setup and the plan card become one "What to train" card, three shares (theirs), so
                 the live card keeps today's size. The progress moment (#418) keeps this slot.
               */
-              slot('train', 'puzzleTrain', shownMoment ? <ProgressMomentCard moment={shownMoment} offerAccount={!user && !authLoading} /> : (
+              slot('train', 'puzzleTrain', daySummary ? <DaySummaryCard summary={daySummary} offerAccount={!user && !authLoading} /> : shownMoment ? <ProgressMomentCard moment={shownMoment} offerAccount={!user && !authLoading} /> : (
                 <PuzzleTrainCard
                   theme={linked.theme || settings.theme}
                   onThemeChange={(theme) => {
@@ -1007,10 +1032,11 @@ export default function TrainerLayoutSkeleton() {
                   runFinished={runFinished}
                   hasPlan={plan.plan != null}
                   runSetup={renderRunSetup}
+                  today={<TodayGraph line={todayLine} offerAccount={!user && !authLoading} />}
                 />
               ), 3),
             ] : [
-            slot('run-setup', 'puzzleRunSetup', shownMoment ? <ProgressMomentCard moment={shownMoment} offerAccount={!user && !authLoading} /> : (
+            slot('run-setup', 'puzzleRunSetup', daySummary ? <DaySummaryCard summary={daySummary} offerAccount={!user && !authLoading} /> : shownMoment ? <ProgressMomentCard moment={shownMoment} offerAccount={!user && !authLoading} /> : (
               renderRunSetup(undefined)
             ), 2),
             slot('plan-link', 'puzzlePlan', (

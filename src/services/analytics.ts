@@ -204,6 +204,8 @@ type GA4Event =
   | { name: 'puzzle_moment_shown'; params: { kind: string; why: string; returning: boolean; voice_on: boolean; lines: number } }
   | { name: 'puzzle_moment_next'; params: { kind: string; ms_shown: number; finished: boolean } }
   | { name: 'puzzle_moment_signup'; params: { kind: string; rating: number } }
+  /* #418 v3 C1: today's graph drawn in the What to train card, once a day per tab (desktop only, where it fits). */
+  | { name: 'today_graph_shown'; params: { points: number } }
   /* A new browser's fifth puzzle attempt on its first day (funnel stage 3b). */
   | { name: 'first_day_five_puzzles'; params: Record<string, never> }
   // ── Auth session loss (2026-08-12) ──────────────────────────────────────

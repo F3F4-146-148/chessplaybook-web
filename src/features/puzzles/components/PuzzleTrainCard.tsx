@@ -49,6 +49,8 @@ export interface PuzzleTrainCardProps {
   /** The full run setup, `PuzzleRunSetupCard`. */
   runSetup: (onClose: (() => void) | undefined) => ReactNode;
   hasPlan: boolean;
+  /** #418 v3 C1: today's rating in the card's leftover space (`TodayGraph`); draws nothing where it does not fit. */
+  today?: ReactNode;
 }
 
 const LENGTHS = [5, 10, 20];
@@ -61,7 +63,7 @@ const opened = () => logGA4Event({ name: 'puzzle_filter_opened', params: { surfa
 export function PuzzleTrainCard({
   theme, onThemeChange, filterMode, onFilterModeChange, ratingRange, onRatingRangeChange, bandIsFarFromRating = false,
   options, areas, selection, onSelectionChange, area, onAreaChange, total, onTotalChange,
-  onStartRun, startBlocked = null, busy = false, loading = false, runOnScreen, runFinished, runSetup, hasPlan,
+  onStartRun, startBlocked = null, busy = false, loading = false, runOnScreen, runFinished, runSetup, hasPlan, today,
 }: PuzzleTrainCardProps) {
   /* A finished run's result stays until it is closed; a new finish shows again. */
   const [resultClosed, setResultClosed] = useState(false);
@@ -189,6 +191,7 @@ export function PuzzleTrainCard({
             <ChevronRight className="ml-auto w-[1em] h-[1em]" />
           </Link>
         )}
+        {today}
       </div>
     </>
   );

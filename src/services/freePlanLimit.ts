@@ -17,6 +17,8 @@ export interface DailyLimit {
   limit: number;
   /** ISO UTC: the next Europe/Bucharest midnight. */
   resetsAt: string;
+  /** #418 v3: a refused puzzle carries the day's summary once the day has ended (checked by `asDaySummary`). */
+  daySummary?: unknown;
 }
 
 const FEATURES: readonly LimitedFeature[] = ['game_report', 'explain_position', 'challenge_session', 'opening_session', 'opening_variation', 'game_puzzles', 'puzzle_explanation', 'puzzle', 'guided_game'];
@@ -45,7 +47,10 @@ export function readDailyLimit(status: number | undefined, body: unknown): Daily
   if (value.error !== 'daily_limit') return null;
   if (!FEATURES.includes(value.feature as LimitedFeature)) return null;
   if (typeof value.limit !== 'number' || typeof value.resetsAt !== 'string') return null;
-  return { feature: value.feature as LimitedFeature, limit: value.limit, resetsAt: value.resetsAt };
+  return {
+    feature: value.feature as LimitedFeature, limit: value.limit, resetsAt: value.resetsAt,
+    ...(value.feature === 'puzzle' && value.daySummary ? { daySummary: value.daySummary } : {}),
+  };
 }
 
 /** "tomorrow", "at 02:00" or "tomorrow at 02:00", in the visitor's own time. */
