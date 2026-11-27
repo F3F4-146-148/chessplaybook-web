@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import type { Color, Key } from '@lichess-org/chessground/types';
@@ -28,11 +28,18 @@ import { ChessClock } from '@/features/online/components/ChessClock';
 import { soundService } from '@/services/SoundService';
 import { useComputerGame } from '../hooks/useComputerGame';
 import { readPositionDeepLink } from '@/lib/positionDeepLink';
-import { defaultLevelId, findLevel, playLevels, type PlayLevel } from '../services/playLevels';
-import { MAIA_LIVE, MASTER_LIVE } from '@/design/designFlags';
+import { defaultLevelId, findLevel, nearestMasterLevel, playLevels, type PlayLevel } from '../services/playLevels';
+import { GUIDED_LIVE, MAIA_LIVE, MASTER_LIVE } from '@/design/designFlags';
 import { MasterStrip } from '../components/MasterStrip';
-import { GUIDED_INVITATION, GuidedPlayBlock, GuidedSwitchRow, readGuidedMock } from '../components/GuidedMock';
-import { ENGINE_BUSY_LINE, useGuidedGame } from '../guided/useGuidedGame';
+import { GUIDED_INVITATION, GuidedLimitLine, GuidedPlayBlock, GuidedSummary, GuidedSwitchRow, readGuidedMock } from '../components/GuidedMock';
+import { useGuidedLimit } from '../guided/useGuidedLimit';
+import { useGuidedSummary } from '../guided/useGuidedSummary';
+import { useOpeningStage } from '../guided/useOpeningStage';
+import { biggestMistakes, ENGINE_BUSY_LINE, useGuidedGame } from '../guided/useGuidedGame';
+import type { GuidedLine } from '../guided/guidedApi';
+import { boardMarks, NO_MARKS, reasonBrushes } from '@/features/openings/reasonBoardMarks';
+import { useGuidedHelp } from '../guided/useGuidedHelp';
+import { usePlayGameStore } from '../stores/gameStore';
 import type { Guide } from '../hooks/useComputerGame';
 import { logGA4Event } from '@/services/analytics';
 import { GamePgnActions } from '@/features/games/GamePgnActions';
@@ -166,6 +173,8 @@ export function PlayComputer() {
   const [blackMs, setBlackMs] = useState<number | null>(null);
   const previousPlyRef = useRef(0);
   const [focusMode, setFocusMode] = useState(false);
+  /* #428 E2: a warning is held (set below, once the guided game is known); focus mode's Escape stands aside then. */
+  const warningHeldRef = useRef(false);
   const [soundEnabled, setSoundEnabled] = useState(soundService.enabled);
   const [viewPly, setViewPly] = useState<number | null>(null);
   const [reviewPosition, setReviewPosition] = useState<{ position: ChessPosition; lastMove: Key[] } | null>(null);
@@ -204,7 +213,8 @@ export function PlayComputer() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && focusMode) setFocusMode(false);
+      // E2 (Fable): while a warning is held, Escape is his Play on, never also "leave focus mode"
+      if (event.key === 'Escape' && focusMode && !warningHeldRef.current) setFocusMode(false);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -352,6 +362,8 @@ export function PlayComputer() {
       playedAt: new Date(),
       mode: gameMode,
       startFen: gameStartFen === STARTING_FEN ? null : gameStartFen,
+      // D5: a guided game the server started says so, as the stored game's PGN does
+      guided: guidedUi && guided.gameId !== null,
     });
   };
   /*
@@ -359,8 +371,83 @@ export function PlayComputer() {
     game; D6 replaces "Your move." with the sentence that says the move he just played.
   */
   const masterHere = MASTER_LIVE && levelInPlay.kind === 'master';
-  /* #428 B: a guided game, behind the DEV switch (`?guidedMock`) until Phase D ships it */
-  const guided = useGuidedGame({ enabled: guidedMock !== null && guidedOn && masterHere && !fromPosition, guideRef, game: gameState, actions });
+  /*
+    #428 D1: GUIDED GAMES. Offered while GUIDED_LIVE is on (or the DEV mock asks), with the Master on the page, never
+    from a position (`?fen=`: not in v1, and the opening reasons need the starting position). Played only at his levels.
+  */
+  const guidedAvailable = (GUIDED_LIVE || guidedMock !== null) && MASTER_LIVE && !fromPosition && LEVELS.some((l) => l.kind === 'master');
+  const guidedActive = guidedAvailable && guidedOn && masterHere;
+  /* Turning it on at a Stockfish level picks his nearest level (analysis 4.2); the card then shows him and his level. */
+  const switchGuided = (on: boolean) => {
+    setGuidedOn(on);
+    if (on && !masterHere) { const m = nearestMasterLevel(LEVELS, levelInPlay.approxRating); if (m) setSelectedLevelId(m.id); }
+  };
+  /*
+    #428 E2 (Fable): A GUIDED GAME CONTINUED AFTER A RELOAD goes through the page, as New game does, so the page knows
+    the player's colour (his end line, the result events, the You card) and the game has no clock (a timed game is not
+    kept, so it is not continued).
+  */
+  const restoreGuided = useCallback((color: Color, level: PlayLevel, moves: string[]) => {
+    setLinePick(Math.floor(Math.random() * 1000));
+    setHeSpoke(moves.length > 1);
+    setSelectedColor(color);
+    setActiveColor(color);
+    setSelectedLevelId(level.id);
+    setActiveTimeControl(TIME_CONTROLS[0]);
+    setWhiteMs(null);
+    setBlackMs(null);
+    previousPlyRef.current = moves.length;
+    setViewPly(null);
+    setReviewPosition(null);
+    setGameStartFen(STARTING_FEN);
+    actions.startGame(color, level, undefined, { initial: 0, increment: 0 }, moves);
+  }, [actions]);
+  const guided = useGuidedGame({
+    enabled: guidedActive, guideRef, game: gameState, actions,
+    timed: activeTimeControl.initial !== null, restore: restoreGuided,
+  });
+  /* D2: the guided block shows only while the server has not refused the game (the day's free one used). */
+  const guidedUi = guidedActive && !guided.refused;
+  warningHeldRef.current = guidedUi && guided.warning !== null;
+  /* D6: today's free guided game used (the reset time the server gave), said under the switch and in a refused game. */
+  const guidedLimit = useGuidedLimit(guided.refused);
+  /* D2: a warning shows the reply he threatens as an arrow in his colour (owner, 2026-11-26), as the trainer marks. */
+  const himColor: Color = gameState.playerColor === 'white' ? 'black' : 'white';
+  const threat = guidedUi ? guided.warning?.reply ?? null : null;
+  /* D3: Hint and Why?, with the marks of every square his answer names (owner, 2026-11-26). */
+  const uciMoves = usePlayGameStore((st) => st.moves);
+  const help = useGuidedHelp({
+    guided,
+    enabled: guidedUi && gameState.gameStatus === 'playing',
+    fen: gameState.fen,
+    moves: uciMoves,
+    playerColor: gameState.playerColor,
+    playersTurn: gameState.turnColor === gameState.playerColor && !gameState.isThinking && !guided.warning,
+    newGame: gameState.gameStatus,
+  });
+  /* D3c: the opening-principles tab, while SF says the game is in the opening (owner, 2026-11-26). */
+  const inOpening = useOpeningStage({ enabled: guidedUi, gameId: guided.gameId, moves: uciMoves, newGame: gameState.gameStatus });
+  /* D4: his summary when the game ends. */
+  const summary = useGuidedSummary({ ended: guidedUi && gameState.gameStatus === 'ended', gameId: guided.gameId, grades: guided.grades, moves: uciMoves });
+  /*
+    E3 (owner, 2026-11-27, on staging: "part of the reasons appear for some other moves"): Hint, Why? and the warning
+    are about the CURRENT position. While the board shows an earlier move (the history buttons, the wheel, the move
+    list) the answer and its marks are hidden, and they come back with the current position; pressing Hint or Why?
+    first brings the board back to it.
+  */
+  const boardIsCurrent = viewPly === null && reviewPosition === null;
+  const shownAnswer = boardIsCurrent ? help.answer : null;
+  const backToNow = () => { setReviewPosition(null); setViewPly(null); };
+  const helpMarks = useMemo(() => (shownAnswer ? boardMarks(shownAnswer.marks, shownAnswer.mover) : NO_MARKS), [shownAnswer]);
+  /* Never undefined once a guided game is on: ChessBoard keeps the last shapes for `undefined`, so [] clears the arrow. */
+  const guidedShapes = useMemo(
+    () => (threat && boardIsCurrent ? [{ orig: threat.slice(0, 2) as Key, dest: threat.slice(2, 4) as Key, brush: `mark-${himColor}` }] : guidedUi ? helpMarks.shapes : undefined),
+    [threat, boardIsCurrent, himColor, guidedUi, helpMarks],
+  );
+  const guidedSquares = guidedUi ? helpMarks.squares : undefined;
+  const guidedBrushes = useMemo(() => reasonBrushes(), []);
+  /* D2: Why? only once he has moved (owner: before his first move the area says "Ask me for a hint."). */
+  const heHasMoved = gameState.sanMoves.length >= (gameState.playerColor === 'white' ? 2 : 1);
   /* The end of a game, once (D10). */
   const reportedEndRef = useRef(false);
   useEffect(() => {
@@ -376,6 +463,17 @@ export function PlayComputer() {
       moves: gameState.sanMoves.length,
       master_fell_back: gameState.masterFellBack,
     } });
+    /* #428 D7: a guided game's end, with what his help cost (the summary's counts; every mistake that stands). */
+    if (guidedUi && guided.gameId) {
+      logGA4Event({ name: 'guided_game_ended', params: {
+        outcome: result,
+        hints: help.hintsUsed,
+        takebacks: guided.takebacksUsed,
+        warnings: guided.warningsGiven,
+        mistakes: biggestMistakes(guided.grades, uciMoves, Infinity).length,
+      } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per game end; the counts are read as they are then
   }, [gameState.gameStatus, gameState.gameResult, gameState.level, gameState.sanMoves.length, gameState.masterFellBack, activeColor]);
   /* re-render once the reaction's 1.2 s are over, so the thinking face takes over even if nothing else changes */
   const [reactionNow, setReactionNow] = useState(() => Date.now());
@@ -421,11 +519,27 @@ export function PlayComputer() {
     const t = setTimeout(() => setEndPaused(true), endEvent === 'win' ? 1500 : 1800);
     return () => clearTimeout(t);
   }, [endEvent]);
+  const warningVoice = useMemo(
+    () => (guidedUi && guided.warning?.audioUrl ? { text: guided.warning.text, audioUrl: guided.warning.audioUrl, cuesUrl: guided.warning.cuesUrl } : null),
+    [guidedUi, guided.warning],
+  );
+  const [heardLine, setHeardLine] = useState<object | null>(null);
+  const missedVoice: GuidedLine | null = guidedUi && guided.said && gameState.masterLine && heardLine === gameState.masterLine ? guided.said : null;
+  /*
+    #428: a guided line (a warning, "Let me look...", a missed chance) takes his voice from his move's sentence. When
+    it is gone, his voice must not fall back to that same sentence: the voice plays each new line object, so it said
+    it AGAIN (owner, 2026-11-26: after e4, "I took your pawn on d5" once more, then his new move). The sentence a guided
+    line replaced stays quiet; his next move's sentence plays as usual.
+  */
+  const guidedOverride = warningVoice ?? (guidedUi ? help.voice : null) ?? missedVoice;
+  const baseLine = gameState.masterLine ?? opening;
+  const [overriddenBase, setOverriddenBase] = useState<object | null>(null);
+  useEffect(() => { if (guidedOverride && baseLine) setOverriddenBase(baseLine); }, [guidedOverride, baseLine]);
   const spokenLine = !masterHere ? null
-    : gameState.gameStatus === 'playing' ? gameState.masterLine ?? opening
+    : gameState.gameStatus === 'playing' ? guidedOverride ?? (baseLine && baseLine === overriddenBase ? null : baseLine)
     : gameState.gameStatus === 'ended' ? (endReady ? endLine : gameState.masterLine)
     : null;
-  const voice = useMasterVoice(spokenLine);
+  const voice = useMasterVoice(spokenLine, { onEnd: () => setHeardLine(spokenLine) });
   useEffect(() => {
     if (endPaused && !endReady && !voice.speaking) setEndReady(true);
   }, [endPaused, endReady, voice.speaking]);
@@ -437,7 +551,10 @@ export function PlayComputer() {
         // his face at your move first (D9: a face, never words), then he thinks
         const r = gameState.masterReaction;
         const fresh = r && reactionNow - r.at < 1200;
-        // before his first move the card keeps his "Good luck", which he is saying
+        // before his first move the card keeps his "Good luck", which he is saying. #428 D3b (owner, 2026-11-26): while a
+        // guided warning holds his reply he is not thinking, he is waiting, so the strip keeps his last line (the
+        // warning itself is in the speech area under it)
+        if (guidedUi && guided.warning) return { expression: fresh ? r.expression : 'presenting', line: lineNow };
         return { expression: fresh ? r.expression : 'thinking', line: opening ? opening.text : 'Let me think…' };
       }
       // after his move, he says what he played (D6); before it, his "Good luck"
@@ -491,7 +608,7 @@ export function PlayComputer() {
         onModeChange={setWorkspaceMode}
         board={
           <div data-skeleton-card="board" className="w-full" role="group" aria-label="Chess board, playing against the computer">
-            <ChessBoard fen={boardFen} orientation={boardOrientation} dests={canMove ? gameState.dests : reviewPosition?.position.dests} turnColor={boardTurn} movableColor={canMove ? gameState.movableColor : isEnded ? boardTurn : undefined} lastMove={boardLastMove} check={boardCheck ? boardTurn : undefined} onMove={canMove ? actions.onMove : reviewMove} themeId={currentTheme.id} dragDistance={7} autoDragDistance={false} />
+            <ChessBoard fen={boardFen} orientation={boardOrientation} dests={canMove ? gameState.dests : reviewPosition?.position.dests} turnColor={boardTurn} movableColor={canMove ? gameState.movableColor : isEnded ? boardTurn : undefined} lastMove={boardLastMove} check={boardCheck ? boardTurn : undefined} onMove={canMove ? actions.onMove : reviewMove} themeId={currentTheme.id} dragDistance={7} autoDragDistance={false} shapes={guidedShapes} brushes={guidedBrushes} squareClasses={guidedSquares} />
           </div>
         }
         toolbar={
@@ -509,7 +626,7 @@ export function PlayComputer() {
             slot('play-live', 'playLive', (
               <div className="card-body">
                 {/* A guided game hides the two header rows while it is played (analysis 4.2: the button row and the speech block need the room). */}
-                {!(guidedMock && guidedOn && masterHere && gameState.gameStatus !== 'idle') && (
+                {!(guidedUi && gameState.gameStatus !== 'idle') && (
                 <>
                 <span className="card-row">
                   <Swords className="shrink-0 text-link" />
@@ -523,22 +640,29 @@ export function PlayComputer() {
                 {gameState.gameStatus === 'idle' ? (
                   <>
                   {/* #428: the switch at the top of the card, above his invitation (owner, 2026-11-26) */}
-                  {guidedMock && masterHere && !fromPosition && <GuidedSwitchRow checked={guidedOn} onChange={setGuidedOn} />}
-                  {masterHere && !stacked && <MasterStrip variant="invitation" stacked={false} expression={master.expression} line={guidedMock && guidedOn ? GUIDED_INVITATION : master.line} />}
+                  {guidedAvailable && <GuidedSwitchRow checked={guidedOn && masterHere} onChange={switchGuided} limit={guidedLimit} />}
+                  {masterHere && !stacked && <MasterStrip variant="invitation" stacked={false} expression={master.expression} line={guidedActive && !guidedLimit ? GUIDED_INVITATION : master.line} />}
                   <div className="ws-push-end flex flex-col" style={{ gap: 'calc(var(--card-air) * 2)' }}>
                     <button type="button" onClick={() => startGame()} disabled={!gameState.isEngineReady} className="card-btn card-btn-primary w-full disabled:opacity-50">
                       {!gameState.isEngineReady ? 'Loading engine…' : fromPosition ? 'Play from this position' : 'New game'}
                     </button>
                     {otherWays}
                   </div>
-                  {masterHere && stacked && <MasterStrip variant="invitation" stacked expression={master.expression} line={guidedMock && guidedOn ? GUIDED_INVITATION : master.line} />}
+                  {masterHere && stacked && <MasterStrip variant="invitation" stacked expression={master.expression} line={guidedActive && !guidedLimit ? GUIDED_INVITATION : master.line} />}
                   </>
                 ) : (
                   <>
+                    {/* D6: a game the server refused goes on without his help; the line says why (owner: "Not now" left nothing). */}
+                    {guidedActive && guided.refused && guidedLimit && (
+                      <p className="shrink-0 text-[0.8em] leading-snug text-muted-foreground"><GuidedLimitLine limit={guidedLimit} /></p>
+                    )}
                     {masterHere && <MasterStrip variant="strip" stacked={stacked} expression={master.expression} line={master.line} voice={voice} />}
-                    {guidedMock && guidedOn && masterHere && <GuidedPlayBlock warning={guided.warning} sampleWarning={guidedMock === 'warn' && !guided.warning} takebacksLeft={guided.takebacksLeft} onTakeBack={guided.takeBack} onPlayOn={guided.playOn} notice={guided.enginePaused ? ENGINE_BUSY_LINE : null} />}
+                    {guidedUi && gameState.gameStatus === 'ended' && (
+                      <GuidedSummary mistakes={summary.mistakes} hints={help.hintsUsed} takebacks={guided.takebacksUsed} warnings={guided.warningsGiven} workOn={summary.workOn} onGoTo={(ply) => jumpToMove(ply - 1)} />
+                    )}
+                    {guidedUi && gameState.gameStatus !== 'ended' && <GuidedPlayBlock warning={guided.warning} sampleWarning={guidedMock === 'warn' && !guided.warning} said={guided.said} answer={shownAnswer} busy={help.busy} moreHints={help.moreHints} onHint={() => { backToNow(); help.hint(); }} onWhy={() => { backToNow(); help.why(); }} onSelect={help.select} canAskWhy={heHasMoved && guided.gameId !== null} takebacksLeft={guided.takebacksLeft} onTakeBack={guided.takeBack} onPlayOn={guided.playOn} notice={guided.enginePaused ? ENGINE_BUSY_LINE : null} principles={inOpening && gameState.gameStatus === 'playing'} />}
                     <span className="card-row justify-between text-[0.8em] uppercase tracking-wide">
-                      {guidedMock && guidedOn && masterHere ? (
+                      {guidedUi ? (
                         <button type="button" onClick={toggleGuidedMoves} aria-expanded={guidedMovesOpen} aria-controls="guided-moves" className="inline-flex items-center gap-[0.3em] uppercase tracking-wide hover:text-foreground" data-guided="moves-toggle">
                           {guidedMovesOpen ? <ChevronDown className="shrink-0" aria-hidden /> : <ChevronRight className="shrink-0" aria-hidden />}
                           Moves
@@ -561,7 +685,7 @@ export function PlayComputer() {
                       )}
                     </span>
                     {/* #428: in a guided game the moves get a constant 2 of 5 shares of the free height, his speech area 3 (owner, 2026-11-26) */}
-                    <div id="guided-moves" className={`${guidedMock && guidedOn && masterHere && !guidedMovesOpen ? 'hidden' : 'flex'} min-h-0 flex-col ${guidedMock && guidedOn && masterHere ? 'flex-[2_1_0%]' : 'flex-1'}`}>
+                    <div id="guided-moves" className={`${guidedUi && !guidedMovesOpen ? 'hidden' : 'flex'} min-h-0 flex-col ${guidedUi ? 'flex-[2_1_0%]' : 'flex-1'}`}>
                       <WorkspaceList label="Moves">
                         {/* The result below the last move, as on /play-online (owner, 2026-11-19): 1-0, 0-1 or 1/2-1/2. */}
                         <GameMoveList

@@ -110,6 +110,8 @@ export function Chip({ children, selected, disabled = false, title, onClick }: C
 }
 
 export interface PuzzleRunSetupCardProps {
+  /** #521: today's free puzzles are used up, so no run starts: the label instead ("Back tomorrow"), disabled. */
+  startBlocked?: string | null;
   /** What the server says exists. Empty until it answers. */
   options?: SelectionOption[];
   areas?: readonly string[];
@@ -194,7 +196,7 @@ export function PuzzleRunSetupCard({
   running = false, finished = false, runStatus,
   runSelection, runArea, runTheme = null, theme = null, onThemeClear, runTotal, runRated,
   completed = 0, puzzleId = null, attemptRecorded = false,
-  servedByRun = true, planArea = null,
+  servedByRun = true, planArea = null, startBlocked = null,
   busy = false, loading = false, onStart, onStop, onClose,
   modeLabel = 'What to train', areaLabel = 'Where from',
 }: PuzzleRunSetupCardProps) {
@@ -579,7 +581,7 @@ export function PuzzleRunSetupCard({
         <div style={{ display: 'grid', gap: 'calc(var(--card-air) * 2)' }}>
         <button
           type="button"
-          disabled={busy || loading}
+          disabled={busy || loading || (startBlocked !== null && !(running && !finished))}
           onClick={() => (running && !finished
             ? onStop?.()
             // The area is dropped when the mode picks it: sending both is the
@@ -605,7 +607,7 @@ export function PuzzleRunSetupCard({
           className="card-btn w-full border border-primary/60 bg-primary/10 font-medium text-foreground hover:bg-primary/20 disabled:opacity-50"
         >
           {running && !finished ? <Flag /> : <Play />}
-          {running && !finished ? (planArea ? 'Stop this session' : 'Stop run') : 'Start run'}
+          {running && !finished ? (planArea ? 'Stop this session' : 'Stop run') : startBlocked ?? 'Start run'}
         </button>
         {/*
           WHAT A RUN IS, SAID WHERE THE DECISION IS MADE (owner, 2026-08-16: *"I

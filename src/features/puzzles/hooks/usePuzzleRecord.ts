@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { userPreferencesService } from '@/services/UserPreferencesService';
 import { getRequestHeaders } from '@/features/auth/utils/getAuthToken';
 import { logGA4Event } from '@/services/analytics';
+import { reportDailyLimit } from '@/services/freePlanLimit';
 import { countFirstDayAttempt } from '@/services/funnel';
 import { partialCredit } from '../lib/partialCredit';
 import { postPuzzleResult } from '../services/postPuzzleResult';
@@ -165,6 +166,11 @@ export function usePuzzleRecord(
   const [lastSolveFrozen, setLastSolveFrozen] = useState(false);
   /** The puzzle whose result has already been sent. One report per puzzle. */
   const reportedRef = useRef<string | null>(null);
+  /* #521: the sitting's counts before the last puzzle was counted, so a result the server refuses (today's free
+     puzzles used up) is taken back out of them. */
+  const statsNowRef = useRef(stats);
+  statsNowRef.current = stats;
+  const countedRef = useRef<{ id: string; before: typeof stats } | null>(null);
   const [attemptRecordedFor, setAttemptRecordedFor] = useState<string | null>(null);
   /* #418: the progress moment a clean solve's answer brought, and the puzzle whose solve is still waiting for its
      answer (the Master holds his ordinary line briefly in case it brings one). */
@@ -306,6 +312,14 @@ export function usePuzzleRecord(
              ignores a run that is not theirs or no longer active. */
           sessionId: liveRef.current.sessionId ?? null,
       });
+      if (res.limited) {
+        /* #521: refused, today's free puzzles are used up. Nothing was scored: the page says so and counts
+           nothing either (the first move's refusal has usually stopped the board already). */
+        reportDailyLimit(res.limited);
+        setAttemptRecordedFor((p) => (p === puzzle.id ? null : p));
+        const counted = countedRef.current;
+        if (counted?.id === puzzle.id) setStats(counted.before);
+      }
       if (res.ok && res.data) {
         const { data } = res;
         /* The SERVER's rating, not a local guess. The current page displayed a
@@ -359,6 +373,10 @@ export function usePuzzleRecord(
        again. */
     if (puzzleState.puzzle?.id
       && puzzleState.puzzle.id === options.restoredResolvedFor) return;
+    if (puzzleState.puzzle?.id && (puzzleState.status === 'correct' || puzzleState.status === 'solution'
+      || (puzzleState.status === 'failed' && puzzleState.firstFailure))) {
+      countedRef.current = { id: puzzleState.puzzle.id, before: statsNowRef.current };
+    }
     if (puzzleState.status === 'correct' && !puzzleState.hasFailed) {
       setStats(prev => {
         const streak = prev.streak + 1;

@@ -129,3 +129,22 @@ describe('postPuzzleResult', () => {
     expect(outcome.data).toBeUndefined();
   });
 });
+
+describe('postPuzzleResult and the daily puzzle allowance (#521)', () => {
+  it('a 402 for the puzzle allowance is returned as `limited` and never retried', async () => {
+    const refusal = { success: false, error: 'daily_limit', feature: 'puzzle', limit: 5, resetsAt: '2026-11-26T22:00:00Z' };
+    vi.mocked(fetch).mockResolvedValue(reply(402, refusal));
+
+    const outcome = await postPuzzleResult(HEADERS, BODY, noWait);
+
+    expect(outcome).toEqual({
+      ok: false, unrecorded: false, limited: { feature: 'puzzle', limit: 5, resetsAt: refusal.resetsAt },
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("another 402 is not the puzzle allowance", async () => {
+    vi.mocked(fetch).mockResolvedValue(reply(402, { error: 'payment' }));
+    expect(await postPuzzleResult(HEADERS, BODY, noWait)).toEqual({ ok: false, unrecorded: false });
+  });
+});

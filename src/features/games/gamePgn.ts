@@ -21,6 +21,8 @@ export interface GamePgnParams {
   playedAt: Date;
   mode?: GameMode;
   startFen?: string | null;
+  /** #428 D5: a guided game against the Master (the server's builder says the same). */
+  guided?: boolean;
 }
 
 const EVENT: Record<GameMode, string> = {
@@ -28,6 +30,9 @@ const EVENT: Record<GameMode, string> = {
   master: 'Chess Playbook vs the Master',
   stockfish: 'Chess Playbook vs Stockfish',
 };
+
+/** #428 D5: a guided game's Event (backend PgnService GUIDED_EVENT). */
+export const GUIDED_EVENT = 'Chess Playbook guided game vs the Master';
 
 const TERMINATION: Record<string, string> = { timeout: 'Time forfeit', abandonment: 'Abandoned' };
 
@@ -55,7 +60,7 @@ export function buildGamePgn(params: GamePgnParams): string {
   const finished = result !== '*';
 
   const headers = [
-    `[Event "${EVENT[mode]}"]`,
+    `[Event "${params.guided && mode === 'master' ? GUIDED_EVENT : EVENT[mode]}"]`,
     `[Site "chessplaybook.com"]`,
     `[Date "${pgnDate(playedAt)}"]`,
     `[Round "-"]`,

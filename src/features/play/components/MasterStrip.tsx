@@ -1,3 +1,5 @@
+import { useLayoutEffect, useRef, useState } from 'react';
+
 import { MasterPortrait } from '@/components/master/MasterPortrait';
 import type { MasterExpression } from '@/components/master/masterAssets';
 import type { MasterSpeech } from '@/components/master/speech';
@@ -44,11 +46,13 @@ export function MasterStrip({ expression, line, variant, stacked, voice }: Maste
 
   const face = stacked ? STRIP_FACE.stacked : STRIP_FACE.columns;
   const size = variant === 'invitation' ? 96 : face;
+  const lineRef = useRef<HTMLParagraphElement>(null);
+  const lines = useLinesThatFit(lineRef, size);
   return (
     <div className="flex shrink-0 items-center" style={{ gap: 'calc(var(--card-air) * 2)', height: size }} data-master={variant}>
       {/* mirrored: the v4 heads turn away from the board as drawn (owner, 2026-11-17); the half body is not (his hand presents the board) */}
       <MasterPortrait expression={expression} variant="head" facing="right" size={size} speech={voice?.speech} />
-      <p className="min-w-0 flex-1 rounded-[0.6em] bg-muted px-[0.7em] py-[0.4em] text-[0.92em] leading-snug text-foreground line-clamp-2">{line}</p>
+      <p ref={lineRef} title={line} className="min-w-0 flex-1 overflow-hidden rounded-[0.6em] bg-muted px-[0.7em] py-[0.4em] text-[0.92em] leading-snug text-foreground" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: lines }}>{line}</p>
       {voice && (
         <MasterVoiceButton
           voice={voice}
@@ -58,6 +62,33 @@ export function MasterStrip({ expression, line, variant, stacked, voice }: Maste
       )}
     </div>
   );
+}
+
+/**
+ * HOW MANY LINES OF HIS LINE THE ROW HOLDS (owner, 2026-11-26: his end line was cut at 800x600, where the row holds 3
+ * lines of the small type and the line was clamped to 2). As many as fit in the row's fixed height, never fewer than
+ * the 2 it always had (on a phone the row holds 1 and a second line already sits just over its edges). The row's
+ * height never changes, so the move list never moves; the type does, with the window, so it is measured again then.
+ */
+function useLinesThatFit(ref: { current: HTMLParagraphElement | null }, rowHeight: number): number {
+  const [lines, setLines] = useState(2);
+  useLayoutEffect(() => {
+    const p = ref.current;
+    if (!p) return;
+    const measure = () => {
+      const cs = getComputedStyle(p);
+      const lh = parseFloat(cs.lineHeight);
+      const pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      if (!lh) return;
+      setLines(Math.max(2, Math.floor((rowHeight - pad) / lh)));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(p);
+    return () => ro.disconnect();
+  }, [ref, rowHeight]);
+  return lines;
 }
 
 /** The half body, as large as the band allows: a square box whose side is the band's height, capped by its width. */

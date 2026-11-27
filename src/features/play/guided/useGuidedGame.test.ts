@@ -12,10 +12,16 @@ const engineTaken = { value: false };
 const availableListeners = new Set<() => void>();
 /** What the engine "finds" for a position, by FEN prefix; anything else is level. */
 let scoreFor: (fen: string, ms: number) => Score = () => ({ cp: 0, mate: null, best: 'a7a6', pv: ['a7a6'] });
+/* E2: a search held until the test releases it (the check of a move still running while the player acts). */
+const hold: { until: Promise<void> | null; release: () => void; prefix: string } = { until: null, release: () => {}, prefix: '' };
 
 vi.mock('@/services/AnalysisService', () => ({
   analysisService: {
-    searchScore: (fen: string, ms: number) => { searches.push({ fen, ms }); return Promise.resolve(scoreFor(fen, ms)); },
+    searchScore: (fen: string, ms: number) => {
+      searches.push({ fen, ms });
+      const s = scoreFor(fen, ms);
+      return hold.until && hold.prefix && fen.startsWith(hold.prefix) ? hold.until.then(() => s) : Promise.resolve(s);
+    },
     isEngineTaken: () => engineTaken.value,
     subscribeEngineAvailable: (cb: () => void) => { availableListeners.add(cb); return () => availableListeners.delete(cb); },
   },
@@ -39,10 +45,28 @@ vi.mock('../services/StockfishOpponent', async (orig) => ({ ...(await orig<objec
 vi.mock('@/features/master/narrationApi', () => ({ fetchNarration: () => Promise.resolve(null), MASTER_VOICE: '4' }));
 vi.mock('@/features/master/reaction', () => ({ reactionTo: () => null }));
 vi.mock('@/services/SoundService', () => ({ soundService: { move() {}, check() {}, castle() {}, capture() {}, gameEnd() {} } }));
+/* D2: the guided routes, answered by the test (no server). */
+const api = vi.hoisted(() => ({
+  start: { ok: true, id: 'srv' } as { ok: true; id: string } | { ok: false; limit: unknown } | null,
+  warning: null as null | { kind: string; text: string; audioUrl: string },
+  missed: null as null | { kind: string; text: string; audioUrl: string },
+  calls: [] as string[],
+  startHold: null as Promise<void> | null,
+}));
+vi.mock('./guidedApi', () => ({
+  startGuidedGame: () => {
+    api.calls.push('start');
+    if (api.startHold) return api.startHold.then(() => api.start);
+    return api.start === null ? new Promise(() => {}) : Promise.resolve(api.start);
+  },
+  fetchWarning: () => { api.calls.push('warning'); return Promise.resolve(api.warning); },
+  fetchMissed: (_id: string, b: { pv: string[] }) => { api.calls.push(`missed ${b.pv.join(' ')}`); return Promise.resolve(api.missed); },
+}));
+vi.mock('@/services/freePlanLimit', async (orig) => ({ ...(await orig<object>()), reportDailyLimit: () => { api.calls.push('limit dialog'); } }));
 vi.mock('../services/computerGameSave', () => ({ newClientGameId: () => 'g', savePendingGame: () => Promise.resolve(), saveFinishedGame: () => Promise.resolve({ ok: true, id: 'x' }) }));
 
 const { useComputerGame } = await import('../hooks/useComputerGame');
-const { useGuidedGame, WARNING_LINES, DRAW_LINES, TAKEBACKS, STORAGE_KEY } = await import('./useGuidedGame');
+const { useGuidedGame, WARNING_LINES, DRAW_LINES, TAKEBACKS, STORAGE_KEY, LIMIT_KEY } = await import('./useGuidedGame');
 const { usePlayGameStore } = await import('../stores/gameStore');
 const { playLevels } = await import('../services/playLevels');
 const master = playLevels(true).find((l) => l.kind === 'master')!;
@@ -78,7 +102,9 @@ const blunderAfterE4 = (fen: string): Score => (fen.startsWith(AFTER_E4)
 
 describe('the guided loop (#428 B4)', () => {
   beforeEach(() => {
+    api.start = { ok: true, id: 'srv' }; api.warning = null; api.missed = null; api.calls.length = 0; localStorage.clear();
     vi.useFakeTimers(); searches.length = 0; replies.length = 0; pending.length = 0; engineTaken.value = false; sessionStorage.clear();
+    hold.until = null; hold.prefix = ''; api.startHold = null;
     scoreFor = () => ({ cp: 0, mate: null, best: 'a7a6', pv: ['a7a6'] });
     usePlayGameStore.getState().reset();
   });
@@ -244,5 +270,148 @@ describe('the guided loop (#428 B4)', () => {
     act(() => h.result.current.actions.resign());
     await settle();
     expect(sessionStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  /* D2: the server's game and words. */
+  it("the server's words replace the fixed line, with their recording; the game is started first", async () => {
+    scoreFor = blunderAfterE4;
+    api.warning = { kind: 'piece_lost', text: 'Wait. I can win your pawn on e4.', audioUrl: '/audio/master-guided-v1/x.mp3' };
+    replies.push('e7e5');
+    const h = setup();
+    await settle();
+    move(h, 'e2e4');
+    await release();
+    expect(h.result.current.guided.warning?.text).toBe('Wait. I can win your pawn on e4.');
+    expect(h.result.current.guided.warning?.audioUrl).toBe('/audio/master-guided-v1/x.mp3');
+    expect(api.calls).toEqual(['start', 'warning']);
+  });
+
+  it('the server unreachable: the fixed line, no recording', async () => {
+    scoreFor = blunderAfterE4;
+    api.start = { ok: false, limit: null };
+    replies.push('e7e5');
+    const h = setup();
+    await settle();
+    move(h, 'e2e4');
+    await release();
+    expect(h.result.current.guided.warning?.text).toBe(WARNING_LINES.loss);
+    expect(h.result.current.guided.warning?.audioUrl).toBeUndefined();
+    expect(h.result.current.guided.refused).toBe(false);
+  });
+
+  it("a refused start (the day's game used): no warning, the dialog, and the game goes on unguided", async () => {
+    scoreFor = blunderAfterE4;
+    api.start = { ok: false, limit: { feature: 'guided_game', limit: 1, resetsAt: '2026-11-27T22:00:00.000Z' } };
+    replies.push('e7e5');
+    const h = setup();
+    await settle();
+    move(h, 'e2e4');
+    await release();
+    expect(h.result.current.guided.warning).toBeNull();
+    expect(h.result.current.guided.refused).toBe(true);
+    expect(usePlayGameStore.getState().moves).toEqual(['e2e4', 'e7e5']); // his own reply, not held
+    expect(api.calls).toEqual(['start', 'limit dialog']);
+    expect(localStorage.getItem(LIMIT_KEY)).toBe('2026-11-27T22:00:00.000Z');
+  });
+
+  it('a chance missed (18-20 win% lost, no warning) is said after his reply, and the next move drops it', async () => {
+    // the start: level, best 1.d4; after 1.e4 Black is +2.2 (the player lost ~19%, under the gate of 20)
+    scoreFor = (fen) => (fen.startsWith(AFTER_E4)
+      ? { cp: 220, mate: null, best: 'd7d5', pv: ['d7d5'] }
+      : { cp: 0, mate: null, best: 'd2d4', pv: ['d2d4', 'd7d5'] });
+    api.missed = { kind: 'piece', text: 'You could have won my pawn on e5 last move.', audioUrl: '/audio/master-guided-v1/m.mp3' };
+    replies.push('e7e5');
+    const h = setup();
+    await settle();
+    move(h, 'e2e4');
+    expect(h.result.current.guided.said).toBeNull();
+    await release();
+    expect(h.result.current.guided.warning).toBeNull();
+    expect(usePlayGameStore.getState().moves).toEqual(['e2e4', 'e7e5']);
+    expect(h.result.current.guided.said?.text).toBe('You could have won my pawn on e5 last move.');
+    expect(api.calls).toContain('missed d2d4 d7d5');
+    scoreFor = () => ({ cp: 0, mate: null, best: 'a7a6', pv: ['a7a6'] });
+    replies.push('b8c6');
+    move(h, 'g1f3');
+    expect(h.result.current.guided.said).toBeNull();
+  });
+
+  /* E2: the fixes from Fable's and Codex's reviews. */
+  it('E2: a warning whose move was taken back while he checked it is never shown', async () => {
+    scoreFor = blunderAfterE4;
+    replies.push('e7e5');
+    hold.prefix = AFTER_E4;
+    hold.until = new Promise<void>((r) => { hold.release = r; });
+    const h = setup();
+    await settle();
+    move(h, 'e2e4');
+    await act(async () => { await Promise.resolve(); });
+    act(() => h.result.current.guided.takeBack()); // a counted takeback, during the check
+    await act(async () => { hold.release(); await vi.runAllTimersAsync(); });
+    expect(h.result.current.guided.warning).toBeNull();
+    expect(h.result.current.guided.warningsGiven).toBe(0);
+  });
+
+  it("E2: once today's game is known to be used, a refusal opens no dialog again (the line says it)", async () => {
+    const resetsAt = new Date(Date.now() + 6 * 3600e3).toISOString();
+    localStorage.setItem(LIMIT_KEY, resetsAt);
+    api.start = { ok: false, limit: { feature: 'guided_game', limit: 1, resetsAt } };
+    replies.push('e7e5');
+    const h = setup();
+    await settle();
+    move(h, 'e2e4');
+    await release();
+    expect(h.result.current.guided.refused).toBe(true);
+    expect(api.calls).not.toContain('limit dialog');
+  });
+
+  it('E2: a game the server starts clears the stored limit (Premium bought, a grant, the next day)', async () => {
+    localStorage.setItem(LIMIT_KEY, new Date(Date.now() + 6 * 3600e3).toISOString());
+    replies.push('e7e5');
+    const h = setup();
+    await settle();
+    move(h, 'e2e4');
+    await release();
+    expect(h.result.current.guided.gameId).toBe('srv');
+    expect(localStorage.getItem(LIMIT_KEY)).toBeNull();
+  });
+
+  it('E2: a start that never answers does not hold his reply for ever', async () => {
+    api.start = null; // the request hangs
+    replies.push('e7e5');
+    const h = setup();
+    await settle();
+    move(h, 'e2e4');
+    await release();
+    await settle();
+    expect(usePlayGameStore.getState().moves).toEqual(['e2e4', 'e7e5']);
+    expect(h.result.current.guided.gameId).toBeNull();
+  });
+
+  it('E2: the hint count is kept with the game, so a reload keeps it', async () => {
+    replies.push('e7e5');
+    const h = setup();
+    await settle();
+    act(() => { h.result.current.guided.noteHint(); h.result.current.guided.noteHint(); });
+    move(h, 'e2e4');
+    await release();
+    await settle();
+    expect(h.result.current.guided.hintsUsed).toBe(2);
+    expect(JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? '{}').hintsUsed).toBe(2);
+  });
+
+  it('E2 round 2 (Codex): a refusal that arrives after the player resigned opens no dialog', async () => {
+    let release: () => void = () => {};
+    api.startHold = new Promise<void>((r) => { release = r; });
+    api.start = { ok: false, limit: { feature: 'guided_game', limit: 1, resetsAt: new Date(Date.now() + 6 * 3600e3).toISOString() } };
+    replies.push('e7e5');
+    const h = setup();
+    await settle();
+    move(h, 'e2e4');
+    await act(async () => { await Promise.resolve(); });
+    act(() => h.result.current.actions.resign());
+    await act(async () => { release(); await vi.runAllTimersAsync(); });
+    expect(api.calls).not.toContain('limit dialog');
+    expect(localStorage.getItem(LIMIT_KEY)).not.toBeNull(); // still known for the next game
   });
 });

@@ -85,6 +85,8 @@ export interface GuideCheck {
   /** The position before the player's move, and after it (his turn). */
   fenBefore: string;
   fenAfter: string;
+  /** #428 D2: every move of the game in UCI, ending with the player's move (the server replays it). */
+  moves: string[];
 }
 /** How the player's move ended the game in a draw, for the guide (B5). */
 export type DrawEnding = 'stalemate' | 'insufficient_material' | 'threefold' | 'fifty-moves';
@@ -94,7 +96,9 @@ export interface Guide {
    * #428 B5: the player's move ends the game in a draw. 'end' ends it as usual; 'takeBack' means the guide took the
    * move back (the revision has changed, so nothing more happens here). Held while the player decides.
    */
-  beforeDraw?: (check: { fenBefore: string; ending: DrawEnding }) => Promise<'end' | 'takeBack'>;
+  beforeDraw?: (check: { fenBefore: string; ending: DrawEnding; moves: string[] }) => Promise<'end' | 'takeBack'>;
+  /** #428 D5: the server's id of this guided game, sent with the save (the server checks it); null when unguided. */
+  guidedGameId?: () => string | null;
 }
 
 const DRAW_TEXT: Record<Exclude<DrawRule, null>, string> = {
@@ -204,6 +208,7 @@ export function useComputerGame(options: { guideRef?: { current: Guide | null } 
       moves: [...movesRef.current],
       timeControl: clockRef.current,
       claim,
+      guidedGameId: guideRef?.current?.guidedGameId?.() ?? null,
     }).then((outcome) => {
       if (gameId !== gameIdRef.current) return;
       setSavedGame(outcome.ok ? { status: 'saved', id: outcome.id } : { status: 'failed', id: null });
@@ -297,7 +302,7 @@ export function useComputerGame(options: { guideRef?: { current: Guide | null } 
       const guide = fenBefore ? guideRef?.current : null;
       const [{ uci: maiaMove, evaluation }, verdict] = await Promise.all([
         opponentMove(pos),
-        guide ? guide.beforeReply({ fenBefore: fenBefore!, fenAfter: pos.fen }).catch(() => null) : Promise.resolve(null),
+        guide ? guide.beforeReply({ fenBefore: fenBefore!, fenAfter: pos.fen, moves: [...movesRef.current] }).catch(() => null) : Promise.resolve(null),
       ]);
       const uciMove = verdict?.replyUci ?? maiaMove;
       // A new game, a takeback or an ending meanwhile: this reply belongs to a position that is gone (B1).
@@ -383,7 +388,7 @@ export function useComputerGame(options: { guideRef?: { current: Guide | null } 
         const gameId = gameIdRef.current;
         const request = ++requestRef.current;
         setIsThinking(true);
-        guide.beforeDraw({ fenBefore: pos.fen, ending }).catch(() => 'end' as const).then((d) => {
+        guide.beforeDraw({ fenBefore: pos.fen, ending, moves: [...movesRef.current] }).catch(() => 'end' as const).then((d) => {
           if (gameId !== gameIdRef.current || moveRevision !== revisionRef.current) return; // taken back meanwhile
           if (request === requestRef.current) setIsThinking(false);
           if (d === 'end') handleGameOver(newPos, store.playerColor as Color, rule);

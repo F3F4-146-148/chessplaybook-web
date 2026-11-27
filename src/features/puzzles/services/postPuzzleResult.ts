@@ -1,4 +1,5 @@
 import env from '@/config/env';
+import { type DailyLimit, readDailyLimit } from '@/services/freePlanLimit';
 
 /**
  * POST a puzzle result, retrying the one failure the server says is retryable.
@@ -39,6 +40,8 @@ export interface PuzzleResultOutcome {
   ok: boolean;
   /** True when every attempt came back retryable — the solve was NOT recorded. */
   unrecorded: boolean;
+  /** #521: the server refused the attempt because today's free puzzles are used up (402); never retried. */
+  limited?: DailyLimit;
 }
 
 export async function postPuzzleResult(
@@ -63,7 +66,8 @@ export async function postPuzzleResult(
     }
 
     if (response.status !== RETRYABLE_STATUS) {
-      return { ok: false, unrecorded: false };
+      const limit = response.status === 402 ? readDailyLimit(402, await response.json().catch(() => null)) : null;
+      return limit?.feature === 'puzzle' ? { ok: false, unrecorded: false, limited: limit } : { ok: false, unrecorded: false };
     }
 
     lastRetryable = true;

@@ -15,7 +15,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
-import { MIN_POSITIONS, MAX_POSITIONS, POSITIONS_STEP, LENGTHS } from './planFormat';
+import { MIN_POSITIONS, MAX_POSITIONS, POSITIONS_STEP, LENGTHS, FREE_LENGTHS, FREE_MAX_POSITIONS } from './planFormat';
 
 const GENERATION = join(
   process.cwd(), 'backend', 'src', 'services', 'puzzles', 'planGeneration.ts',
@@ -55,5 +55,23 @@ describe.skipIf(!HAS_BACKEND)('session-length bounds mirror the server', () => {
 
   it('the bounds themselves are on the grid, so both ends are reachable', () => {
     expect((MAX_POSITIONS - MIN_POSITIONS) % POSITIONS_STEP).toBe(0);
+  });
+});
+
+describe.skipIf(!HAS_BACKEND)("#521: a free plan session's cap mirrors the server", () => {
+  it('FREE_MAX_POSITIONS equals FREE_RUN_MAX', () => {
+    const source = readFileSync(join(process.cwd(), 'backend', 'src', 'services', 'puzzles', 'puzzleAllowance.ts'), 'utf-8');
+    const match = source.match(/export const FREE_RUN_MAX = (\d+)/);
+    expect(match, 'FREE_RUN_MAX not found in puzzleAllowance.ts').not.toBeNull();
+    expect(FREE_MAX_POSITIONS).toBe(Number(match![1]));
+  });
+
+  it('every free shortcut is a reachable length at or under the cap', () => {
+    for (const n of FREE_LENGTHS) {
+      expect(n).toBeGreaterThanOrEqual(MIN_POSITIONS);
+      expect(n).toBeLessThanOrEqual(FREE_MAX_POSITIONS);
+      expect((n - MIN_POSITIONS) % POSITIONS_STEP).toBe(0);
+    }
+    expect(FREE_LENGTHS[FREE_LENGTHS.length - 1]).toBe(FREE_MAX_POSITIONS);
   });
 });

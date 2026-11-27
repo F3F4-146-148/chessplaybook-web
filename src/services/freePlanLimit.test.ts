@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 vi.mock('@/services/analytics', () => ({ logGA4Event: vi.fn() }));
 import {
-  DAILY_LIMIT_EVENT, FREE_PLAN_ALLOWANCE, backLabel, dailyLimitMessage, limitApplies, dailyLimitTitle, readDailyLimit, reportDailyLimit, whenBack,
+  DAILY_LIMIT_EVENT, FREE_PLAN_ALLOWANCE, PUZZLE_ASK_EVENT, hostPuzzleAsk, backLabel, dailyLimitMessage, limitApplies, dailyLimitTitle, readDailyLimit, reportDailyLimit, whenBack,
 } from './freePlanLimit';
 
 const body = { success: false, error: 'daily_limit', feature: 'game_report', limit: 1, resetsAt: '2026-11-20T22:00:00Z' };
@@ -87,6 +87,38 @@ describe('reporting a limit', () => {
       const title = dailyLimitTitle({ feature, limit: 3, resetsAt: '' });
       expect(title).toMatch(/^That's today's /);
       expect(title).not.toContain('—');
+    }
+  });
+
+  it('#521 B2: sends a puzzle refusal to the page that shows the ask while it is mounted, else to the dialog', () => {
+    const dialog: unknown[] = [];
+    const ask: unknown[] = [];
+    const toDialog = (e: Event) => dialog.push((e as CustomEvent).detail);
+    const toAsk = (e: Event) => ask.push((e as CustomEvent).detail);
+    window.addEventListener(DAILY_LIMIT_EVENT, toDialog);
+    window.addEventListener(PUZZLE_ASK_EVENT, toAsk);
+    const puzzle = { feature: 'puzzle' as const, limit: 5, resetsAt: '2026-11-20T22:00:00Z' };
+    const explanation = { feature: 'puzzle_explanation' as const, limit: 3, resetsAt: '2026-11-20T22:00:00Z' };
+    try {
+      reportDailyLimit(puzzle);
+      expect(dialog).toEqual([puzzle]);
+      expect(ask).toEqual([]);
+
+      const release = hostPuzzleAsk();
+      reportDailyLimit(puzzle);
+      // another limit is still the dialog's, page or not
+      reportDailyLimit(explanation);
+      expect(ask).toEqual([puzzle]);
+      expect(dialog).toEqual([puzzle, explanation]);
+
+      release();
+      release(); // twice is harmless: the page's cleanup may run once more than its setup
+      reportDailyLimit(puzzle);
+      expect(dialog).toEqual([puzzle, explanation, puzzle]);
+      expect(ask).toEqual([puzzle]);
+    } finally {
+      window.removeEventListener(DAILY_LIMIT_EVENT, toDialog);
+      window.removeEventListener(PUZZLE_ASK_EVENT, toAsk);
     }
   });
 });

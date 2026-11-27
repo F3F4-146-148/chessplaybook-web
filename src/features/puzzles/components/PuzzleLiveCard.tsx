@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { CheckCircle2, ChevronRight, Compass, Eye, GitBranch, Lightbulb, RotateCcw, Signal, Swords, Target, TrendingUp, WifiOff, XCircle } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Compass, Crown, Eye, GitBranch, Lightbulb, RotateCcw, Signal, Swords, Target, TrendingUp, WifiOff, XCircle } from 'lucide-react';
 import type { GameCardLines } from '../lib/gamePuzzleSource';
 import { Action, LiveStatus } from './TrainerUI';
 import { logGA4Event } from '@/services/analytics';
@@ -154,6 +154,11 @@ export interface PuzzleLiveCardProps {
    * line under the headline shows what he is saying, one phrase at a time. Only on the solved puzzle it belongs to.
    */
   moment?: ProgressMoment | null;
+  /**
+   * #521 B: THE ASK. Today's free puzzles are used up, so the card says so and its primary button, where New Puzzle
+   * was, buys Premium. The puzzle on the board stays: Explain and Try other lines keep working beside it.
+   */
+  ask?: { title: string; line: ReactNode; spoken: string; buyLabel: string; onBuy: () => void } | null;
   /** This clean solve is still waiting for the server's answer: his ordinary line waits up to MOMENT_HOLD_MS. */
   momentPending?: boolean;
 }
@@ -164,7 +169,7 @@ export function PuzzleLiveCard({
   filterFoundNothing = false, onClearFilter, runOutcome = null,
   serverUnreachable = false, offer = null,
   onNextPuzzle, onShowSolution, onExplain, onTryLines, puzzleId = null, gameLines = null, onVoiceBusyChange,
-  playerRating = null, returning = false, moment = null, momentPending = false,
+  playerRating = null, returning = false, moment = null, momentPending = false, ask = null,
 }: PuzzleLiveCardProps) {
   /*
     A WRONG MOVE IS REMEMBERED FOR THE PUZZLE, because `failed` lasts 700 ms: auto-revert returns the status
@@ -265,6 +270,36 @@ export function PuzzleLiveCard({
      text averages about half an em a character; 0.56 leaves a margin). Measured, so a caption is one line at every
      window and the card never grows (C7). */
   const statusRef = useRef<HTMLDivElement>(null);
+  /*
+    #521: THE ASK'S PREMIUM ROW SHOWS ONLY WHERE IT FITS (owner, 2026-11-26). The ask (a headline of one or two
+    lines and three rows) is the card's tallest state and needs ~8 types against the 6.15 the card declares. Whether
+    it fits turns on whether the headline wraps, which turns on the card's type, clamped by the WINDOW as well as the
+    card: 1440x900 and 1536x864 have the same 416x286 card and one fit, one did not. No container query can say that
+    (a height rule missed 412x915, a width rule missed 430x932 and 1440x900, measured), so it is measured here: with
+    the row shown, does the Explain row end inside the card's padding? If not, "Unlimited puzzles with Premium"
+    steps aside (See Premium with its crown says the same). Set on the element inside the observer's callback, after
+    layout and before paint, so nothing flickers; re-tested with the row shown on every resize.
+  */
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const askShown = ask !== null;
+  useEffect(() => {
+    const actions = actionsRef.current;
+    const content = actions?.closest<HTMLElement>('.workspace-card-content');
+    if (!askShown || !actions || !content) return;
+    const fit = () => {
+      delete content.dataset.askTight;
+      const inner = content.getBoundingClientRect().bottom - parseFloat(getComputedStyle(content).paddingBottom);
+      if (actions.getBoundingClientRect().bottom > inner + 0.5) content.dataset.askTight = '';
+    };
+    fit();
+    /* Only the card is observed: observing the text would re-fire on the row's own toggle. A web font arriving
+       late can rewrap the headline without resizing the card, so test again once fonts are in. */
+    const observer = new ResizeObserver(fit);
+    observer.observe(content);
+    let live = true;
+    void document.fonts?.ready.then(() => { if (live) fit(); });
+    return () => { live = false; observer.disconnect(); delete content.dataset.askTight; };
+  }, [askShown]);
   const [lineChars, setLineChars] = useState(40);
   useEffect(() => {
     const el = statusRef.current;
@@ -446,6 +481,7 @@ export function PuzzleLiveCard({
 
   const statusRegion = (
       <LiveStatus
+        noChip={ask !== null}
         chip={(
           /* `w-0 min-w-full`: as wide as the row and adding nothing to its minimum, so a long chip
              (a game's name, #245 B4) truncates inside the card. As `inline-flex` its nowrap text set
@@ -494,20 +530,23 @@ export function PuzzleLiveCard({
               ? <WifiOff className="w-[1em] h-[1em] mt-[0.1em] shrink-0 text-muted-foreground" />
               : exploring
                 ? <Compass className="w-[1em] h-[1em] mt-[0.1em] shrink-0 text-muted-foreground" />
+                : ask
+                ? <Crown className="w-[1em] h-[1em] mt-[0.1em] shrink-0 text-link" />
                 : isMidSolve
                   ? <CheckCircle2 className="w-[1em] h-[1em] mt-[0.1em] shrink-0 text-success" />
                   : statusIcon}
-            <span>{headlineText}</span>
+            <span>{ask ? ask.title : headlineText}</span>
           </span>
         )}
-        detail={detail}
-        announce={announcement}
+        detail={ask ? ask.line : detail}
+        announce={ask ? `${ask.title} ${ask.spoken}` : announcement}
       />
   );
 
   return (
     <>
-      {master ? (
+      {/* #521 B: the ask takes the card's full width (its words wrapped past the card beside his face). */}
+      {master && !ask ? (
         /* B1 (#186): his face in a column beside the status region, never under it. See `PuzzleMaster`. */
         <div className="master-row">
           <div ref={statusRef} className="master-row-status">{statusRegion}</div>
@@ -518,13 +557,13 @@ export function PuzzleLiveCard({
       {/* `shrink-0`: a short card may squeeze the status region, never the
           actions. In every mode since F2 (it was columns-only, `cols:`, from the
           pre-Workspace page). */}
-      <div className="live-actions shrink-0">
+      <div ref={actionsRef} className="live-actions shrink-0">
         {/* Same slot, same geometry: the recovery is the primary's LABEL, the
             way Start run becomes Stop run. Pressing New Puzzle again would ask
             the server the same impossible question. */}
         <Action
           tier="primary"
-          onClick={filterFoundNothing && onClearFilter ? onClearFilter : onNextPuzzle}
+          onClick={ask ? ask.onBuy : filterFoundNothing && onClearFilter ? onClearFilter : onNextPuzzle}
           /*
             THE RECOVERY IS NEVER DISABLED, and it was - which made it
             unpressable in exactly the state it exists for. The disable guards
@@ -536,12 +575,12 @@ export function PuzzleLiveCard({
             `loading` still binds: while the recovery's own fetch is in flight,
             pressing again would issue a second draw.
           */
-          disabled={filterFoundNothing
+          disabled={ask ? false : filterFoundNothing
             ? loading
             : loading || status === 'loading' || status === 'ready'}
-          icon={<ChevronRight className="w-[1em] h-[1em]" />}
+          icon={ask ? <Crown className="w-[1em] h-[1em]" /> : <ChevronRight className="w-[1em] h-[1em]" />}
         >
-          {filterFoundNothing && onClearFilter
+          {ask ? ask.buyLabel : filterFoundNothing && onClearFilter
             ? 'Clear the filter'
             : sessionId ? 'Next Puzzle' : 'New Puzzle'}
         </Action>

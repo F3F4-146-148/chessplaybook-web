@@ -10,6 +10,7 @@
  * Nothing here is reachable from free solving.
  */
 import env from '@/config/env';
+import { dailyLimitMessage, type DailyLimit, puzzleLimitOf, reportDailyLimit } from '@/services/freePlanLimit';
 
 const BASE = `${env.apiBaseUrl}/api/puzzles`;
 
@@ -141,6 +142,8 @@ export class PlanApiError extends Error {
     readonly status: number,
     /** On a 409 the server returns the plan that is in the way. */
     readonly active: TrainingPlan | null = null,
+    /** #521: today's free puzzles are used up, so the day's session does not start (402). Already reported. */
+    readonly limit: DailyLimit | null = null,
   ) {
     super(message);
     this.name = 'PlanApiError';
@@ -175,6 +178,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // A gateway or proxy error page — fall through to the status.
   }
 
+  /* #521: a plan day cannot start once today's free puzzles are used up. Reported here (the site's dialog, GA4),
+     and the message is the plain sentence the card shows, never the server's `daily_limit` code. */
+  const limit = puzzleLimitOf(response.status, body, headers);
+  if (limit) {
+    reportDailyLimit(limit);
+    throw new PlanApiError(dailyLimitMessage(limit), 402, null, limit);
+  }
   if (!response.ok || body?.success === false) {
     throw new PlanApiError(
       body?.error || `Request failed (${response.status})`,

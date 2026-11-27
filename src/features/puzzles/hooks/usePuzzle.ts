@@ -9,6 +9,7 @@ import type { Key, Color, Dests } from '@lichess-org/chessground/types';
 import { logGA4Event } from '@/services/analytics';
 import { analysisService } from '@/services/AnalysisService';
 import { recordPuzzleTry } from '@/features/puzzles/services/puzzleTry';
+import { type DailyLimit, reportDailyLimit } from '@/services/freePlanLimit';
 import type { PuzzleGameSource } from '../lib/gamePuzzleSource';
 
 /**
@@ -119,6 +120,9 @@ export interface PuzzleState {
    *  played, an alternative mate or a game puzzle's accepted alternative (false); unknown after a resume
    *  (null). Sent with a solve, so the Master never praises a move the player did not play. */
   mainLine: boolean | null;
+  /** #521: the server refused this puzzle's first move (today's free puzzles are used up): the puzzle is back at its
+   *  start and the board takes no move until another puzzle is loaded. */
+  attemptRefused: boolean;
 }
 
 /**
@@ -177,6 +181,10 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
   const [mainLine, setMainLine] = useState<boolean | null>(true);
   const [message, setMessage] = useState('');
   const [playerColor, setPlayerColor] = useState<Color>('white');
+  /* #521: the puzzle whose first move the server refused, or null (see `refuseAttempt`). */
+  const [refusedFor, setRefusedFor] = useState<string | null>(null);
+  const refusedForRef = useRef<string | null>(null);
+  const statusNowRef = useRef<PuzzleStatus>('loading');
 
   const positionRef = useRef<ChessPosition | null>(null);
   const puzzleRef = useRef<Puzzle | null>(null);
@@ -316,6 +324,8 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     // previous meta (rather than nulling it) is deliberate — the retry's
     // moves still belong to that puzzle_index if anything later needs them.
     if (meta) {
+      refusedForRef.current = null;
+      setRefusedFor(null);
       metaRef.current = meta;
       firstMoveSentRef.current = false;
       readySentRef.current = false;
@@ -524,11 +534,28 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     if (revertTimerRef.current) clearTimeout(revertTimerRef.current);
   }, []);
 
+  /*
+    #521: THE SERVER REFUSED THE FIRST MOVE. The move is not held back for the server's answer (that would slow every
+    first move for everyone); a refusal is rare (two tabs at the 5th, or a daily served by the preload to a player
+    already at the limit) and arrives a moment later. Then the attempt stops: the limit is reported, the puzzle goes
+    back to its start (unless it is already over: its result is refused too), and the board takes no move until
+    another puzzle is loaded. Nothing is scored, server or page.
+  */
+  const refuseAttemptRef = useRef<(id: string, limit: DailyLimit) => void>(() => {});
+  refuseAttemptRef.current = (id: string, limit: DailyLimit) => {
+    const puz = puzzleRef.current;
+    if (!puz || puz.id !== id) return;
+    refusedForRef.current = id;
+    setRefusedFor(id);
+    reportDailyLimit(limit);
+    if (statusNowRef.current !== 'correct' && statusNowRef.current !== 'solution') loadPuzzle(puz);
+  };
+
   // Handle user move
   const onMove = useCallback((orig: Key, dest: Key) => {
     const puz = puzzleRef.current;
     const idx = moveIndexRef.current;
-    if (!puz || status !== 'playing') return;
+    if (!puz || status !== 'playing' || refusedForRef.current === puz.id) return;
     // The card's "Not that move" line lasts until this, the next move.
     setLastMoveWrong(false);
 
@@ -579,7 +606,9 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
          did not choose - and it can SUCCEED, because the fallback also engages
          when a single slow `stats` probe latched `apiAvailable` false while the
          API was healthy the whole time. */
-      if (!puz.offline) void recordPuzzleTry(puz.id, puz.tryId);
+      if (!puz.offline) {
+        void Promise.resolve(recordPuzzleTry(puz.id, puz.tryId)).then((limit) => { if (limit) refuseAttemptRef.current(puz.id, limit); });
+      }
       const m = metaRef.current;
       // readyAtRef === 0 means this puzzle's setup callback never ran, so
       // there is no honest interval to report. Dropping the event is better
@@ -831,13 +860,15 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     pendingTimersRef.current.push(setTimeout(playNext, setup ? FIRST_SOLUTION_MOVE_MS : 300));
   }, []);
 
+  statusNowRef.current = status;
+  const attemptRefused = refusedFor !== null && refusedFor === puzzle?.id;
   const state: PuzzleState = {
     puzzle,
     position,
     fen: wrongMove?.fen || position?.fen || 'start',
-    dests: status === 'playing' ? position?.dests : undefined,
+    dests: status === 'playing' && !attemptRefused ? position?.dests : undefined,
     turnColor: position?.turnColor || 'white',
-    movableColor: status === 'playing' ? playerColor : undefined,
+    movableColor: status === 'playing' && !attemptRefused ? playerColor : undefined,
     lastMove: wrongMove ? undefined : lastMove,
     wrongMove: wrongMove ? [wrongMove.from, wrongMove.to] : undefined,
     refutation: wrongMove?.reply,
@@ -850,6 +881,7 @@ export function usePuzzle(): [PuzzleState, PuzzleActions] {
     firstFailure,
     hasFailed,
     mainLine,
+    attemptRefused,
   };
 
   return [state, { loadPuzzle, resumePuzzle, onMove, retry, showSolution, dismissWrongMove }];

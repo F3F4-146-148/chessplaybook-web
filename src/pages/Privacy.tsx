@@ -116,6 +116,14 @@ const Privacy = () => {
                   expires. Premium we give an account is deleted with the account.
                 </p>
 
+                {/* #521 C (owner-approved 2026-11-26). */}
+                <h3 className="text-xl font-semibold text-link mb-3">Daily Limits</h3>
+                <p className="text-muted-foreground mb-4">
+                  To apply the free plan's daily limits, we keep, with your browser's random identifier or your account,
+                  which features you used each day and which puzzles you tried. If you create an account, these move
+                  to it, and they are deleted when you delete it.
+                </p>
+
                 <h3 className="text-xl font-semibold text-link mb-3">Reminder Emails</h3>
                 <p className="text-muted-foreground mb-4">
                   If you are signed in and turn on reminder emails, we send them to your account's email address.

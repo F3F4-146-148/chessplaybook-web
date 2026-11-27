@@ -1284,6 +1284,13 @@
     margin-top: auto;
   }
   /*
+    #521: THE ASK'S PREMIUM ROW STEPS ASIDE WHERE THE ASK DOES NOT FIT (owner, 2026-11-26). Set by
+    `PuzzleLiveCard`, which measures it: no container query can tell (see the note there).
+  */
+  [data-ask-tight] .ask-fact-premium {
+    display: none;
+  }
+  /*
     THE MASTER IN THE LIVE CARD (#186 B1): a column beside the status region, sized from the card's type, and his
     line in the detail slot. Both appear only in a live card at least 250 px wide (the card is the nearest size
     container): at 800x600 (229 px) the narrowed status region would push the buttons down, so there the card

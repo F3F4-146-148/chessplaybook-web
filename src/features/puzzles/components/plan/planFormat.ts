@@ -54,6 +54,15 @@ export const MAX_POSITIONS = 60;
  */
 export const POSITIONS_STEP = 5;
 
+/**
+ * #521: a free player's plan session holds at most this many positions (owner, 2026-11-26, option 1). It MIRRORS
+ * the server's `FREE_RUN_MAX` (`backend/src/services/puzzles/puzzleAllowance.ts`), which shortens a longer day
+ * when it starts; a test reads it. The shortcuts offered then are these, so no length is offered that would be cut.
+ * Only while the daily puzzle allowance applies (the server's switch on, not Premium).
+ */
+export const FREE_MAX_POSITIONS = 20;
+export const FREE_LENGTHS = [10, 15, 20] as const;
+
 /** `2026-08-06` → `Thu 6 Aug`. Formatted here; the server sends dates, not prose. */
 export function dayLabel(iso: string): string {
   const date = new Date(`${iso}T00:00:00Z`);

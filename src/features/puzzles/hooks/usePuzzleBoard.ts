@@ -3,7 +3,10 @@ import { positionFromFen, applyMove, toUci, isPromotion, type ChessPosition } fr
 import type { Key } from '@lichess-org/chessground/types';
 import { useBoardStepInput } from '@/components/chess/useBoardStepInput';
 import { usePuzzle, WRONG_MOVE_LINE, type Puzzle } from './usePuzzle';
-import { fetchPuzzles, fetchDailyPuzzle, fetchPuzzleById, isApiReachable } from '../services/PuzzleService';
+import {
+  fetchPuzzles, fetchDailyPuzzle, fetchPuzzleById, isApiReachable, PuzzleDailyLimitError,
+} from '../services/PuzzleService';
+import { type DailyLimit, hostPuzzleAsk, PUZZLE_ASK_EVENT, recordDailyLimit } from '@/services/freePlanLimit';
 import { loadResumeState, saveResumeState, clearResumeState } from '../services/puzzleResume';
 import { analysisService } from '@/services/AnalysisService';
 
@@ -418,6 +421,30 @@ export function usePuzzleBoard(
      per-puzzle `offline` flag on purpose: this one is about the SERVER, and it
      is what the card reports. */
   const [serverUnreachable, setServerUnreachable] = useState(false);
+  /*
+    #521: TODAY'S FREE PUZZLES ARE USED UP. The server refused the last draw (402, feature `puzzle`), so the board
+    keeps what it shows (a solved line stays walkable) and the limit is reported: the site's dialog and GA4's
+    `limit_reached`. Cleared by the next draw the server answers. Phase B draws the ask from it.
+  */
+  const [dailyLimit, setDailyLimit] = useState<DailyLimit | null>(null);
+  const meetLimit = useCallback((error: unknown): boolean => {
+    if (!(error instanceof PuzzleDailyLimitError)) return false;
+    setDailyLimit(error.limit);
+    /* #521 B: the live card shows the ask (`dailyLimit`), so no dialog here: GA4 only. */
+    recordDailyLimit(error.limit);
+    return true;
+  }, []);
+  /*
+    #521 B2: EVERY OTHER REFUSAL OF TODAY'S PUZZLES LANDS HERE TOO, not in the site's dialog: a first move or a
+    result refused (two tabs at the 5th), a run or a plan day refused at its start. `reportDailyLimit` sends them to
+    this page while it is mounted, so the live card shows the same ask whatever was refused.
+  */
+  useEffect(() => {
+    const release = hostPuzzleAsk();
+    const onAsk = (event: Event) => setDailyLimit((event as CustomEvent<DailyLimit>).detail);
+    window.addEventListener(PUZZLE_ASK_EVENT, onAsk);
+    return () => { window.removeEventListener(PUZZLE_ASK_EVENT, onAsk); release(); };
+  }, []);
   /* The position on the board is today's daily puzzle, which the live card
      marks and which no run may claim. */
   const [isDaily, setIsDaily] = useState(false);
@@ -445,7 +472,10 @@ export function usePuzzleBoard(
   */
   const nextPuzzle = useCallback(async (overrides?: Partial<PuzzleDraw>) => {
     /* Drawing a new puzzle abandons the saved one. Clearing FIRST means an
-       interrupted fetch leaves no stale entry to restore the old puzzle from. */
+       interrupted fetch leaves no stale entry to restore the old puzzle from.
+       #521: kept aside, because a draw the server REFUSES (today's free puzzles are used up) abandons nothing:
+       the board keeps the puzzle, so a reload must find it too (found on the local stack, 2026-11-26). */
+    const savedBeforeDraw = loadResumeState();
     clearResumeState();
     setLoading(true);
     const draw = { ...drawRef.current, ...overrides };
@@ -496,6 +526,7 @@ export function usePuzzleBoard(
         request was never made.
       */
       const unreachable = isApiReachable() === false;
+      setDailyLimit(null);
       setServerUnreachable(unreachable);
       setFilterFoundNothing(!unreachable && !first && Boolean(draw.theme || draw.area));
       if (first) {
@@ -509,12 +540,20 @@ export function usePuzzleBoard(
           isDaily: false,
         });
       }
+    } catch (error) {
+      /* A refusal is an answer, not a failure: the board stays, and nothing falls back to the samples. */
+      if (stale()) return;
+      if (meetLimit(error)) {
+        if (savedBeforeDraw) saveResumeState(savedBeforeDraw);
+        return;
+      }
+      throw error;
     } finally {
       /* Only the draw still in flight owns the spinner: an older one finishing
          late must not report the newer one as done. */
       if (!stale()) setLoading(false);
     }
-  }, [puzzleActions]);
+  }, [puzzleActions, meetLimit]);
 
   /*
     THE PUZZLE SURVIVES A REFRESH AND A TRIP TO ANOTHER PAGE (owner, 2026-08-15:
@@ -565,7 +604,7 @@ export function usePuzzleBoard(
             source: 'link', index: ++seqRef.current, isDaily: false,
           });
         })
-        .catch(() => { if (linkToken === drawTokenRef.current) void nextPuzzle(); })
+        .catch((error) => { if (linkToken === drawTokenRef.current && !meetLimit(error)) void nextPuzzle(); })
         .finally(() => onLinkedOpenedRef.current?.());
       return;
     }
@@ -665,7 +704,7 @@ export function usePuzzleBoard(
          checked this token since it was written; the failure path did not, so a
          slow daily that eventually failed could issue a draw on top of the first
          puzzle of a run the player had already started. */
-      .catch(() => { if (dailyToken === drawTokenRef.current) void nextPuzzle(); });
+      .catch((error) => { if (dailyToken === drawTokenRef.current && !meetLimit(error)) void nextPuzzle(); });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /*
@@ -770,6 +809,8 @@ export function usePuzzleBoard(
     /** The last draw could not reach the API, so anything on the board came
      *  from the offline list and nothing is being scored. */
     serverUnreachable,
+    /** #521: the server refused the last draw because today's free puzzles are used up; null otherwise. */
+    dailyLimit,
     /** The board is showing today's daily puzzle. */
     isDaily,
     /** A restored puzzle whose attempt was already scored, so nothing reports it

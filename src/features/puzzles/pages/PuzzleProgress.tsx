@@ -24,6 +24,8 @@ import SeoHead from '@/components/SeoHead';
 import { Target, ArrowLeft, AlertCircle, CalendarDays, ChevronRight } from 'lucide-react';
 import { setAreaPreference, fetchActivePlan, type TrainingPlan } from '../services/PlanApi';
 import { deriveNext } from '../hooks/usePlan';
+import { usePuzzleAllowance } from '../services/puzzleAllowance';
+import { FREE_MAX_POSITIONS } from '../components/plan/planFormat';
 import { logGA4Event } from '@/services/analytics';
 import { RemindersSwitch } from '@/features/reminders/RemindersSwitch';
 import {
@@ -789,8 +791,11 @@ function RecordShell({ data, plan, signedIn }: {
     });
   }, [data.areaPreferences]);
 
+  /* #521: the plan day as a free player will get it (each block at most FREE_MAX_POSITIONS), as on the plan page. */
+  const allowance = usePuzzleAllowance(plan?.id ?? null);
+  const sessionCap = allowance?.puzzle ? FREE_MAX_POSITIONS : null;
   const steps = useMemo(() => {
-    const { nextItem, nextDayTotal } = deriveNext(plan);
+    const { nextItem, nextDayTotal } = deriveNext(plan, sessionCap);
     /* Rule 4 (#109): only what the server's evidence rule called below. */
     const weakness = strongestWeakness([
       ...Object.entries(data.evidence?.areas ?? {}).map(([area, evidence]) => ({ area: area as PuzzleArea, evidence })),
@@ -800,7 +805,7 @@ function RecordShell({ data, plan, signedIn }: {
       })),
     ]);
     return nextSteps(data.areas, { plan, nextItem, nextDayTotal }, new Date(), data.missedToReplay ?? 0, weakness);
-  }, [data.areas, data.evidence, data.motifs, plan, data.missedToReplay]);
+  }, [data.areas, data.evidence, data.motifs, plan, data.missedToReplay, sessionCap]);
   const areas = useMemo(() => orderAreasByFact(data.areas), [data.areas]);
 
   /* Once per page load: the denominator for the next-step click rate. */

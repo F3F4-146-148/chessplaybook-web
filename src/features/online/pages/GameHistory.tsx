@@ -29,6 +29,8 @@ interface GameSummary {
   rated: boolean;
   /** #416: who the game was against; absent from an older server (an online game). */
   mode?: GameMode;
+  /** #428 D5: a guided game against the Master; absent from an older server. */
+  guided?: boolean;
   playedAt: string;
   durationMs: number | null;
   movesUci: string;
@@ -375,6 +377,10 @@ export default function GameHistory() {
                             {/* `rated` arrives as SQLite's 0 or 1: `0 && …` printed a stray "0" on every unrated game */}
                             {Boolean(game.rated) && (
                               <span className="text-xs text-muted-foreground">Rated</span>
+                            )}
+                            {/* #428 D5: played with the Master's help, so not taken for an unaided game */}
+                            {game.guided && (
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-link" data-guided="history-mark">Guided</span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">

@@ -9,10 +9,10 @@
  *
  * PRD §6.4.0: the questions are about the player's life, not their chess.
  */
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import {
-  FREQUENCIES, LENGTHS, DURATIONS,
+  FREQUENCIES, LENGTHS, DURATIONS, FREE_LENGTHS,
   MIN_POSITIONS, MAX_POSITIONS, POSITIONS_STEP,
 } from './planFormat';
 
@@ -35,16 +35,22 @@ import {
  * The chips stay because most people want one of them, and reaching 40 from 25
  * by pressing a stepper three times is a worse answer to the common case.
  */
-function PositionsRow({ value, onPick }: { value: number; onPick: (n: number) => void }) {
+function PositionsRow({ value, onPick, cap = null }: {
+  value: number; onPick: (n: number) => void;
+  /** #521: a free player's most positions a session (FREE_MAX_POSITIONS), or null when unlimited. */
+  cap?: number | null;
+}) {
+  const max = cap ?? MAX_POSITIONS;
+  const lengths: readonly number[] = cap ? FREE_LENGTHS : LENGTHS;
   const step = (delta: number) => onPick(
-    Math.min(MAX_POSITIONS, Math.max(MIN_POSITIONS, value + delta)),
+    Math.min(max, Math.max(MIN_POSITIONS, value + delta)),
   );
   return (
     <div className="mt-2 flex items-center justify-between gap-3">
       {/* "Positions", never "length" — the word reads as minutes. */}
       <span className="text-xs text-muted-foreground">Positions a session</span>
       <div className="flex flex-wrap items-center justify-end gap-1">
-        {LENGTHS.map(n => (
+        {lengths.map(n => (
             <button
               key={n}
               type="button"
@@ -84,7 +90,7 @@ function PositionsRow({ value, onPick }: { value: number; onPick: (n: number) =>
         <button
           type="button"
           onClick={() => step(POSITIONS_STEP)}
-          disabled={value >= MAX_POSITIONS}
+          disabled={value >= max}
           aria-label={`More positions, ${POSITIONS_STEP} at a time`}
           className="w-7 h-7 rounded-md border border-border text-muted-foreground hover:text-foreground inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
         >
@@ -158,13 +164,19 @@ export interface PlanSetupProps {
    * reminder helps, so the offer sits where the plan is built.
    */
   reminders?: ReactNode;
+  /** #521: a free player's most positions a session, or null when unlimited (Premium, the switch off). */
+  sessionCap?: number | null;
 }
 
 export function PlanSetup({
   sessionsPerWeek, positionsPerSession, weeks,
   onSessionsPerWeek, onPositionsPerSession, onWeeks,
-  onGenerate, onCancel, busy = false, error = null, boxed = true, reminders = null,
+  onGenerate, onCancel, busy = false, error = null, boxed = true, reminders = null, sessionCap = null,
 }: PlanSetupProps) {
+  /* A value above the cap (the default 25, or one picked before the cap was known) comes down to it. */
+  useEffect(() => {
+    if (sessionCap && positionsPerSession > sessionCap) onPositionsPerSession(sessionCap);
+  }, [sessionCap, positionsPerSession, onPositionsPerSession]);
   return (
     <div
       className={boxed ? 'surface-card w-full max-w-xl rounded-lg p-4 text-sm' : 'text-sm'}
@@ -172,7 +184,7 @@ export function PlanSetup({
     >
       <p className="font-medium text-foreground">Build a training plan</p>
       <Row label="Sessions a week" values={FREQUENCIES} value={sessionsPerWeek} onPick={onSessionsPerWeek} />
-      <PositionsRow value={positionsPerSession} onPick={onPositionsPerSession} />
+      <PositionsRow value={positionsPerSession} onPick={onPositionsPerSession} cap={sessionCap} />
       <Row label="Weeks" values={DURATIONS} value={weeks} onPick={onWeeks} />
       {reminders && <div className="mt-3" data-testid="plan-reminders">{reminders}</div>}
       {/*

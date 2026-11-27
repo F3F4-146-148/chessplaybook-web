@@ -49,7 +49,33 @@ export function isGeneratedPuzzleId(id: string | null | undefined): boolean {
   return typeof id === 'string' && /^g_[1-9]\d*$/.test(id);
 }
 import { getRequestHeaders } from '@/features/auth/utils/getAuthToken';
-import { readDailyLimit, reportDailyLimit } from '@/services/freePlanLimit';
+import { type DailyLimit, readDailyLimit, reportDailyLimit } from '@/services/freePlanLimit';
+
+/**
+ * #521: thrown by the puzzle fetchers when the server refuses a puzzle because today's free allowance is used up
+ * (402, `daily_limit`, feature `puzzle`). The caller keeps the board as it is and shows the limit: a refusal is
+ * NEVER answered with the sample puzzles, which every other non-OK answer falls back to.
+ */
+export class PuzzleDailyLimitError extends Error {
+  constructor(readonly limit: DailyLimit) {
+    super('daily_limit');
+    this.name = 'PuzzleDailyLimitError';
+  }
+}
+
+/**
+ * What a 402 from a puzzle route means: the player's own limit (`limit`), a refusal of a request that carried no
+ * identity (`unidentified`: a signed-in player whose token was briefly unavailable sends none, by design, and the
+ * server refuses that like a used-up allowance; it is a failed load, not their limit), or neither (null).
+ */
+async function puzzleRefusal(res: Response, headers: Record<string, string>): Promise<
+  { kind: 'limit'; limit: DailyLimit } | { kind: 'unidentified' } | null
+> {
+  if (res.status !== 402) return null;
+  const limit = readDailyLimit(res.status, await res.clone().json().catch(() => null));
+  if (!limit || limit.feature !== 'puzzle') return null;
+  return headers.Authorization || headers['X-Anonymous-Id'] ? { kind: 'limit', limit } : { kind: 'unidentified' };
+}
 
 const API_URL = env.apiBaseUrl;
 
@@ -187,6 +213,9 @@ export async function fetchPuzzles(options?: {
       */
       const headers = await getRequestHeaders();
       const res = await fetch(`${API_URL}/api/puzzles/next?${params}`, { headers });
+      const refused = await puzzleRefusal(res, headers);
+      if (refused?.kind === 'limit') throw new PuzzleDailyLimitError(refused.limit);
+      if (refused) return [];
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data.length > 0) {
@@ -212,7 +241,8 @@ export async function fetchPuzzles(options?: {
           return [];
         }
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof PuzzleDailyLimitError) throw error;
       // Network or parse failure — the fallback below is a real safety net for
       // an unreachable API, which is a different situation from "no match".
     }
@@ -252,11 +282,15 @@ export async function fetchDailyPuzzle(date?: string): Promise<PuzzleData | null
       const headers = await getRequestHeaders();
       const query = date ? `?date=${encodeURIComponent(date)}` : '';
       const res = await fetch(`${API_URL}/api/puzzles/daily${query}`, { headers });
+      const refused = await puzzleRefusal(res, headers);
+      if (refused?.kind === 'limit') throw new PuzzleDailyLimitError(refused.limit);
+      if (refused) return null;
       if (res.ok) {
         const json = await res.json();
         if (json.success) return json.data;
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof PuzzleDailyLimitError) throw error;
       // Fall through
     }
   }
@@ -274,11 +308,15 @@ export async function fetchPuzzleById(id: string): Promise<PuzzleData | null> {
     try {
       const headers = await getRequestHeaders();
       const res = await fetch(`${API_URL}/api/puzzles/${id}`, { headers });
+      const refused = await puzzleRefusal(res, headers);
+      if (refused?.kind === 'limit') throw new PuzzleDailyLimitError(refused.limit);
+      if (refused) return null;
       if (res.ok) {
         const json = await res.json();
         if (json.success) return json.data;
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof PuzzleDailyLimitError) throw error;
       // Fall through
     }
   }

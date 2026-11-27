@@ -38,6 +38,8 @@ export interface PuzzleTrainCardProps {
   total: number;
   onTotalChange: (v: number) => void;
   onStartRun: () => void;
+  /** #521: today's free puzzles are used up, so no run starts: the label instead ("Back tomorrow"), disabled. */
+  startBlocked?: string | null;
   busy?: boolean;
   loading?: boolean;
   /** A run is going: the full run setup shows its progress. */
@@ -59,7 +61,7 @@ const opened = () => logGA4Event({ name: 'puzzle_filter_opened', params: { surfa
 export function PuzzleTrainCard({
   theme, onThemeChange, filterMode, onFilterModeChange, ratingRange, onRatingRangeChange, bandIsFarFromRating = false,
   options, areas, selection, onSelectionChange, area, onAreaChange, total, onTotalChange,
-  onStartRun, busy = false, loading = false, runOnScreen, runFinished, runSetup, hasPlan,
+  onStartRun, startBlocked = null, busy = false, loading = false, runOnScreen, runFinished, runSetup, hasPlan,
 }: PuzzleTrainCardProps) {
   /* A finished run's result stays until it is closed; a new finish shows again. */
   const [resultClosed, setResultClosed] = useState(false);
@@ -130,13 +132,13 @@ export function PuzzleTrainCard({
         <div className="flex items-center gap-[0.5em]">
           <button
             type="button"
-            disabled={busy || loading}
+            disabled={busy || loading || startBlocked !== null}
             onClick={onStartRun}
             className="card-btn flex-1 min-w-0 border border-primary/60 bg-primary/10 font-medium text-foreground hover:bg-primary/20 disabled:opacity-50"
             data-testid="train-start-run"
           >
             <Play />
-            Start a run
+            {startBlocked ?? 'Start a run'}
           </button>
           <div className="flex shrink-0 gap-[0.3em]" role="group" aria-label="How many puzzles">
             {LENGTHS.map(n => (

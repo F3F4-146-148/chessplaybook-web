@@ -11,7 +11,7 @@
  * account; a guest signs in and comes back with the chosen plan still chosen.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { BarChart3, Check, ChevronDown, Crown, GraduationCap, Lightbulb, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import SeoHead from '@/components/SeoHead';
 import { useAuth } from '@/features/auth/AuthContext';
@@ -66,7 +66,6 @@ const BENEFITS = [
 
 
 const ALWAYS_FREE = [
-  'Puzzles, as many as you like',
   'Training plans',
   "Every World Champion's games and their best games",
   'Live broadcasts of the World Championship cycle',
@@ -139,6 +138,12 @@ export default function PremiumPage() {
   /* canAddPassYear: the state half, an open subscription included (#467 E6), tested in paddleCheckout.test.ts. */
   const canExtend = live && stateKnown && canAddPassYear(state) && !unavailable && oneYear !== null
     && (provider === 'stripe' || oneYear.priceId !== null);
+  /* #521 B3: a visit from the puzzle ask (`?from=puzzle_ask`), carried through sign-in and onto the Buy events, so
+     GA4 can follow the ask to a checkout. Only that one value: the address is the visitor's to edit. */
+  const [urlParams, setUrlParams] = useSearchParams();
+  const fromAsk = urlParams.get('from') === 'puzzle_ask';
+  const askParam = fromAsk ? { from: 'puzzle_ask' as const } : {};
+
   const onExtend = () => {
     if (!oneYear || !canExtend || busy || purchased) return;
     logGA4Event({ name: 'premium_buy_clicked', params: { plan: 'one_year', signed_in: true, control: 'extend' } });
@@ -147,10 +152,30 @@ export default function PremiumPage() {
 
   const onBuy = (control: 'plans' | 'sticky_bar') => {
     if (!chosen || !canBuy || busy) return;
-    logGA4Event({ name: 'premium_buy_clicked', params: { plan: chosen.key, signed_in: Boolean(user), control } });
+    logGA4Event({ name: 'premium_buy_clicked', params: { plan: chosen.key, signed_in: Boolean(user), control, ...askParam } });
     if (user) void buy({ key: chosen.key, priceId: chosen.priceId, minor: chosen.minor, currency: chosen.currency }, country);
-    else navigate(`/login?returnTo=${encodeURIComponent(`/premium?plan=${chosen.key}`)}`);
+    /* #521 B: back from sign-in with `buy=1`: they chose and pressed Buy already, so the checkout opens by itself. */
+    else navigate(`/login?returnTo=${encodeURIComponent(`/premium?plan=${chosen.key}&buy=1${fromAsk ? '&from=puzzle_ask' : ''}`)}`);
   };
+
+  /*
+    #521 B: BUY PRESSED BEFORE SIGN-IN IS NOT PRESSED AGAIN. "Sign in to buy" returns here with `?plan=<key>&buy=1`;
+    once a Buy press would work here, the checkout opens by itself, once, and the parameter is removed so Back does
+    not open it again. Through `buy()` and `canBuy`, so a holder, a pending
+    purchase or a refused country never reaches a checkout: the page simply shows what it always shows.
+  */
+  const autoBuy = urlParams.get('buy') === '1';
+  const autoBuyDone = useRef(false);
+  useEffect(() => {
+    /* Decided once the page knows whether a Buy would work: the intent is used up EITHER WAY (Codex, 2026-11-26),
+       or a blocked one (a holder, a pending purchase) stays armed and a later change opens a checkout unpressed. */
+    if (!autoBuy || autoBuyDone.current || !user || !checked || !stateKnown || cards === null || busy) return;
+    autoBuyDone.current = true;
+    setUrlParams((p) => { p.delete('buy'); return p; }, { replace: true });
+    if (!canBuy || !chosen) return;
+    logGA4Event({ name: 'premium_checkout_started', params: { plan: chosen.key, control: 'sign_in', ...askParam } });
+    void buy({ key: chosen.key, priceId: chosen.priceId, minor: chosen.minor, currency: chosen.currency }, country);
+  }, [autoBuy, user, checked, stateKnown, cards, canBuy, chosen, busy, buy, country, setUrlParams]);
 
   /* The phone's bar: once the plans have scrolled above the screen, and only when there is something to buy. */
   const plansRef = useRef<HTMLElement>(null);
@@ -237,7 +262,7 @@ export default function PremiumPage() {
             <h1 className="font-playfair text-[48px] font-semibold leading-[1.02] md:text-[length:calc(64*var(--pu))] short:text-[length:calc(52*var(--pu))]">
               <span className="v2-gold-text">Premium</span>
             </h1>
-            <p className="mt-1 font-playfair text-[24px] leading-tight md:text-[length:calc(28*var(--pu))]">Train with no daily limits</p>
+            <p className="mt-1 font-playfair text-[24px] leading-tight md:text-[length:calc(28*var(--pu))]">Unlimited puzzles, every day</p>
             <p className="mt-3 max-w-md text-[15px] leading-relaxed text-foreground/85 md:mt-[calc(12*var(--pu))] md:max-w-[calc(448*var(--pu))] md:text-[length:max(13px,calc(16*var(--pu)))]">
               {/* Premium we gave that ends, and no paid Premium: said in the subtitle's place, about its length, so the
                   plans and Buy stay on the first screen (a line above the plans pushed Buy off it on short windows:

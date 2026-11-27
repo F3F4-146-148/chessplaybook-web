@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useChrome } from '@/app/SiteShell';
 import { ChessBoard } from '@/components/chess/ChessBoard';
 import { BoardControls } from '@/components/chess/BoardControls';
@@ -42,7 +42,11 @@ import { useReminderOffer } from '@/features/reminders/useReminderOffer';
 import { layoutArm } from '../lib/layoutArm';
 import { ReminderOfferLine } from '@/features/reminders/ReminderOfferLine';
 import RouteHeading from '@/components/RouteHeading';
-import { CheckCircle2, Clock, History, Minimize2, PieChart, TrendingUp, XCircle, Zap } from 'lucide-react';
+import { useVisitorCountry } from '@/features/premium/useVisitorCountry';
+import { plansForCountry } from '@/features/premium/premiumPlans';
+import { backLabel, whenBack, type DailyLimit } from '@/services/freePlanLimit';
+import { usePuzzleAllowance } from '../services/puzzleAllowance';
+import { CheckCircle2, Clock, History, Infinity as InfinityIcon, Minimize2, PieChart, Swords, TrendingUp, XCircle, Zap } from 'lucide-react';
 
 /**
  * The address's query string, read once in state initialisers. Empty in the build's render (prerender plan B2a): the
@@ -463,6 +467,66 @@ export default function TrainerLayoutSkeleton() {
     otherwise see it for 1.2 seconds and lose it.
   */
   const { user, isLoading: authLoading } = useAuth();
+  /*
+    #521 B: THE ASK (owner, 2026-11-26: a card where New Puzzle was). Shown when the server refused the last draw
+    because today's free puzzles are used up. The button leads to the Premium page FIRST (owner, after research the
+    same day: the plans, the annual saving and the one-year pass persuade more than a cold checkout), with the
+    visitor's first plan for their country chosen (the country table, fetched only while the ask shows). There,
+    "Sign in to buy" brings a guest back with the checkout opening by itself.
+  */
+  const askLimit = puzzle.dailyLimit?.feature === 'puzzle' ? puzzle.dailyLimit : null;
+  const askCountry = useVisitorCountry(askLimit !== null);
+  const askPlan = askLimit && askCountry !== undefined ? plansForCountry(askCountry)[0] ?? null : null;
+  const ask = askLimit ? {
+    /* "used": still true after a run that went past the 5 (Fable, Codex; owner, 2026-11-26). */
+    title: `You've used today's ${askLimit.limit} free puzzles.`,
+    /*
+      WHEN THEY ARE BACK, in the visitor's own time (Fable, Codex: the day turns at Bucharest midnight, 03:30 in
+      India, so "today's" alone can mislead). Information, never "come back tomorrow" (owner: it reads as go away).
+      Then what stays unlimited, a game, as a way to stay (owner).
+
+      THREE ROWS, ONE FACT EACH, AN ICON EACH (owner, 2026-11-26, option B of three tried on the real card: the
+      paragraph broke its sentences mid-thought and the Master line read as a footnote). The rows sit tight
+      (`gap-[0.12em]`): at 390 and 360 wide a looser gap pushed Try other lines 2-3px past the card (measured).
+    */
+    line: (
+      <span className="flex flex-col gap-[0.12em]">
+        <span className="ask-fact-premium flex items-start gap-[0.45em]">
+          <InfinityIcon className="w-[1em] h-[1em] mt-[0.2em] shrink-0" aria-hidden />
+          <span>Unlimited puzzles with Premium</span>
+        </span>
+        <span className="flex items-start gap-[0.45em]">
+          <Clock className="w-[1em] h-[1em] mt-[0.2em] shrink-0" aria-hidden />
+          <span>Free puzzles back {whenBack(askLimit.resetsAt)}</span>
+        </span>
+        <span className="flex items-start gap-[0.45em]">
+          <Swords className="w-[1em] h-[1em] mt-[0.2em] shrink-0" aria-hidden />
+          <span>
+            <Link to="/play" className="text-link underline underline-offset-2">Play the Master</Link> meanwhile
+          </span>
+        </span>
+      </span>
+    ),
+    spoken: `Unlimited puzzles with Premium. Free puzzles back ${whenBack(askLimit.resetsAt)}. Play the Master meanwhile.`,
+    /* Owner, 2026-11-26: no price on the button (more presses); the checkout shows it. */
+    buyLabel: 'See Premium',
+    onBuy: () => {
+      logGA4Event({ name: 'premium_link_clicked', params: { from: 'puzzle_ask' } });
+      /* No plan while the country is still unknown: the page then chooses its own first card. */
+      /* `from=puzzle_ask` (B3): the Premium page carries it through sign-in onto its Buy and checkout events. */
+      navigate(askPlan ? `/premium?plan=${askPlan.key}&from=puzzle_ask` : '/premium?from=puzzle_ask');
+    },
+  } : null;
+  /*
+    #521 B: NO RUN STARTS AT THE LIMIT (Fable, Codex; owner, 2026-11-26): both Start buttons read "Back tomorrow"
+    (or the hour), disabled, the opening trainer's pattern (#472). Known from a refused draw, or from the allowance
+    read after each result (so right after a run that went past the 5, before any refusal).
+  */
+  const allowance = usePuzzleAllowance(record.stats.solved + record.stats.failed);
+  const knownLimit: DailyLimit | null = askLimit ?? (allowance?.puzzle && allowance.puzzle.left === 0
+    ? { feature: 'puzzle', limit: allowance.puzzle.limit, resetsAt: allowance.puzzle.resetsAt }
+    : null);
+  const runStartBlocked = knownLimit ? backLabel(knownLimit) : null;
   /* #521 B2: which arrangement the page shows ('b' the new one), the same for everyone (`layoutArm.ts`). */
   const [arm] = useState(layoutArm);
   /* #521 (owner, 2026-11-26): stacked, the new half puts the record above the settings; columns keep their order. */
@@ -523,6 +587,7 @@ export default function TrainerLayoutSkeleton() {
       loading={run.loading}
       onStart={input => run.startRun(input, settings.rated)}
       onStop={run.stopRun}
+      startBlocked={runStartBlocked}
       /* A plan day says so, in the title and in the way out (D13). A
          review day is mixed. */
       planArea={planItemForRun
@@ -875,6 +940,7 @@ export default function TrainerLayoutSkeleton() {
                   : null}
                 filterFoundNothing={puzzle.filterFoundNothing}
                 serverUnreachable={puzzle.serverUnreachable}
+                ask={ask}
                 offer={reminderOffer.visible ? (
                   <ReminderOfferLine
                     state={reminderOffer.state}
@@ -933,6 +999,7 @@ export default function TrainerLayoutSkeleton() {
                   onAreaChange={run.setArea}
                   onTotalChange={run.setTotal}
                   total={run.total}
+                  startBlocked={runStartBlocked}
                   onStartRun={() => run.startRun({ total: run.total, selection: run.selection, area: run.selection === 'weak_areas' ? null : run.area }, settings.rated)}
                   busy={run.starting}
                   loading={run.loading}

@@ -20,6 +20,8 @@ export interface ComputerGameDraft {
   /** Seconds; 0 and 0 is a game with no clock. */
   timeControl: { initial: number; increment: number };
   claim: { reason: 'resignation' | 'timeout'; loser: 'white' | 'black' } | null;
+  /** #428 D5: the server's id of the guided game this was; the server stores the game as guided only if it is theirs. */
+  guidedGameId?: string | null;
 }
 
 const KEY = 'cp_computer_game_pending';

@@ -41,6 +41,19 @@ export function stockfishFallback(rating: number): StockfishLevel {
     Math.abs(l.approxRating - rating) < Math.abs(best.approxRating - rating) ? l : best);
 }
 
+/**
+ * #428 D1: turning on a guided game while a Stockfish level is chosen picks the Master's level nearest in rating (a
+ * tie goes to the lower, gentler one). Null when the list holds no Master level (MAIA_LIVE off).
+ */
+export function nearestMasterLevel(levels: PlayLevel[], rating: number): PlayLevel | null {
+  let best: PlayLevel | null = null;
+  for (const l of levels) {
+    if (l.kind !== 'master') continue;
+    if (!best || Math.abs(l.approxRating - rating) < Math.abs(best.approxRating - rating)) best = l;
+  }
+  return best;
+}
+
 export function findLevel(levels: PlayLevel[], id: string): PlayLevel {
   return levels.find((l) => l.id === id) ?? levels[0];
 }

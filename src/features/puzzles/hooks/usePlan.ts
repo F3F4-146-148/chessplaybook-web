@@ -23,6 +23,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/features/auth/AuthContext';
+import { usePuzzleAllowance } from '../services/puzzleAllowance';
+import { FREE_MAX_POSITIONS } from '../components/plan/planFormat';
 import {
   createPlan,
   endPlan,
@@ -89,6 +91,10 @@ export interface UsePlanResult {
    * day, which is one number telling a player two things on two screens.
    */
   nextDayTotal: number;
+  /** #521: a free player's most positions a session while the daily allowance applies, else null. */
+  sessionCap: number | null;
+  /** #521: the next day as stored is longer than the cap allows, so it is shortened when it starts. */
+  nextDayShortened: boolean;
 
   generate: (input: { sessionsPerWeek: number; positionsPerSession: number; weeks: number })
     => Promise<GeneratedPlan | null>;
@@ -136,22 +142,26 @@ export function orderBroken(plan: TrainingPlan): boolean {
  * page each computing "next" from the same items is exactly how they come to
  * name different days.
  */
-export function deriveNext(plan: TrainingPlan | null): {
+export function deriveNext(plan: TrainingPlan | null, sessionCap: number | null = null): {
   activeItem: PlanItem | null;
   nextItem: PlanItem | null;
   owedItems: PlanItem[];
   nextDayTotal: number;
+  /** #521: some block of that day is longer than `sessionCap`, so the total counts it at the cap. */
+  nextDayShortened: boolean;
 } {
-  if (!plan) return { activeItem: null, nextItem: null, owedItems: [], nextDayTotal: 0 };
+  if (!plan) return { activeItem: null, nextItem: null, owedItems: [], nextDayTotal: 0, nextDayShortened: false };
   const activeItem = plan.items.find(i => i.status === 'active') ?? null;
   const owedItems = plan.items.filter(i => i.status === 'pending' || i.status === 'abandoned');
   const nextItem = activeItem ?? owedItems[0] ?? null;
-  const nextDayTotal = nextItem
-    ? plan.items
-      .filter(i => i.scheduledOn === nextItem.scheduledOn && i.status !== 'completed')
-      .reduce((sum, i) => sum + i.total, 0)
-    : 0;
-  return { activeItem, nextItem, owedItems, nextDayTotal };
+  const day = nextItem
+    ? plan.items.filter(i => i.scheduledOn === nextItem.scheduledOn && i.status !== 'completed')
+    : [];
+  /* #521: a free player's block is shortened to the cap when it starts, so it is counted at the cap. */
+  const counted = (total: number) => (sessionCap ? Math.min(total, sessionCap) : total);
+  const nextDayTotal = day.reduce((sum, i) => sum + counted(i.total), 0);
+  const nextDayShortened = sessionCap !== null && day.some(i => i.total > sessionCap);
+  return { activeItem, nextItem, owedItems, nextDayTotal, nextDayShortened };
 }
 
 export function usePlan({
@@ -390,11 +400,14 @@ export function usePlan({
     }
   }, [plan]);
 
-  const { activeItem, nextItem, owedItems, nextDayTotal } = deriveNext(plan);
+  /* #521: the daily puzzle allowance applies to this player (a number), or not (null): read again per plan. */
+  const allowance = usePuzzleAllowance(plan?.id ?? null);
+  const sessionCap = allowance?.puzzle ? FREE_MAX_POSITIONS : null;
+  const { activeItem, nextItem, owedItems, nextDayTotal, nextDayShortened } = deriveNext(plan, sessionCap);
 
   return {
     plan, preview, busy, error, justCreated, loading,
-    activeItem, nextItem, owedItems, nextDayTotal,
+    activeItem, nextItem, owedItems, nextDayTotal, sessionCap, nextDayShortened,
     generate, commit, pickUp, start, abandon, refresh,
     clearPreview: useCallback(() => setPreview(null), []),
     clearError: useCallback(() => setError(null), []),

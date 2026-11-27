@@ -48,7 +48,7 @@ export function PuzzleExplanationPanel({
   const error = explanation?.status === 'pending'
     ? 'The explanation for this puzzle is not ready yet.'
     : explanation?.status === 'limited'
-      ? "You've read today's free puzzle explanations. Puzzles stay free, as many as you like."
+      ? "You've read today's free puzzle explanations."
       : explanation?.status === 'unavailable'
         ? 'The explanation could not be loaded. Close this and try again.'
         : null;

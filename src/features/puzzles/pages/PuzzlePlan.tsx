@@ -48,7 +48,7 @@ export default function PuzzlePlan() {
   const {
     plan, preview, busy, error,
     justCreated, clearJustCreated, clearPreview, loading,
-    activeItem, nextItem, nextDayTotal,
+    activeItem, nextItem, nextDayTotal, sessionCap, nextDayShortened,
     generate, commit, pickUp, start, abandon, refresh,
   } = usePlan();
 
@@ -255,6 +255,7 @@ export default function PuzzlePlan() {
             busy={busy}
             error={error}
             reminders={<RemindersSwitch signedIn={!!user} source="plan" compact />}
+            sessionCap={sessionCap}
           />
         ) : plan ? (
           <PlanDetails
@@ -262,6 +263,7 @@ export default function PuzzlePlan() {
             activeItem={activeItem}
             nextItem={nextItem}
             nextDayTotal={nextDayTotal}
+            nextDayShortened={nextDayShortened}
             onStart={onStart}
             onAbandon={onAbandon}
             onNewPlan={onNewPlan}

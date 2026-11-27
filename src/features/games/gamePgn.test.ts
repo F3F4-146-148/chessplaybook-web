@@ -22,6 +22,9 @@ const GAMES = [
   { ...base, result: '0-1', endReason: 'timeout', sanMoves: ['d4'], mode: 'online' as const, timeControlInitial: 180, timeControlIncrement: 2 },
   { ...base, white: { username: 'Ro"ok \\ Knight', rating: 1210 }, result: '1/2-1/2', endReason: 'repetition', sanMoves: [], mode: 'master' as const, timeControlInitial: 600 },
   { ...base, result: '1/2-1/2', endReason: 'stalemate', sanMoves: ['Qc7'], mode: 'online' as const, startFen: 'k7/8/1Q6/8/8/8/8/7K w - - 0 1' },
+  // #428 D5: a guided game's Event, the same in both builders; `guided` on a Stockfish game changes nothing
+  { ...base, result: '0-1', endReason: 'resignation', sanMoves: ['e4', 'e5'], mode: 'master' as const, guided: true },
+  { ...base, result: '1-0', endReason: 'resignation', sanMoves: ['e4'], mode: 'stockfish' as const, guided: true },
 ];
 
 describe('the browser PGN is the server PGN', () => {
@@ -44,5 +47,12 @@ describe('the file name', () => {
     expect(gamePgnFileName('Quiet Rook', 'Chess Playbook Master (1500)', new Date('2026-11-25T10:00:00Z')))
       .toBe('chessplaybook-2026-11-25-quiet-rook-vs-chess-playbook-master-1500.pgn');
     expect(gamePgnFileName('***', '', new Date('2026-11-25T10:00:00Z'))).toBe('chessplaybook-2026-11-25-player-vs-player.pgn');
+  });
+});
+
+describe('a guided game (#428 D5)', () => {
+  it("says so in the Event, against the Master only", () => {
+    expect(buildGamePgn({ ...base, result: '*', endReason: '', sanMoves: ['e4'], mode: 'master', guided: true })).toContain('[Event "Chess Playbook guided game vs the Master"]');
+    expect(buildGamePgn({ ...base, result: '*', endReason: '', sanMoves: ['e4'], mode: 'stockfish', guided: true })).toContain('[Event "Chess Playbook vs Stockfish"]');
   });
 });

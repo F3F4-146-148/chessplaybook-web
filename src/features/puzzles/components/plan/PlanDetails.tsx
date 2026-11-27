@@ -13,6 +13,8 @@ export interface PlanDetailsProps {
   activeItem: PlanItem | null;
   nextItem: PlanItem | null;
   nextDayTotal: number;
+  /** #521: the next day as stored is longer than a free plan session (shortened when it starts). */
+  nextDayShortened?: boolean;
   onStart: (itemId: string, area: string, total: number, kind: string) => void;
   onAbandon: () => void;
   /** #549: the offer after three weeks away. */
@@ -29,7 +31,7 @@ export interface PlanDetailsProps {
 }
 
 export function PlanDetails({
-  plan, activeItem, nextItem, nextDayTotal, onStart, onAbandon,
+  plan, activeItem, nextItem, nextDayTotal, nextDayShortened = false, onStart, onAbandon,
   onNewPlan, onPickUp, busy = false, error = null, justCreated = false, onDismissJustCreated,
   signedIn, returnTo, confirmStop, onConfirmStop,
 }: PlanDetailsProps) {
@@ -44,7 +46,7 @@ export function PlanDetails({
         <NewPlanOfferCard busy={busy} onNewPlan={onNewPlan!} onPickUp={onPickUp!} />
       ) : (
         <NextSessionCard activeItem={activeItem} nextItem={nextItem} nextDayTotal={nextDayTotal}
-          busy={busy} onStart={onStart} />
+          shortened={nextDayShortened} busy={busy} onStart={onStart} />
       )}
 
       <div className="h-full lg:col-start-1 lg:row-span-3 lg:row-start-1">
@@ -150,10 +152,11 @@ function NewPlanOfferCard({ busy, onNewPlan, onPickUp }: {
   );
 }
 
-function NextSessionCard({ activeItem, nextItem, nextDayTotal, busy, onStart }: {
+function NextSessionCard({ activeItem, nextItem, nextDayTotal, shortened = false, busy, onStart }: {
   activeItem: PlanItem | null;
   nextItem: PlanItem | null;
   nextDayTotal: number;
+  shortened?: boolean;
   busy: boolean;
   onStart: PlanDetailsProps['onStart'];
 }) {
@@ -168,7 +171,10 @@ function NextSessionCard({ activeItem, nextItem, nextDayTotal, busy, onStart }: 
     <section className="surface-card surface-card-promoted rounded-lg p-2.5 lg:col-start-2 lg:row-start-1">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{activeItem ? 'Under way' : 'Next session'}</p>
       <p className="mt-0.5 font-semibold text-foreground">{area} · {nextDayTotal} positions</p>
-      <p className="mt-0.5 text-xs text-muted-foreground">{dayLabel(nextItem.scheduledOn)}</p>
+      {/* #521: on the date line, so the card keeps its height; only when a stored day was longer. */}
+      <p className="mt-0.5 text-xs text-muted-foreground">
+        {dayLabel(nextItem.scheduledOn)}{shortened ? ' · Free plan, up to 20 a session' : ''}
+      </p>
       {activeItem ? (
         <Link to="/puzzles" className="mt-1.5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90">
           <ArrowLeft className="h-4 w-4" /> Back to your run

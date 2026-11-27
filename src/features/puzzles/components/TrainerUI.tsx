@@ -428,10 +428,12 @@ export const HEADLINE_VOCABULARY = [
 ];
 
 export function LiveStatus({
-  chip, headline, detail, announce, boxed = false,
+  chip, headline, detail, announce, boxed = false, noChip = false,
 }: {
   /** Provenance — "Daily Puzzle", "Puzzle 3 of 10". Reserved even when absent. */
   chip?: ReactNode;
+  /** #521: no chip row at all (the ask needs its line for its words; the puzzle's difficulty means nothing there). */
+  noChip?: boolean;
   /** Whose move, or the result. The largest type in the panel. */
   headline: ReactNode;
   /**
@@ -619,7 +621,7 @@ export function LiveStatus({
           className="[grid-area:1/-1] flex flex-col justify-between"
           style={{ gap: 'calc(var(--card-air) * 2)' }}
         >
-          <div className="min-h-[1.3em] text-[0.92em] text-muted-foreground">{chip}</div>
+          {!noChip && <div className="min-h-[1.3em] text-[0.92em] text-muted-foreground">{chip}</div>}
           <div className="text-[1.4em] font-semibold text-muted-foreground leading-tight">
             {headline}
           </div>
@@ -752,8 +754,8 @@ export function Toggle({
   /** Reported AND enforced — a switch that says it is not in charge must not act. */
   disabled?: boolean;
   label: string;
-  /** One line under the switch. Reserved, so turning it on moves nothing. */
-  hint?: string;
+  /** One line under the switch. Reserved, so turning it on moves nothing. (#428 D6: may be a control, a tap on the line.) */
+  hint?: ReactNode;
   /**
    * How many lines of hint to RESERVE. Two by default.
    *

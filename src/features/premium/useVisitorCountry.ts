@@ -9,9 +9,11 @@
  */
 import { useEffect, useState } from 'react';
 
-export function useVisitorCountry(): string | null | undefined {
+/** `enabled` false: no request, and undefined (unknown) until it is true (#521: the puzzle page asks only when its ask shows). */
+export function useVisitorCountry(enabled = true): string | null | undefined {
   const [country, setCountry] = useState<string | null | undefined>(undefined);
   useEffect(() => {
+    if (!enabled) return;
     if (import.meta.env.DEV) {
       const forced = new URLSearchParams(window.location.search).get('country');
       if (forced) { setCountry(forced.toUpperCase()); return; }
@@ -26,6 +28,6 @@ export function useVisitorCountry(): string | null | undefined {
       })
       .catch(() => { if (!cancelled) setCountry(null); });
     return () => { cancelled = true; };
-  }, []);
+  }, [enabled]);
   return country;
 }

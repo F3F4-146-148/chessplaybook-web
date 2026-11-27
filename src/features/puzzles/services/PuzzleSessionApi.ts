@@ -11,6 +11,7 @@
  * exactly what it was, which `verify-free-solving-unbounded.ts` asserts.
  */
 import env from '@/config/env';
+import { dailyLimitMessage, type DailyLimit, puzzleLimitOf, reportDailyLimit } from '@/services/freePlanLimit';
 
 const BASE = `${env.apiBaseUrl}/api/puzzles`;
 
@@ -71,6 +72,8 @@ export class SessionApiError extends Error {
     readonly status: number,
     /** On a 409 the server returns the run that is in the way. */
     readonly active: PuzzleSession | null = null,
+    /** #521: today's free puzzles are used up, so no run starts (402). Already reported. */
+    readonly limit: DailyLimit | null = null,
   ) {
     super(message);
     this.name = 'SessionApiError';
@@ -91,6 +94,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // Non-JSON error page (gateway, proxy) — fall through to the status.
   }
 
+  /* #521: a run cannot start once today's free puzzles are used up. Reported here (the site's dialog, GA4), and
+     the message is the plain sentence the card shows, never the server's `daily_limit` code. */
+  const limit = puzzleLimitOf(response.status, body, headers);
+  if (limit) {
+    reportDailyLimit(limit);
+    throw new SessionApiError(dailyLimitMessage(limit), 402, null, limit);
+  }
   if (!response.ok || !body?.success) {
     throw new SessionApiError(
       body?.error || `Request failed (${response.status})`,

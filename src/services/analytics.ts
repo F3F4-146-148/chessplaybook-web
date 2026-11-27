@@ -359,6 +359,24 @@ type GA4Event =
   | { name: 'opening_repertoire_chosen'; params: { repertoire: string; from_welcome: boolean } }
   // the Opening principles item at the top of the list (2026-11-26)
   | { name: 'opening_principles_opened'; params: { from_repertoire: string } }
+  /*
+    #428 D7, GUIDED GAMES (analysis 3.8). Parameter names reuse the registered ones (`kind`, `outcome`, `to`); new
+    ones to register: `level` (also computer_game_finished's), and the end's counts as custom metrics (hints,
+    takebacks, warnings, mistakes).
+  */
+  // the server started the guided game (the day's free one taken), at his level's rating
+  | { name: 'guided_game_started'; params: { level: number } }
+  | { name: 'guided_warning_shown'; params: { kind: 'mate_allowed' | 'loss' | 'draw_thrown' } }
+  // free: after a warning; counted: one of the game's three
+  | { name: 'guided_takeback'; params: { kind: 'free' | 'counted' } }
+  // what a Hint press showed: the trainer's hints, the piece, SF's move (an endgame)
+  | { name: 'guided_hint'; params: { kind: 'hints' | 'piece' | 'move' } }
+  // what Why? answered: the trainer's reasons, his weak move, what the position asks (an endgame), nothing
+  | { name: 'guided_why'; params: { kind: 'reasons' | 'weak' | 'position' | 'none' } }
+  | { name: 'guided_principles_opened'; params: Record<string, never> }
+  | { name: 'guided_game_ended'; params: { outcome: 'win' | 'loss' | 'draw'; hints: number; takebacks: number; warnings: number; mistakes: number } }
+  // the summary's "Work on next" link
+  | { name: 'guided_work_on_clicked'; params: { to: string } }
   | { name: 'live_full_analysis_opened'; params: { source: 'compact' } }
   | { name: 'review_full_analysis_opened'; params: { source: 'compact' } }
   // PZ-043. Its OWN name, deliberately: `analysis_enabled` means the visitor
@@ -424,11 +442,11 @@ type GA4Event =
   | { name: 'match_calendar_added'; params: { method: 'google' | 'ics'; game: number | 'all'; surface: 'hub' | 'game' | 'article' } }
   | { name: 'match_video_played'; params: { surface: 'hub' | 'game' | 'recap'; video: 'trailer' | 'upcoming' | 'live' | 'replay' | 'short'; game: number } }
   /* A free-plan daily limit met (#46 funnel stage 7; FUNNEL_EVENT_CONTRACT names it `limit_reached`). */
-  | { name: 'limit_reached'; params: { feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' | 'game_puzzles' | 'puzzle_explanation' } }
+  | { name: 'limit_reached'; params: { feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' | 'game_puzzles' | 'puzzle_explanation' | 'puzzle' | 'guided_game' } }
   /* The way to Premium from the daily-limit dialog, and which feature ran out. */
-  | { name: 'premium_link_clicked'; params: { from: 'limit_dialog'; feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' | 'game_puzzles' | 'puzzle_explanation' } }
+  | { name: 'premium_link_clicked'; params: { from: 'limit_dialog'; feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' | 'game_puzzles' | 'puzzle_explanation' | 'puzzle' | 'guided_game' } }
   /* The other ways to Premium and the Membership page (#467 plan B6): where the visitor came from. */
-  | { name: 'premium_link_clicked'; params: { from: 'account_menu' | 'membership' | 'profile' | 'footer' | 'pending_line' | 'explanation_panel' } }
+  | { name: 'premium_link_clicked'; params: { from: 'account_menu' | 'membership' | 'profile' | 'footer' | 'pending_line' | 'explanation_panel' | 'puzzle_ask' } }
   /** A link to one of our own accounts elsewhere (2026-11-25: the YouTube channel, from the footer). */
   | { name: 'social_link_clicked'; params: { network: 'youtube'; from: 'footer' } }
   /* /membership seen (#467 plan B6): the first block the visitor got (status, plans, signIn, couldNotCheck...). */
@@ -444,7 +462,12 @@ type GA4Event =
   | { name: 'game_puzzles_run_started'; params: { games: number } }
   | { name: 'game_puzzles_run_ended'; params: { outcome: 'done' | 'stopped' | 'limit'; games_saved: number; puzzles: number } }
   /* A plan's buy button on the Premium page; `signed_in` false means it led to sign-in first. */
-  | { name: 'premium_buy_clicked'; params: { plan: 'yearly' | 'monthly' | 'one_year'; signed_in: boolean; control?: 'plans' | 'sticky_bar' | 'extend' } }
+  | { name: 'premium_buy_clicked'; params: { plan: 'yearly' | 'monthly' | 'one_year'; signed_in: boolean; control?: 'plans' | 'sticky_bar' | 'extend' | 'ask';
+    /* #521 B3: the visit came from the puzzle ask (its link carries `from=puzzle_ask`, kept through sign-in). */
+    from?: 'puzzle_ask' } }
+  /* #521 B: a checkout opened by itself after "Sign in to buy" (the page redirects to Stripe). `control` says how,
+     `from` where the visit began (B3: both already registered in GA4, 2026-11-24). */
+  | { name: 'premium_checkout_started'; params: { plan: 'yearly' | 'monthly' | 'one_year'; control: 'sign_in'; from?: 'puzzle_ask' } }
   /* A plan card chosen on the Premium page (#261); the buy button buys the chosen one. */
   | { name: 'premium_plan_selected'; params: { plan: 'yearly' | 'monthly' | 'one_year' } }
   /*
