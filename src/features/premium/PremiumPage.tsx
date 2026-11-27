@@ -291,7 +291,7 @@ export default function PremiumPage() {
               {/* Premium we gave that ends, and no paid Premium: said in the subtitle's place, about its length, so the
                   plans and Buy stay on the first screen (a line above the plans pushed Buy off it on short windows:
                   verify:premium-fold state G, 2026-11-24). Before the account is known, the built page's text. */}
-              {(!holder && grantLineText(state, true)) || 'Learn your openings, review your games and explain positions as often as you want.'}
+              {(!holder && grantLineText(state, true)) || (GUIDED_LIVE ? 'Play guided games, learn openings and review games as often as you want.' : 'Learn your openings, review your games and explain positions as often as you want.')}
             </p>
             {/* An invitation link's banner (grants plan D6): nothing unless this browser holds an invitation. */}
             <InvitationBanner />
