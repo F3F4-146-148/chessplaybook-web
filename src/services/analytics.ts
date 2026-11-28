@@ -454,7 +454,9 @@ type GA4Event =
   /* The way to Premium from the daily-limit dialog, and which feature ran out. */
   | { name: 'premium_link_clicked'; params: { from: 'limit_dialog'; feature: 'game_report' | 'explain_position' | 'challenge_session' | 'opening_session' | 'opening_variation' | 'game_puzzles' | 'puzzle_explanation' | 'puzzle' | 'guided_game' } }
   /* The other ways to Premium and the Membership page (#467 plan B6): where the visitor came from. */
-  | { name: 'premium_link_clicked'; params: { from: 'account_menu' | 'membership' | 'profile' | 'footer' | 'pending_line' | 'explanation_panel' | 'puzzle_ask' } }
+  | { name: 'premium_link_clicked'; params: { from: 'account_menu' | 'membership' | 'profile' | 'footer' | 'pending_line' | 'explanation_panel' | 'puzzle_ask' | 'puzzle_run_button' } }
+  /** #559: the ask's offers to stay on the site, pressed: where it led. */
+  | { name: 'puzzle_ask_offer'; params: { to: 'guided_game' | 'opening_session' | 'champions' } }
   /** A link to one of our own accounts elsewhere (2026-11-25: the YouTube channel, from the footer). */
   | { name: 'social_link_clicked'; params: { network: 'youtube'; from: 'footer' } }
   /* /membership seen (#467 plan B6): the first block the visitor got (status, plans, signIn, couldNotCheck...). */

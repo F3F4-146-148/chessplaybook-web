@@ -75,6 +75,7 @@ export const GAME_STREAMS: Partial<Record<number, string>> = {
   1: '7dyXiy2kWsw',
   2: 'i_0ELvDXYQc',
   3: 'AejT5f8bDgM',
+  4: 'FTA2RC71GgA',
 };
 
 /**

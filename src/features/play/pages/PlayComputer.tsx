@@ -47,6 +47,7 @@ import { buildGamePgn, gamePgnFileName } from '@/features/games/gamePgn';
 import { fetchStoredGamePgn } from '@/features/games/storedGame';
 import { useAuth } from '@/features/auth/AuthContext';
 import { useMasterVoice } from '@/features/master/useMasterVoice';
+import { asSpokenSentence, useReasonVoice } from '@/features/openings/reasonVoice';
 import { chosenEventLine } from '@/features/master/eventLines';
 import type { MasterExpression } from '@/components/master/masterAssets';
 
@@ -531,7 +532,21 @@ export function PlayComputer() {
     it AGAIN (owner, 2026-11-26: after e4, "I took your pawn on d5" once more, then his new move). The sentence a guided
     line replaced stays quiet; his next move's sentence plays as usual.
   */
-  const guidedOverride = warningVoice ?? (guidedUi ? help.voice : null) ?? missedVoice;
+  /*
+    WHY? IS READ ALOUD, AND THE REASON HE IS SAYING IS THE ONE MARKED (owner, 2026-11-28: "maybe is worth having the
+    master reading them and we do the selection and visual highlighting"), as in the opening trainer (#309, #324): each
+    reason's recording is found by its text (`useReasonVoice`); a reason with no recording (most past the opening) is
+    skipped by the voice and stays on the card. With his voice off the marks step through the reasons by themselves,
+    once, then settle on the first, so the player sees what a reason means on the board. A press takes over.
+  */
+  const whyItems = guidedUi && shownAnswer?.kind === 'why' && shownAnswer.items?.length ? shownAnswer.items : null;
+  const whyKey = whyItems ? `${gameState.fen}|${whyItems.map((r) => r.text).join('|')}` : null;
+  const whyTexts = useMemo(() => (whyItems ? whyItems.map((r) => asSpokenSentence(r.text)) : null), [whyKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const whyLines = useReasonVoice(whyKey, whyTexts);
+  const [whyPicked, setWhyPicked] = useState<string | null>(null);
+  /* The reasons first: `help.voice` keeps "Let me look..." on purpose (his voice never falls back to an older line), so
+     after it the reasons could never be said (owner, 2026-11-28: the marks stepped, the voice silent). */
+  const guidedOverride = warningVoice ?? (guidedUi ? whyLines ?? help.voice : null) ?? missedVoice;
   const baseLine = gameState.masterLine ?? opening;
   const [overriddenBase, setOverriddenBase] = useState<object | null>(null);
   useEffect(() => { if (guidedOverride && baseLine) setOverriddenBase(baseLine); }, [guidedOverride, baseLine]);
@@ -540,6 +555,24 @@ export function PlayComputer() {
     : gameState.gameStatus === 'ended' ? (endReady ? endLine : gameState.masterLine)
     : null;
   const voice = useMasterVoice(spokenLine, { onEnd: () => setHeardLine(spokenLine) });
+  const whySpoken = whyLines !== null && spokenLine === whyLines;
+  const selectWhy = help.select;
+  useEffect(() => {
+    if (!whyItems || whyPicked === whyKey || !whySpoken || !voice.on || voice.lineIndex === null) return;
+    if (voice.lineIndex < whyItems.length) selectWhy(voice.lineIndex);
+  }, [whyKey, whyPicked, whySpoken, voice.on, voice.lineIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [whyStep, setWhyStep] = useState<{ key: string; i: number } | null>(null);
+  useEffect(() => { setWhyStep(whyKey ? { key: whyKey, i: 0 } : null); }, [whyKey]);
+  useEffect(() => {
+    if (!whyItems || !whyKey || whyPicked === whyKey || (voice.on && whySpoken) || !whyStep || whyStep.key !== whyKey) return;
+    if (whyStep.i >= whyItems.length || whyItems.length < 2) return;
+    const t = setTimeout(() => {
+      const next = whyStep.i + 1;
+      selectWhy(next < whyItems.length ? next : 0);
+      setWhyStep({ key: whyKey, i: next });
+    }, 2800);
+    return () => clearTimeout(t);
+  }, [whyKey, whyPicked, whyStep, voice.on, whySpoken]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (endPaused && !endReady && !voice.speaking) setEndReady(true);
   }, [endPaused, endReady, voice.speaking]);
@@ -660,7 +693,7 @@ export function PlayComputer() {
                     {guidedUi && gameState.gameStatus === 'ended' && (
                       <GuidedSummary mistakes={summary.mistakes} hints={help.hintsUsed} takebacks={guided.takebacksUsed} warnings={guided.warningsGiven} workOn={summary.workOn} onGoTo={(ply) => jumpToMove(ply - 1)} />
                     )}
-                    {guidedUi && gameState.gameStatus !== 'ended' && <GuidedPlayBlock warning={guided.warning} sampleWarning={guidedMock === 'warn' && !guided.warning} said={guided.said} answer={shownAnswer} busy={help.busy} moreHints={help.moreHints} onHint={() => { backToNow(); help.hint(); }} onWhy={() => { backToNow(); help.why(); }} onSelect={help.select} canAskWhy={heHasMoved && guided.gameId !== null} takebacksLeft={guided.takebacksLeft} onTakeBack={guided.takeBack} onPlayOn={guided.playOn} notice={guided.enginePaused ? ENGINE_BUSY_LINE : null} principles={inOpening && gameState.gameStatus === 'playing'} />}
+                    {guidedUi && gameState.gameStatus !== 'ended' && <GuidedPlayBlock warning={guided.warning} sampleWarning={guidedMock === 'warn' && !guided.warning} said={guided.said} answer={shownAnswer} busy={help.busy} moreHints={help.moreHints} onHint={() => { backToNow(); help.hint(); }} onWhy={() => { backToNow(); help.why(); }} onSelect={(i) => { setWhyPicked(whyKey); help.select(i); }} canAskWhy={heHasMoved && guided.gameId !== null} takebacksLeft={guided.takebacksLeft} onTakeBack={guided.takeBack} onPlayOn={guided.playOn} notice={guided.enginePaused ? ENGINE_BUSY_LINE : null} principles={inOpening && gameState.gameStatus === 'playing'} />}
                     <span className="card-row justify-between text-[0.8em] uppercase tracking-wide">
                       {guidedUi ? (
                         <button type="button" onClick={toggleGuidedMoves} aria-expanded={guidedMovesOpen} aria-controls="guided-moves" className="inline-flex items-center gap-[0.3em] uppercase tracking-wide hover:text-foreground" data-guided="moves-toggle">

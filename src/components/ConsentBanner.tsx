@@ -129,14 +129,16 @@ export function ConsentBanner() {
           </div>
         )}
 
+        {/* Accept all is the rightmost of the three (owner, 2026-11-28: the right side is where people press most
+            easily). Position only: the three keep one size and one look, so refusing stays as easy as accepting. */}
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <Button variant="secondary" size="sm" className={BUTTON} onClick={() => answer(true, true, 'accept_all')}>Accept all</Button>
-          <Button variant="secondary" size="sm" className={BUTTON} onClick={() => answer(false, false, 'reject_all')}>Reject all</Button>
           {choosing ? (
             <Button variant="secondary" size="sm" className={BUTTON} onClick={() => answer(measurement, advertising, 'choose')}>Save preferences</Button>
           ) : (
             <Button variant="secondary" size="sm" className={BUTTON} onClick={() => setChoosing(true)}>Manage cookies</Button>
           )}
+          <Button variant="secondary" size="sm" className={BUTTON} onClick={() => answer(false, false, 'reject_all')}>Reject all</Button>
+          <Button variant="secondary" size="sm" className={BUTTON} onClick={() => answer(true, true, 'accept_all')}>Accept all</Button>
         </div>
         {view.fromSettings && (
           <button type="button" onClick={closeConsentSettings} className="mt-2 text-muted-foreground underline underline-offset-2">

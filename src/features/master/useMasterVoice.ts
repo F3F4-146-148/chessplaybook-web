@@ -21,12 +21,14 @@ const KEY = MASTER_VOICE_KEY;
  */
 export const OPENINGS_VOICE_KEY = 'cp_master_voice_openings';
 
-function stored(key: string): boolean {
+function stored(key: string, defaultOn = false): boolean {
   try {
     const own = window.localStorage.getItem(key);
-    return (own ?? (key === KEY ? null : window.localStorage.getItem(KEY))) === '1';
+    const chosen = own ?? (key === KEY ? null : window.localStorage.getItem(KEY));
+    // a choice made anywhere wins; with none, the page's own default (#559: /play starts with his voice on)
+    return chosen === null ? defaultOn : chosen === '1';
   } catch {
-    return false;
+    return defaultOn;
   }
 }
 
@@ -166,10 +168,15 @@ function takeAudio(url: string): HTMLAudioElement {
  */
 export function useMasterVoice(
   line: VoicedLine | readonly VoicedLine[] | null,
-  options?: { onEnd?: () => void; /** where on/off is remembered; the site-wide switch when absent (#336) */ voiceKey?: string },
+  options?: {
+    onEnd?: () => void;
+    /** where on/off is remembered; the site-wide switch when absent (#336) */ voiceKey?: string;
+    /** on when the player has never chosen; on unless a page says otherwise (#559, owner 2026-11-28: "all voices
+        should start with voice on") */ defaultOn?: boolean;
+  },
 ) {
   const voiceKey = options?.voiceKey ?? KEY;
-  const [on, setOn] = useState(() => stored(voiceKey));
+  const [on, setOn] = useState(() => stored(voiceKey, options?.defaultOn ?? true));
   const onRef = useRef(on);
   onRef.current = on;
   const [volume, setVolumeState] = useState(storedVolume);
@@ -288,7 +295,14 @@ export function useMasterVoice(
             waitingForGesture = unlisten;
             return;
           }
-          done = true; stop(); if (live) onEndRef.current?.();
+          /*
+            A LINE THAT CANNOT BE PLAYED IS SKIPPED, NOT THE END OF THE QUEUE (#559, owner 2026-11-28: on /play Why? he
+            read the first reason and stopped). A missing recording is answered with the site's page, and the browser's
+            refusal to play it can come before the 'error' event, which skipped; this path ended the queue, so one missing
+            recording silenced every line after it, here and on the puzzles card and in the trainer.
+          */
+          if (done) return;
+          done = true; stop(); say(i + 1);
         });
       });
     };

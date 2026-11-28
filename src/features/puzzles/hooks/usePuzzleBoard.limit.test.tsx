@@ -47,8 +47,19 @@ describe('the board at the daily puzzle limit (#521)', () => {
     for (const f of [service.fetchPuzzleById, service.fetchPuzzles, service.fetchDailyPuzzle, reported.recordDailyLimit]) f.mockReset();
     service.isApiReachable.mockReturnValue(true);
     try { localStorage.clear(); } catch { /* none */ }
+    /* A player who has played before: a browser that never has skips the daily (#559, tested below). */
+    localStorage.setItem('chessplaybook_puzzle_progress', JSON.stringify({ totalSolved: 3, totalFailed: 1, bestStreak: 2, sessions: 1, estimatedRating: 1200, lastPlayed: '' }));
   });
   afterEach(() => { vi.useRealTimers(); });
+
+  it("#559: a browser that has never played skips the daily: its first puzzle is the server's first-puzzle draw", async () => {
+    localStorage.removeItem('chessplaybook_puzzle_progress');
+    service.fetchDailyPuzzle.mockResolvedValue(first);
+    service.fetchPuzzles.mockResolvedValue([second]);
+    const hook = await mount();
+    expect(service.fetchDailyPuzzle).not.toHaveBeenCalled();
+    expect(hook.result.current.puzzleState.puzzle?.id).toBe('P2');
+  });
 
   it('a refused daily on the first visit reports the limit and draws nothing else', async () => {
     service.fetchDailyPuzzle.mockImplementation(refuse);

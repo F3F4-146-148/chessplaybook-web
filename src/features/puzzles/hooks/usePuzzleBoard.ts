@@ -8,6 +8,7 @@ import {
 } from '../services/PuzzleService';
 import { type DailyLimit, hostPuzzleAsk, PUZZLE_ASK_EVENT, recordDailyLimit } from '@/services/freePlanLimit';
 import { loadResumeState, saveResumeState, clearResumeState } from '../services/puzzleResume';
+import { loadProgress } from './usePuzzleRecord';
 import { analysisService } from '@/services/AnalysisService';
 
 const REFUTATION_BRUSH = 'refutation';
@@ -673,7 +674,14 @@ export function usePuzzleBoard(
     */
     /* A dated link always opens its daily: that is the only thing the link is for. */
     const askedDate = dailyDateRef.current;
-    if (!askedDate && (seen === today || arrivedWithFilterRef.current)) { void nextPuzzle(); return; }
+    /*
+      #559 (owner, 2026-11-28): A BROWSER THAT HAS NEVER PLAYED SKIPS THE DAILY, so its first puzzle is the server's
+      first-puzzle draw (about 1500, its first move not a capture: backend services/puzzles/firstPuzzle.ts), never the
+      daily's. Skipped, not suppressed: the flag is left alone, so the daily waits for a later visit. A signed-in player
+      on a new browser is skipped too, once, and the server, which knows their record, draws them an ordinary puzzle.
+    */
+    const neverPlayed = (() => { const p = loadProgress(); return (p.totalSolved ?? 0) + (p.totalFailed ?? 0) === 0; })();
+    if (!askedDate && (seen === today || arrivedWithFilterRef.current || neverPlayed)) { void nextPuzzle(); return; }
 
     if (!askedDate || askedDate === today) {
       try { localStorage.setItem(DAILY_SEEN_KEY, today); } catch { /* quota */ }

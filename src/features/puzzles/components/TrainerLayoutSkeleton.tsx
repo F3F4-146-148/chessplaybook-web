@@ -44,14 +44,14 @@ import { ReminderOfferLine } from '@/features/reminders/ReminderOfferLine';
 import RouteHeading from '@/components/RouteHeading';
 import { useVisitorCountry } from '@/features/premium/useVisitorCountry';
 import { plansForCountry } from '@/features/premium/premiumPlans';
-import { backLabel, whenBack, type DailyLimit } from '@/services/freePlanLimit';
+import { type DailyLimit } from '@/services/freePlanLimit';
 import { usePuzzleAllowance } from '../services/puzzleAllowance';
 import { usePuzzleToday } from '../services/puzzleToday';
 import { TodayGraph } from './TodayGraph';
 import { RecordFoot } from './RecordFoot';
 import { DaySummaryCard } from './DaySummaryCard';
 import { asDaySummary } from '../lib/daySummary';
-import { CheckCircle2, Clock, History, Infinity as InfinityIcon, Minimize2, PieChart, Swords, TrendingUp, XCircle, Zap } from 'lucide-react';
+import { BookOpen, CheckCircle2, Clock, Crown, History, Infinity as InfinityIcon, Minimize2, PieChart, Swords, TrendingUp, XCircle, Zap } from 'lucide-react';
 
 /**
  * The address's query string, read once in state initialisers. Empty in the build's render (prerender plan B2a): the
@@ -493,17 +493,47 @@ export default function TrainerLayoutSkeleton() {
   const askLimit = puzzle.dailyLimit?.feature === 'puzzle' ? puzzle.dailyLimit : reloadLimit;
   const askCountry = useVisitorCountry(askLimit !== null);
   const askPlan = askLimit && askCountry !== undefined ? plansForCountry(askCountry)[0] ?? null : null;
+  /*
+    #559 (owner, 2026-11-28): THE ASK SAYS NOTHING ABOUT TOMORROW. "Free puzzles back tomorrow" and the Master's
+    "Five more tomorrow." made the owner close the tab ("after the tomorrow word, I felt the need to close the tab").
+    Nothing at the limit sends a player away. So: an impersonal limit line, then Premium, then what is still open,
+    as offers that start now: the guided game and the opening session while their own daily allowance lasts,
+    else the champions' games (owner), which have no limit.
+  */
+  const askOffers: Array<'guided_game' | 'opening_session' | 'champions'> = [];
+  if (allowance?.guidedGame !== undefined && (allowance.guidedGame === null || allowance.guidedGame.left > 0)) askOffers.push('guided_game');
+  if (allowance?.openingSession !== undefined && (allowance.openingSession === null || allowance.openingSession.left > 0)) askOffers.push('opening_session');
+  if (askOffers.length < 2) askOffers.push('champions');
+  const offerRow = (to: (typeof askOffers)[number]) => {
+    /* Owner, 2026-11-28: no "free today" (it read like "tomorrow" and promised a whole free day): the offer alone. */
+    const [Icon, href, text] = to === 'guided_game' ? [Swords, '/play', 'Play a guided game with the Master'] as const
+      : to === 'opening_session' ? [BookOpen, '/openings', 'Train an opening'] as const
+        : [Crown, '/champions', "Browse the champions' games"] as const;
+    return (
+      <span key={to} className="flex items-start gap-[0.45em]">
+        <Icon className="w-[1em] h-[1em] mt-[0.2em] shrink-0" aria-hidden />
+        <span>
+          <Link to={href} className="text-link underline underline-offset-2"
+            onClick={() => logGA4Event({ name: 'puzzle_ask_offer', params: { to } })}>{text}</Link>
+        </span>
+      </span>
+    );
+  };
+  const offerText = (to: (typeof askOffers)[number]) => to === 'guided_game' ? 'Play a guided game with the Master.'
+    : to === 'opening_session' ? 'Train an opening.' : "Browse the champions' games.";
+  /* No plan while the country is still unknown: the page then chooses its own first card. `from=puzzle_ask` (B3):
+     the Premium page carries it through sign-in onto its Buy and checkout events; the Run buttons (#559) are the same
+     moment, so they carry it too, with their own GA4 source. */
+  const openPremiumFromAsk = (from: 'puzzle_ask' | 'puzzle_run_button') => {
+    logGA4Event({ name: 'premium_link_clicked', params: { from } });
+    navigate(askPlan ? `/premium?plan=${askPlan.key}&from=puzzle_ask` : '/premium?from=puzzle_ask');
+  };
   const ask = askLimit ? {
-    /* "used": still true after a run that went past the 5 (Fable, Codex; owner, 2026-11-26). */
-    title: `You've used today's ${askLimit.limit} free puzzles.`,
+    title: `You've reached the daily limit of ${askLimit.limit} free puzzles.`,
     /*
-      WHEN THEY ARE BACK, in the visitor's own time (Fable, Codex: the day turns at Bucharest midnight, 03:30 in
-      India, so "today's" alone can mislead). Information, never "come back tomorrow" (owner: it reads as go away).
-      Then what stays unlimited, a game, as a way to stay (owner).
-
-      THREE ROWS, ONE FACT EACH, AN ICON EACH (owner, 2026-11-26, option B of three tried on the real card: the
-      paragraph broke its sentences mid-thought and the Master line read as a footnote). The rows sit tight
-      (`gap-[0.12em]`): at 390 and 360 wide a looser gap pushed Try other lines 2-3px past the card (measured).
+      THREE ROWS AT MOST, ONE FACT EACH, AN ICON EACH (owner, 2026-11-26, option B of three tried on the real card).
+      The rows sit tight (`gap-[0.12em]`): at 390 and 360 wide a looser gap pushed Try other lines 2-3px past the
+      card (measured).
     */
     line: (
       <span className="flex flex-col gap-[0.12em]">
@@ -511,37 +541,26 @@ export default function TrainerLayoutSkeleton() {
           <InfinityIcon className="w-[1em] h-[1em] mt-[0.2em] shrink-0" aria-hidden />
           <span>Unlimited puzzles with Premium</span>
         </span>
-        <span className="flex items-start gap-[0.45em]">
-          <Clock className="w-[1em] h-[1em] mt-[0.2em] shrink-0" aria-hidden />
-          <span>Free puzzles back {whenBack(askLimit.resetsAt)}</span>
-        </span>
-        <span className="flex items-start gap-[0.45em]">
-          <Swords className="w-[1em] h-[1em] mt-[0.2em] shrink-0" aria-hidden />
-          <span>
-            <Link to="/play" className="text-link underline underline-offset-2">Play the Master</Link> meanwhile
-          </span>
-        </span>
+        {askOffers.map(offerRow)}
       </span>
     ),
-    spoken: `Unlimited puzzles with Premium. Free puzzles back ${whenBack(askLimit.resetsAt)}. Play the Master meanwhile.`,
+    /* For screen readers only (the card's announcement): the Master never reads the ask. */
+    spoken: `Unlimited puzzles with Premium. ${askOffers.map(offerText).join(' ')}`,
     /* Owner, 2026-11-26: no price on the button (more presses); the checkout shows it. */
     buyLabel: 'See Premium',
-    onBuy: () => {
-      logGA4Event({ name: 'premium_link_clicked', params: { from: 'puzzle_ask' } });
-      /* No plan while the country is still unknown: the page then chooses its own first card. */
-      /* `from=puzzle_ask` (B3): the Premium page carries it through sign-in onto its Buy and checkout events. */
-      navigate(askPlan ? `/premium?plan=${askPlan.key}&from=puzzle_ask` : '/premium?from=puzzle_ask');
-    },
+    onBuy: () => openPremiumFromAsk('puzzle_ask'),
   } : null;
   /*
-    #521 B: NO RUN STARTS AT THE LIMIT (Fable, Codex; owner, 2026-11-26): both Start buttons read "Back tomorrow"
-    (or the hour), disabled, the opening trainer's pattern (#472). Known from a refused draw, or from the allowance
-    read after each result (so right after a run that went past the 5, before any refusal).
+    #521 B: NO RUN STARTS AT THE LIMIT (Fable, Codex; owner, 2026-11-26). Known from a refused draw, or from the
+    allowance read after each result (so right after a run that went past the 5, before any refusal).
+    #559 (owner, 2026-11-28): both Start buttons read "See Premium" and open the Premium page, never a disabled
+    "Back tomorrow": nothing at the limit says tomorrow.
   */
   const knownLimit: DailyLimit | null = askLimit ?? (allowance?.puzzle && allowance.puzzle.left === 0
     ? { feature: 'puzzle', limit: allowance.puzzle.limit, resetsAt: allowance.puzzle.resetsAt }
     : null);
-  const runStartBlocked = knownLimit ? backLabel(knownLimit) : null;
+  const runStartBlocked = knownLimit ? 'See Premium' : null;
+  const onRunBlockedPress = useCallback(() => openPremiumFromAsk('puzzle_run_button'), [askPlan]); // eslint-disable-line react-hooks/exhaustive-deps
   /* #521 B2: which arrangement the page shows ('b' the new one), the same for everyone (`layoutArm.ts`). */
   const [arm] = useState(layoutArm);
   /* #521 (owner, 2026-11-26): stacked, the new half puts the record above the settings; columns keep their order. */
@@ -603,6 +622,7 @@ export default function TrainerLayoutSkeleton() {
       onStart={input => run.startRun(input, settings.rated)}
       onStop={run.stopRun}
       startBlocked={runStartBlocked}
+      onBlockedPress={onRunBlockedPress}
       /* A plan day says so, in the title and in the way out (D13). A
          review day is mixed. */
       planArea={planItemForRun
@@ -719,8 +739,9 @@ export default function TrainerLayoutSkeleton() {
   useEffect(() => {
     if (!shownMoment || momentShownRef.current?.tryId === shownMoment.tryId) return;
     momentShownRef.current = { tryId: shownMoment.tryId, kind: shownMoment.kind, at: performance.now() };
-    let voiceOn = false;
-    try { voiceOn = window.localStorage.getItem(MASTER_VOICE_KEY) === '1'; } catch { /* unknown: off */ }
+    /* #559: his voice is on unless the player turned it off (useMasterVoice's default). */
+    let voiceOn = true;
+    try { voiceOn = window.localStorage.getItem(MASTER_VOICE_KEY) !== '0'; } catch { /* unknown: the default */ }
     logGA4Event({ name: 'puzzle_moment_shown', params: {
       kind: shownMoment.kind, why: shownMoment.why, returning: shownMoment.returning === true, voice_on: voiceOn, lines: shownMoment.lines.length,
     } });
@@ -1026,6 +1047,7 @@ export default function TrainerLayoutSkeleton() {
                   onTotalChange={run.setTotal}
                   total={run.total}
                   startBlocked={runStartBlocked}
+                  onBlockedPress={onRunBlockedPress}
                   onStartRun={() => run.startRun({ total: run.total, selection: run.selection, area: run.selection === 'weak_areas' ? null : run.area }, settings.rated)}
                   busy={run.starting}
                   loading={run.loading}

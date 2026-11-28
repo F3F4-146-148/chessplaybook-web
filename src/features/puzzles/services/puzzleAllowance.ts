@@ -19,6 +19,9 @@ export interface Allowance {
 export interface PuzzleAllowance {
   puzzle: Allowance | null;
   puzzleExplanation: Allowance | null;
+  /** #559: the ask offers these while they are still free today (undefined from an older server: not offered). */
+  guidedGame?: Allowance | null;
+  openingSession?: Allowance | null;
   runPass: boolean;
 }
 
@@ -41,6 +44,8 @@ export async function fetchPuzzleAllowance(): Promise<PuzzleAllowance | null> {
     return {
       puzzle: asAllowance(body.data.puzzle),
       puzzleExplanation: asAllowance(body.data.puzzleExplanation),
+      guidedGame: 'guidedGame' in body.data ? asAllowance(body.data.guidedGame) : undefined,
+      openingSession: 'openingSession' in body.data ? asAllowance(body.data.openingSession) : undefined,
       runPass: body.data.runPass === true,
     };
   } catch {

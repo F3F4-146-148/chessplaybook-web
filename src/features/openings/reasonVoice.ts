@@ -13,6 +13,18 @@ export type VoicedLine = { text: string; audioUrl: string; cuesUrl: string };
 
 const keys = new Map<string, Promise<string>>();
 
+/**
+ * A reason as the opening trainer shows it and as it was recorded: first letter capital, a full stop (the backend's
+ * `asSentence` in services/openings/positionView.ts, which the voicing script uses). /play's Why? shows the
+ * explainer's raw form ("occupies the centre (e5)"), whose recording is under this form (#559: he was silent there).
+ */
+export function asSpokenSentence(text: string): string {
+  const s = text.trim();
+  if (!s) return s;
+  const c = s[0].toUpperCase() + s.slice(1);
+  return /[.!?]$/.test(c) ? c : `${c}.`;
+}
+
 /** The recording's name for a shown text (the backend's `audioKey`). */
 export function reasonAudioKey(text: string): Promise<string> {
   let k = keys.get(text);

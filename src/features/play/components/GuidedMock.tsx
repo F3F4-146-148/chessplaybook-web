@@ -240,8 +240,10 @@ export function GuidedPlayBlock({ warning, sampleWarning, said = null, answer = 
           </div>
         ) : !warning && !sampleWarning && answer?.items ? (
           /* His reasons in the opening, as the trainer lists them (#177); a press marks that reason's squares (#324). */
-          <div aria-label="Why I played my move">
+          <div aria-label="Why I played my move" className="flex flex-col gap-[0.5em]">
             <ReasonList reasons={answer.items} empty="" active={answer.selected ?? 0} onSelect={onSelect} />
+            {/* Owner, 2026-11-28: most players do not know where the f8-a3 diagonal is, nor that a reason can be pressed. */}
+            {answer.items.length > 0 && <p className="text-[0.85em] text-muted-foreground">Press a reason to see it on the board.</p>}
           </div>
         ) : lines ? (
           <div className="flex flex-col" style={{ gap: '0.35em' }}>

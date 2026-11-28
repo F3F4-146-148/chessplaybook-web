@@ -112,6 +112,8 @@ export function Chip({ children, selected, disabled = false, title, onClick }: C
 export interface PuzzleRunSetupCardProps {
   /** #521: today's free puzzles are used up, so no run starts: the label instead ("Back tomorrow"), disabled. */
   startBlocked?: string | null;
+  /** #559: what the Start button does while `startBlocked` (the Premium page): it is never a dead button. */
+  onBlockedPress?: () => void;
   /** What the server says exists. Empty until it answers. */
   options?: SelectionOption[];
   areas?: readonly string[];
@@ -196,7 +198,7 @@ export function PuzzleRunSetupCard({
   running = false, finished = false, runStatus,
   runSelection, runArea, runTheme = null, theme = null, onThemeClear, runTotal, runRated,
   completed = 0, puzzleId = null, attemptRecorded = false,
-  servedByRun = true, planArea = null, startBlocked = null,
+  servedByRun = true, planArea = null, startBlocked = null, onBlockedPress,
   busy = false, loading = false, onStart, onStop, onClose,
   modeLabel = 'What to train', areaLabel = 'Where from',
 }: PuzzleRunSetupCardProps) {
@@ -581,9 +583,10 @@ export function PuzzleRunSetupCard({
         <div style={{ display: 'grid', gap: 'calc(var(--card-air) * 2)' }}>
         <button
           type="button"
-          disabled={busy || loading || (startBlocked !== null && !(running && !finished))}
+          disabled={busy || loading || (startBlocked !== null && !(running && !finished) && !onBlockedPress)}
           onClick={() => (running && !finished
             ? onStop?.()
+            : startBlocked !== null ? onBlockedPress?.()
             // The area is dropped when the mode picks it: sending both is the
             // contradiction the server refuses.
             : onStart({ total, selection, area: areaChosenForYou ? null : area }))}
